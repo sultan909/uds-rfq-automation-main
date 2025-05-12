@@ -1,0 +1,118 @@
+## Project-Specific Instructions
+
+When working with this RFQ Automation project, please follow these guidelines to ensure consistency and alignment with the project goals:
+
+### 1. Consult PLANNING.md Before Implementation
+
+- **ALWAYS** read and reference the PLANNING.md file before implementing any new features, making suggestions, or modifying existing code
+- Ensure that any implementations align with the architecture, priorities, and technical decisions outlined in the PLANNING.md document
+- If a requested feature falls outside the scope defined in PLANNING.md, highlight this fact and suggest appropriate adjustments
+
+### 2. Follow Project Structure
+
+- Respect the established directory structure for both front-end and back-end components
+- Place new components, hooks, and utilities in their appropriate directories as defined in PLANNING.md
+- Maintain consistency with the existing code patterns and styles
+
+### 3. Data Integration Considerations
+
+- For any features involving QuickBooks integration, reference the integration approach in PLANNING.md
+- Follow the established pattern for marketplace data integration
+- Ensure email parsing features align with the defined strategy
+
+### 4. Phase-Aware Development
+
+- Consider the implementation phase (as outlined in PLANNING.md) when developing features
+- Prioritize components that align with the current phase of development
+- For features spanning multiple phases, implement in a way that allows for incremental enhancement
+
+### 5. Database Schema Adherence
+
+- Follow the database schema defined in the project when creating or modifying data models
+- Maintain consistency with naming conventions and relationships
+- Use the established ORM patterns for database operations
+
+### 6. API Structure Consistency
+
+- Follow RESTful principles as defined in the PLANNING.md
+- Maintain consistency with existing API endpoints
+- Implement proper error handling and response formatting
+
+### 7. Testing Considerations
+
+- Suggest appropriate tests for new features based on the testing strategy in PLANNING.md
+- Consider both unit and integration testing needs for new functionality
+
+## Coding Standards
+
+### Code Size & Modularity
+- Keep files under **500 lines of code** - refactor larger files into smaller modules, helpers, or components
+- Maintain **one-responsibility-per-file** principle
+- Break large components into smaller, reusable pieces
+
+### Imports & Structure
+- Use **absolute imports** with the `@/` alias pattern (e.g., `@/components/...`)
+- Group imports logically:
+  - Node/standard libraries
+  - Third-party libraries 
+  - Internal utilities/components/hooks
+- Remove unused imports
+
+### TypeScript & Typing
+- Use **TypeScript** for all files
+- Avoid `any` type except when absolutely necessary
+- Define and export types and interfaces for props and API responses
+- Add return types to all functions, including arrow and async functions
+
+### Next.js Guidelines
+- Follow the **App Router** structure with properly organized files in the `app/` directory
+- Use appropriate file conventions: `page.tsx`, `layout.tsx`, `loading.tsx`, and `error.tsx`
+- Implement dynamic imports for performance-critical components
+
+### UI and Styling
+- Use **Tailwind CSS** with `shadcn/ui` components
+- Avoid inline styles and redundant class definitions
+- Create reusable UI components
+
+### File and Folder Naming
+- Use **kebab-case** for folders and file names
+- Name React components using **PascalCase** within the files
+- Prefix hook files with `use...`
+
+### Testing and Validation
+- Ensure code is buildable without errors
+- Use proper error handling with `try/catch` blocks for async operations
+- Implement appropriate validation for forms and API handlers
+
+### Good Practices
+- Keep logic separate from presentation
+- Break large JSX blocks into smaller components (under 100 lines)
+- Add comments only for non-obvious logic
+
+## Documentation and Library Reference
+
+### Using Context7 MCP for Documentation
+
+When working with libraries, frameworks, or complex code implementation:
+
+- Always use the **Context7 MCP** (Model Code Processing) tool for retrieving up-to-date documentation
+- Use the following process when researching or implementing new features:
+  1. First resolve library IDs using `resolve-library-id` function
+  2. Then retrieve documentation with `get-library-docs` function
+  3. Reference the retrieved documentation for accurate implementation
+
+- For Next.js related questions, use: `"vercel/nextjs"`
+- For React related questions, use: `"facebook/react"`
+- For Tailwind CSS related questions, use: `"tailwindlabs/tailwindcss"`
+- For Drizzle ORM related questions, use: `"drizzle-team/drizzle-orm"`
+- For TypeScript related questions, use: `"microsoft/typescript"` 
+- For shadcn/ui related questions, use: `"shadcn/ui"`
+
+### Maintaining Documentation
+
+- When implementing complex features, document them in inline comments
+- Keep code comments aligned with the current implementation
+- Refactor documentation when refactoring code to maintain accuracy
+
+By following these guidelines, you'll help ensure that development on the RFQ Automation System remains consistent, maintainable, and aligned with the overall project vision and architecture.
+`

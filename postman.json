@@ -1,0 +1,2328 @@
+{
+	"info": {
+		"_postman_id": "f0fa6a43-604c-4424-b04a-a22f3829024f",
+		"name": "UDS RFQ Management System",
+		"description": "API collection for the UDS RFQ Management System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "13003734"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "User Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticate a user and return a JWT token"
+					},
+					"response": []
+				},
+				{
+					"name": "User Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Invalidate the current user's authentication token"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/user",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"user"
+							]
+						},
+						"description": "Get the current authenticated user's information"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for authentication"
+		},
+		{
+			"name": "RFQ Management",
+			"item": [
+				{
+					"name": "Get All RFQs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/list?page=1&limit=10&status=PENDING",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"list"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "PENDING"
+								}
+							]
+						},
+						"description": "Get all RFQs with filtering and pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Create RFQ",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"New Equipment RFQ\",\n    \"description\": \"Request for quotation for new office equipment\",\n    \"vendorId\": 1,\n    \"dueDate\": \"2025-06-01\",\n    \"totalBudget\": 5000,\n    \"items\": [\n        {\n            \"name\": \"Office Chair\",\n            \"description\": \"Ergonomic office chair\",\n            \"quantity\": 10,\n            \"unit\": \"pieces\",\n            \"estimatedPrice\": 200\n        },\n        {\n            \"name\": \"Desk\",\n            \"description\": \"Adjustable standing desk\",\n            \"quantity\": 5,\n            \"unit\": \"pieces\",\n            \"estimatedPrice\": 400\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/create",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"create"
+							]
+						},
+						"description": "Create a new RFQ"
+					},
+					"response": []
+				},
+				{
+					"name": "Get RFQ By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"1"
+							]
+						},
+						"description": "Get a specific RFQ by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update RFQ",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated RFQ Title\",\n    \"description\": \"Updated description\",\n    \"dueDate\": \"2025-06-15\",\n    \"totalBudget\": 6000\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"1"
+							]
+						},
+						"description": "Update a specific RFQ"
+					},
+					"response": []
+				},
+				{
+					"name": "Update RFQ Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"APPROVED\",\n    \"comments\": \"Approved by management\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/1/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"1",
+								"status"
+							]
+						},
+						"description": "Update the status of an RFQ"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Quote from RFQ",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"vendorId\": 1,\n    \"items\": [\n        {\n            \"rfqItemId\": 1,\n            \"unitPrice\": 180,\n            \"quantity\": 10\n        },\n        {\n            \"rfqItemId\": 2,\n            \"unitPrice\": 350,\n            \"quantity\": 5\n        }\n    ],\n    \"deliveryTime\": \"2 weeks\",\n    \"validUntil\": \"2025-07-01\",\n    \"termsAndConditions\": \"Standard terms apply\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/1/quote",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"1",
+								"quote"
+							]
+						},
+						"description": "Generate a quote from an RFQ"
+					},
+					"response": []
+				},
+				{
+					"name": "Search RFQs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/search?query=office&status=PENDING&fromDate=2025-01-01&toDate=2025-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"search"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "office"
+								},
+								{
+									"key": "status",
+									"value": "PENDING"
+								},
+								{
+									"key": "fromDate",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "toDate",
+									"value": "2025-12-31"
+								}
+							]
+						},
+						"description": "Search through RFQs"
+					},
+					"response": []
+				},
+				{
+					"name": "Get RFQ Templates",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/templates",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"templates"
+							]
+						},
+						"description": "Get all RFQ templates"
+					},
+					"response": []
+				},
+				{
+					"name": "Get RFQ Template By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/templates/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"templates",
+								"1"
+							]
+						},
+						"description": "Get a specific RFQ template by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create RFQ Template",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Office Equipment Template\",\n    \"description\": \"Template for office equipment RFQs\",\n    \"items\": [\n        {\n            \"name\": \"Office Chair\",\n            \"description\": \"Ergonomic office chair\",\n            \"unit\": \"pieces\"\n        },\n        {\n            \"name\": \"Desk\",\n            \"description\": \"Adjustable standing desk\",\n            \"unit\": \"pieces\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/templates/create",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"templates",
+								"create"
+							]
+						},
+						"description": "Create a new RFQ template"
+					},
+					"response": []
+				},
+				{
+					"name": "Update RFQ Template",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Office Equipment Template\",\n    \"description\": \"Updated template for office equipment RFQs\",\n    \"items\": [\n        {\n            \"id\": 1,\n            \"name\": \"Updated Office Chair\",\n            \"description\": \"Updated ergonomic office chair\",\n            \"unit\": \"pieces\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/templates/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"templates",
+								"1"
+							]
+						},
+						"description": "Update a specific RFQ template"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete RFQ Template",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/templates/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"templates",
+								"1"
+							]
+						},
+						"description": "Delete a specific RFQ template"
+					},
+					"response": []
+				},
+				{
+					"name": "Export RFQ",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/rfq/1/export?format=pdf",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"rfq",
+								"1",
+								"export"
+							],
+							"query": [
+								{
+									"key": "format",
+									"value": "pdf"
+								}
+							]
+						},
+						"description": "Export an RFQ to PDF or Excel"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for RFQ management"
+		},
+		{
+			"name": "Customer Management",
+			"item": [
+				{
+					"name": "Get All Customers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/list?page=1&limit=10&sort=name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"list"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "sort",
+									"value": "name"
+								}
+							]
+						},
+						"description": "Get all customers with filtering and pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Customer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Acme Corporation\",\n    \"email\": \"contact@acme.com\",\n    \"phone\": \"123-456-7890\",\n    \"address\": \"123 Main St, Anytown, USA\",\n    \"contactPerson\": \"John Doe\",\n    \"category\": \"Corporate\",\n    \"quickbooksId\": \"QB12345\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/create",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"create"
+							]
+						},
+						"description": "Create a new customer"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"1"
+							]
+						},
+						"description": "Get a specific customer by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Customer",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Acme Corporation\",\n    \"email\": \"updated@acme.com\",\n    \"phone\": \"987-654-3210\",\n    \"address\": \"456 Main St, Anytown, USA\",\n    \"contactPerson\": \"Jane Doe\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"1"
+							]
+						},
+						"description": "Update a specific customer"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Purchase History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/1/history?fromDate=2025-01-01&toDate=2025-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"1",
+								"history"
+							],
+							"query": [
+								{
+									"key": "fromDate",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "toDate",
+									"value": "2025-12-31"
+								}
+							]
+						},
+						"description": "Get customer purchase history"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Customers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/search?query=acme",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"search"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "acme"
+								}
+							]
+						},
+						"description": "Search through customers"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Customers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/customers/search?query=acme&page=1&pageSize=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"customers",
+								"search"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "acme",
+									"description": "The search term for customer name, email, etc."
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number for pagination",
+									"disabled": true
+								},
+								{
+									"key": "pageSize",
+									"value": "10",
+									"description": "Number of items per page",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Search through customers based on a query string."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for customer management"
+		},
+		{
+			"name": "Inventory/SKU Management",
+			"item": [
+				{
+					"name": "Get All Inventory Items",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/list?page=1&limit=20&category=Office",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"list"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "category",
+									"value": "Office"
+								}
+							]
+						},
+						"description": "Get all inventory items with filtering and pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Inventory Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sku\": \"CHAIR-001\",\n    \"name\": \"Ergonomic Office Chair\",\n    \"description\": \"High-quality ergonomic office chair\",\n    \"category\": \"Office Furniture\",\n    \"price\": 199.99,\n    \"costPrice\": 120,\n    \"stockQuantity\": 50,\n    \"minStockLevel\": 10,\n    \"unitOfMeasure\": \"each\",\n    \"attributes\": {\n        \"color\": \"Black\",\n        \"material\": \"Mesh\",\n        \"adjustable\": true\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/create",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"create"
+							]
+						},
+						"description": "Create a new inventory item"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Inventory Item By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"1"
+							]
+						},
+						"description": "Get a specific inventory item by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Inventory Item",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Premium Ergonomic Office Chair\",\n    \"description\": \"Updated high-quality ergonomic office chair\",\n    \"price\": 249.99,\n    \"stockQuantity\": 45,\n    \"attributes\": {\n        \"color\": \"Blue\",\n        \"material\": \"Mesh\",\n        \"adjustable\": true\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"1"
+							]
+						},
+						"description": "Update a specific inventory item"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Inventory Items",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/search?query=chair",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"search"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "chair"
+								}
+							]
+						},
+						"description": "Search through inventory items"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Low Stock Items",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/low-stock",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"low-stock"
+							]
+						},
+						"description": "Get items with low stock"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Item Sales History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/1/history?fromDate=2025-01-01&toDate=2025-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"1",
+								"history"
+							],
+							"query": [
+								{
+									"key": "fromDate",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "toDate",
+									"value": "2025-12-31"
+								}
+							]
+						},
+						"description": "Get sales history for an item"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Inventory Items",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/search?query=toner&page=1&pageSize=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"search"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "toner",
+									"description": "The search term for SKU or description."
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number for pagination",
+									"disabled": true
+								},
+								{
+									"key": "pageSize",
+									"value": "10",
+									"description": "Number of items per page",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Search through inventory items based on SKU or description."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Item Sales History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/inventory/1/history?period=6months",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"inventory",
+								"1",
+								"history"
+							],
+							"query": [
+								{
+									"key": "period",
+									"value": "6months",
+									"description": "Time period (e.g., all, 3months, 6months, 12months)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get sales history for a specific inventory item (replace '1' with actual item ID)."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for inventory and SKU management"
+		},
+		{
+			"name": "QuickBooks Integration",
+			"item": [
+				{
+					"name": "Authenticate with QuickBooks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/auth",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"auth"
+							]
+						},
+						"description": "Authenticate with QuickBooks"
+					},
+					"response": []
+				},
+				{
+					"name": "QuickBooks OAuth Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/callback?code=authorization_code&state=csrf_token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "authorization_code"
+								},
+								{
+									"key": "state",
+									"value": "csrf_token"
+								}
+							]
+						},
+						"description": "OAuth callback URL for QuickBooks integration"
+					},
+					"response": []
+				},
+				{
+					"name": "Sync Data with QuickBooks",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"entities\": [\"customers\", \"items\"],\n    \"direction\": \"both\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/sync",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"sync"
+							]
+						},
+						"description": "Sync data with QuickBooks"
+					},
+					"response": []
+				},
+				{
+					"name": "Check QuickBooks Connection Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/check-connection",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"check-connection"
+							]
+						},
+						"description": "Check the status of the QuickBooks connection"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items from QuickBooks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/items",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"items"
+							]
+						},
+						"description": "Get items from QuickBooks"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customers from QuickBooks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/customers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"customers"
+							]
+						},
+						"description": "Get customers from QuickBooks"
+					},
+					"response": []
+				},
+				{
+					"name": "Push RFQ as Estimate to QuickBooks",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"rfqId\": 1,\n    \"customerId\": \"QB12345\",\n    \"memo\": \"Estimate based on RFQ #1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/integrations/quickbooks/push-estimate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"integrations",
+								"quickbooks",
+								"push-estimate"
+							]
+						},
+						"description": "Push an RFQ as an estimate to QuickBooks"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for QuickBooks integration"
+		},
+		{
+			"name": "Marketplace Data Integration",
+			"item": [
+				{
+					"name": "Get Marketplace Prices",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/marketplace/prices?sku=CHAIR-001",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"marketplace",
+								"prices"
+							],
+							"query": [
+								{
+									"key": "sku",
+									"value": "CHAIR-001"
+								}
+							]
+						},
+						"description": "Get marketplace prices for SKUs"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Marketplace Data",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"source\": \"Amazon\",\n    \"items\": [\n        {\n            \"sku\": \"CHAIR-001\",\n            \"price\": 189.99,\n            \"url\": \"https://example.com/products/chair-001\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/marketplace/update",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"marketplace",
+								"update"
+							]
+						},
+						"description": "Update marketplace data"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Marketplace Sources",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/marketplace/sources",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"marketplace",
+								"sources"
+							]
+						},
+						"description": "Get available marketplace sources"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Marketplace Source Settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/marketplace/sources/1/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"marketplace",
+								"sources",
+								"1",
+								"settings"
+							]
+						},
+						"description": "Get marketplace source settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Marketplace Source Settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"enabled\": true,\n    \"updateFrequency\": \"daily\",\n    \"apiKey\": \"new_api_key\",\n    \"apiSecret\": \"new_api_secret\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/marketplace/sources/1/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"marketplace",
+								"sources",
+								"1",
+								"settings"
+							]
+						},
+						"description": "Update marketplace source settings"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for marketplace data integration"
+		},
+		{
+			"name": "Email Parsing",
+			"item": [
+				{
+					"name": "Parse Email Content",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"emailContent\": \"Email content with RFQ data\",\n    \"sender\": \"vendor@example.com\",\n    \"subject\": \"New RFQ Request\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/email/parse",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"parse"
+							]
+						},
+						"description": "Parse email content to extract RFQ data"
+					},
+					"response": []
+				},
+				{
+					"name": "Parse Email Attachment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/attachment.xlsx"
+								},
+								{
+									"key": "sender",
+									"value": "vendor@example.com",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/email/parse-attachment",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"parse-attachment"
+							]
+						},
+						"description": "Parse Excel/CSV attachments"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Email Parsing Settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/email/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"settings"
+							]
+						},
+						"description": "Get email parsing settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Email Parsing Settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"enabled\": true,\n    \"monitoredEmailAddress\": \"rfq@ourcompany.com\",\n    \"allowedSenders\": [\"vendor1@example.com\", \"vendor2@example.com\"],\n    \"autoCreateRfq\": true,\n    \"notifyUsers\": [1, 2, 3]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/email/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"settings"
+							]
+						},
+						"description": "Update email parsing settings"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for email parsing"
+		},
+		{
+			"name": "Dashboard and Reporting",
+			"item": [
+				{
+					"name": "Get Dashboard Metrics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/dashboard/metrics",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"dashboard",
+								"metrics"
+							]
+						},
+						"description": "Get dashboard metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Get RFQ Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/dashboard/rfq-stats?period=month",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"dashboard",
+								"rfq-stats"
+							],
+							"query": [
+								{
+									"key": "period",
+									"value": "month"
+								}
+							]
+						},
+						"description": "Get RFQ statistics"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Inventory Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/dashboard/inventory-stats",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"dashboard",
+								"inventory-stats"
+							]
+						},
+						"description": "Get inventory statistics"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/dashboard/customer-stats?period=year",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"dashboard",
+								"customer-stats"
+							],
+							"query": [
+								{
+									"key": "period",
+									"value": "year"
+								}
+							]
+						},
+						"description": "Get customer statistics"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Custom Report",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Q2 2025 RFQ Analysis\",\n    \"type\": \"rfq_performance\",\n    \"filters\": {\n        \"startDate\": \"2025-04-01\",\n        \"endDate\": \"2025-06-30\",\n        \"status\": [\"APPROVED\", \"COMPLETED\"],\n        \"vendors\": [1, 2, 3]\n    },\n    \"groupBy\": \"month\",\n    \"format\": \"pdf\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/reports/generate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"generate"
+							]
+						},
+						"description": "Generate a custom report"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Saved Reports",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/reports/list",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"list"
+							]
+						},
+						"description": "Get saved reports"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Report By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/reports/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"1"
+							]
+						},
+						"description": "Get a specific report"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for dashboard and reporting"
+		},
+		{
+			"name": "Currency Management",
+			"item": [
+				{
+					"name": "Get Currency Settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/settings/currency",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings",
+								"currency"
+							]
+						},
+						"description": "Get currency settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Currency Settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"defaultCurrency\": \"USD\",\n    \"supportedCurrencies\": [\"USD\", \"EUR\", \"GBP\", \"CAD\"],\n    \"updateFrequency\": \"daily\",\n    \"apiProvider\": \"ExchangeRateAPI\",\n    \"apiKey\": \"your_api_key\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/settings/currency",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings",
+								"currency"
+							]
+						},
+						"description": "Update currency settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Convert Currency",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 1000,\n    \"from\": \"USD\",\n    \"to\": \"EUR\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/currency/convert",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"currency",
+								"convert"
+							]
+						},
+						"description": "Convert amounts between currencies"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Exchange Rates",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/currency/rates?base=USD",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"currency",
+								"rates"
+							],
+							"query": [
+								{
+									"key": "base",
+									"value": "USD"
+								}
+							]
+						},
+						"description": "Get current exchange rates"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for currency management"
+		},
+		{
+			"name": "System Configuration",
+			"item": [
+				{
+					"name": "Get System Settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/settings/system",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings",
+								"system"
+							]
+						},
+						"description": "Get system settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Update System Settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"companyName\": \"UDS Systems\",\n    \"companyLogo\": \"https://example.com/logo.png\",\n    \"emailNotifications\": true,\n    \"defaultRfqExpiryDays\": 30,\n    \"minimumQuotationsRequired\": 3,\n    \"rfqApprovalWorkflow\": [\"MANAGER\", \"ADMIN\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/settings/system",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings",
+								"system"
+							]
+						},
+						"description": "Update system settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Preferences",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/settings/user-preferences",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings",
+								"user-preferences"
+							]
+						},
+						"description": "Get user preferences"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Preferences",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"theme\": \"dark\",\n    \"language\": \"en\",\n    \"timezone\": \"America/New_York\",\n    \"dashboardLayout\": {\n        \"rfqWidget\": true,\n        \"inventoryWidget\": true,\n        \"customerWidget\": false\n    },\n    \"emailNotifications\": true,\n    \"itemsPerPage\": 20\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/settings/user-preferences",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings",
+								"user-preferences"
+							]
+						},
+						"description": "Update user preferences"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for system configuration"
+		},
+		{
+			"name": "SKU Mappings",
+			"item": [
+				{
+					"name": "Get All SKU Mappings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping?search=HP&page=1&pageSize=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping"
+							],
+							"query": [
+								{
+								   "key": "search",
+								   "value": "HP",
+								   "description": "Optional search term for standard SKU, description, or variation",
+								   "disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "pageSize",
+									"value": "10",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all SKU mappings with optional search and pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Create SKU Mapping",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"standardSku\": \"NEW-SKU-123\",\n    \"standardDescription\": \"Newly Added Standard Item\",\n    \"variations\": [\n        {\n            \"sku\": \"CUSTA-NS123\",\n            \"source\": \"Customer A\"\n        },\n        {\n            \"sku\": \"VENDX-NEW123\",\n            \"source\": \"Vendor X Import\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping"
+							]
+						},
+						"description": "Create a new SKU mapping"
+					},
+					"response": []
+				},
+				{
+					"name": "Get SKU Mapping By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping",
+								"1"
+							]
+						},
+						"description": "Get a specific SKU mapping by ID (replace '1' with actual mapping ID)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update SKU Mapping",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"standardDescription\": \"Updated Standard Description\",\n    \"variations\": [\n        {\n            \"id\": \"1\",\n            \"sku\": \"HP26X\",\n            \"source\": \"Tech Solutions Inc - Updated\"\n        },\n        {\n            \"sku\": \"HP-26X-NEW\",\n            \"source\": \"New Source Ltd\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping",
+								"1"
+							]
+						},
+						"description": "Update a specific SKU mapping (replace '1' with actual mapping ID). Include variation IDs for existing variations to update, omit ID for new variations."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete SKU Mapping",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping",
+								"1"
+							]
+						},
+						"description": "Delete a specific SKU mapping (replace '1' with actual mapping ID)."
+					},
+					"response": []
+				},
+				{
+					"name": "Detect SKU Mappings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"skus\": [\"HP26X\", \"H P 55 X\", \"CC-364X-TONER\", \"UNKNOWN123\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping/detect",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping",
+								"detect"
+							]
+						},
+						"description": "Detect and suggest standard SKUs for a list of potentially non-standard SKUs."
+					},
+					"response": []
+				},
+				{
+					"name": "Import SKU Mappings",
+					"request": {
+						"method": "POST",
+						"header": [
+							 {
+								 "key": "Authorization",
+								 "value": "Bearer {{token}}"
+							 }
+							//  No Content-Type header needed here, Postman adds it for multipart/form-data
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"description": "Select the CSV or Excel file containing SKU mappings.",
+									"src": "/path/to/your/sku_mappings.csv"  // add the file path here manually
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping/import",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping",
+								"import"
+							]
+						},
+						"description": "Import SKU mappings from a CSV or Excel file. Ensure you select a file in the 'Body' tab."
+					},
+					"response": []
+				},
+				{
+					"name": "Export SKU Mappings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/sku-mapping/export?format=csv",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sku-mapping",
+								"export"
+							],
+							"query": [
+								{
+									"key": "format",
+									"value": "csv",
+									"description": "Export format (csv or json). Defaults to csv."
+								}
+							]
+						},
+						"description": "Export all SKU mappings in the specified format (CSV or JSON)."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for managing SKU variations and standard mappings"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "your_jwt_token_here",
+			"type": "string"
+		}
+	]
+}
