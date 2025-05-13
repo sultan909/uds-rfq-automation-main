@@ -1,8 +1,30 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { BarChart3, FileText, Package, Users, Tag, PieChart, Settings } from "lucide-react"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  BarChart3,
+  FileText,
+  Package,
+  Users,
+  Tag,
+  PieChart,
+  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
+import {
+  Sidebar as UISidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   {
@@ -40,37 +62,66 @@ const navItems = [
     href: "/settings",
     icon: Settings,
   },
-]
+];
 
-export function Sidebar() {
-  const pathname = usePathname()
+function FloatingTrigger() {
+  const { state, toggleSidebar } = useSidebar();
 
   return (
-    <div className="w-64 border-r h-screen bg-background">
-      <div className="p-4 border-b">
-        <h1 className="text-xl font-bold">UDS</h1>
-        <p className="text-sm text-muted-foreground">RFQ Management System</p>
-      </div>
-      <nav className="p-2">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md ${
-                    isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.name}</span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
-    </div>
-  )
+    <Button
+      variant="outline"
+      size="icon"
+      className={`fixed left-4 top-4 z-50 transition-opacity duration-200 ${
+        state === "expanded" ? "opacity-0 pointer-events-none" : "opacity-100"
+      }`}
+      onClick={toggleSidebar}
+    >
+      <PanelLeftOpen className="h-4 w-4" />
+      <span className="sr-only">Toggle Sidebar</span>
+    </Button>
+  );
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <FloatingTrigger />
+      <UISidebar>
+        <SidebarHeader className="border-b">
+          <div className="flex items-center justify-between px-4 py-2">
+            <div>
+              <h1 className="text-xl font-bold">UDS</h1>
+              <p className="text-sm text-muted-foreground">
+                RFQ Management System
+              </p>
+            </div>
+            <SidebarTrigger />
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarMenu>
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.name}
+                  >
+                    <Link href={item.href}>
+                      <item.icon className="w-5 h-5" />
+                      <span>{item.name}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarContent>
+      </UISidebar>
+    </SidebarProvider>
+  );
 }

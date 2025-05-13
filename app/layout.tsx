@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "UDS - Universal Data Supplies",
   description: "RFQ Management System",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -18,7 +18,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html 
+    lang="en"
+    className="light"
+    style={{colorScheme: "light"}}>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light">
           <CurrencyProvider>{children}</CurrencyProvider>
