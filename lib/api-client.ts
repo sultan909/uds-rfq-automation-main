@@ -3,7 +3,7 @@ import { ApiResponse } from "./api-response";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface FetchOptions extends RequestInit {
-  params?: Record<string, string>;
+  params?: Record<string, string | undefined>;
 }
 
 class ApiError extends Error {
@@ -32,7 +32,12 @@ export async function apiFetch<T>(
   // Build URL with query parameters
   let url = `${API_BASE_URL}${endpoint}`;
   if (params) {
-    const searchParams = new URLSearchParams(params);
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, value);
+      }
+    });
     url += `?${searchParams.toString()}`;
   }
 
@@ -60,8 +65,8 @@ export async function apiFetch<T>(
 // RFQ API endpoints
 export const rfqApi = {
   getById: (id: string) => apiFetch(`/api/rfq/${id}`),
-  list: (params?: Record<string, string>) =>
-    apiFetch("/api/rfq/list", { params }),
+  list: (params?: Record<string, string | undefined>) =>
+    apiFetch("/api/rfq/", { params }),
   create: (data: any) =>
     apiFetch("/api/rfq/create", {
       method: "POST",
@@ -76,7 +81,7 @@ export const rfqApi = {
     apiFetch(`/api/rfq/${id}`, {
       method: "DELETE",
     }),
-  search: (query: string, params?: Record<string, string>) =>
+  search: (query: string, params?: Record<string, string | undefined>) =>
     apiFetch("/api/rfq/search", {
       params: { query, ...params },
     }),
@@ -85,8 +90,8 @@ export const rfqApi = {
 // Customer API endpoints
 export const customerApi = {
   getById: (id: string) => apiFetch(`/api/customers/${id}`),
-  list: (params?: Record<string, string>) =>
-    apiFetch("/api/customers/list", { params }),
+  list: (params?: Record<string, string | undefined>) =>
+    apiFetch("/api/customers/", { params }),
   create: (data: any) =>
     apiFetch("/api/customers/create", {
       method: "POST",
@@ -100,6 +105,10 @@ export const customerApi = {
   getHistory: (id: string, period?: string) =>
     apiFetch(`/api/customers/${id}/history`, {
       params: period ? { period } : undefined,
+    }),
+  search: (query: string, params?: Record<string, string | undefined>) =>
+    apiFetch("/api/customers/search", {
+      params: { query, ...params },
     }),
 };
 

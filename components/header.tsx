@@ -9,9 +9,10 @@ interface HeaderProps {
   title: string
   subtitle?: string
   showNewRfq?: boolean
+  showNewCustomer?: boolean
 }
 
-export function Header({ title, subtitle, showNewRfq = false }: HeaderProps) {
+export function Header({ title, subtitle, showNewRfq = false, showNewCustomer }: HeaderProps) {
   const pathname = usePathname()
 
   return (
@@ -24,6 +25,11 @@ export function Header({ title, subtitle, showNewRfq = false }: HeaderProps) {
         <ThemeToggle />
         <CurrencyToggle />
         {showNewRfq && <Button onClick={() => (window.location.href = "/rfq-management/new")}>New RFQ</Button>}
+        {showNewCustomer && (
+          <Button asChild>
+            <a href="/customers/new">New Customer</a>
+          </Button>
+        )}
       </div>
     </div>
   )

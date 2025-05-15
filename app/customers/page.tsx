@@ -8,13 +8,91 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowUpDown, Building, Users } from "lucide-react"
 import { useCurrency } from "@/contexts/currency-context"
+import { useEffect, useState } from "react"
+import { customerApi } from "@/lib/api-client"
+import { toast } from "sonner"
 
-export default function Customers() {
+interface CustomerTableRowProps {
+  id: string
+  name: string
+  email: string
+  type: string
+  phone: string
+  status: string
+}
+
+export default function CustomerManagement() {
+  const [customers, setCustomers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTab, setSelectedTab] = useState("all")
+  const [stats, setStats] = useState({
+    total: 0,
+    dealers: 0,
+    wholesalers: 0
+  })
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [selectedTab])
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true)
+      const params = selectedTab === "all" ? {} : { type: selectedTab.toUpperCase() }
+      const response = await customerApi.list(params)
+      
+      if (response.success && response.data) {
+        const customerData = response.data as any[]
+        setCustomers(customerData)
+        
+        // Calculate statistics
+        setStats({
+          total: customerData.length,
+          dealers: customerData.filter(c => c.type === 'DEALER').length,
+          wholesalers: customerData.filter(c => c.type === 'WHOLESALER').length
+        })
+      } else {
+        setError("Failed to load customers")
+        toast.error("Failed to load customers")
+      }
+    } catch (err) {
+      setError("An error occurred while loading customers")
+      toast.error("An error occurred while loading customers")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      fetchCustomers()
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await customerApi.search(searchQuery, { type: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      if (response.success && response.data) {
+        setCustomers(response.data as any[])
+      } else {
+        setError("Failed to search customers")
+        toast.error("Failed to search customers")
+      }
+    } catch (err) {
+      setError("An error occurred while searching customers")
+      toast.error("An error occurred while searching customers")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Customer Management" subtitle="Manage your customer relationships" />
+        <Header title="Customer Management" subtitle="Manage customer information and relationships" showNewCustomer />
         <div className="flex-1 overflow-auto p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-4 flex items-center gap-4">
@@ -23,7 +101,7 @@ export default function Customers() {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Total Customers</div>
-                <div className="text-2xl font-bold">312</div>
+                <div className="text-2xl font-bold">{stats.total}</div>
               </div>
             </Card>
 
@@ -33,7 +111,7 @@ export default function Customers() {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Dealers</div>
-                <div className="text-2xl font-bold">287</div>
+                <div className="text-2xl font-bold">{stats.dealers}</div>
               </div>
             </Card>
 
@@ -43,7 +121,7 @@ export default function Customers() {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Wholesalers</div>
-                <div className="text-2xl font-bold">25</div>
+                <div className="text-2xl font-bold">{stats.wholesalers}</div>
               </div>
             </Card>
           </div>
@@ -57,14 +135,38 @@ export default function Customers() {
               </div>
             </div>
 
-            <Tabs defaultValue="all">
+            <Tabs defaultValue="all" onValueChange={setSelectedTab}>
               <TabsList className="mb-4">
-                <TabsTrigger value="all">All Customers</TabsTrigger>
-                <TabsTrigger value="dealers">Dealers</TabsTrigger>
-                <TabsTrigger value="wholesalers">Wholesalers</TabsTrigger>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="wholesaler">Wholesalers</TabsTrigger>
+                <TabsTrigger value="dealer">Dealers</TabsTrigger>
+                <TabsTrigger value="retailer">Retailers</TabsTrigger>
+                <TabsTrigger value="direct">Direct</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="all" className="m-0">
+              <div className="flex justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <select className="border rounded-md px-3 py-1.5 text-sm bg-background text-foreground">
+                    <option>Newest First</option>
+                    <option>Oldest First</option>
+                    <option>Name A-Z</option>
+                    <option>Name Z-A</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    type="search" 
+                    placeholder="Search customers..." 
+                    className="w-64"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                  <Button onClick={handleSearch}>Search</Button>
+                </div>
+              </div>
+
+              <TabsContent value={selectedTab} className="m-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -103,41 +205,30 @@ export default function Customers() {
                       </tr>
                     </thead>
                     <tbody>
-                      <CustomerRow
-                        name="Tech Solutions Inc"
-                        type="Dealer"
-                        lastOrder="4/22/2025"
-                        totalOrders={42}
-                        totalSpentCAD={24850.75}
-                      />
-                      <CustomerRow
-                        name="ABC Electronics"
-                        type="Wholesaler"
-                        lastOrder="4/20/2025"
-                        totalOrders={128}
-                        totalSpentCAD={156420.5}
-                      />
-                      <CustomerRow
-                        name="Global Systems"
-                        type="Dealer"
-                        lastOrder="4/18/2025"
-                        totalOrders={18}
-                        totalSpentCAD={8745.25}
-                      />
-                      <CustomerRow
-                        name="Midwest Distributors"
-                        type="Dealer"
-                        lastOrder="4/15/2025"
-                        totalOrders={36}
-                        totalSpentCAD={18320.0}
-                      />
-                      <CustomerRow
-                        name="IJS Globe"
-                        type="Wholesaler"
-                        lastOrder="4/23/2025"
-                        totalOrders={215}
-                        totalSpentCAD={245780.25}
-                      />
+                      {loading ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4">Loading...</td>
+                        </tr>
+                      ) : error ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4 text-red-500">{error}</td>
+                        </tr>
+                      ) : customers.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4">No customers found</td>
+                        </tr>
+                      ) : (
+                        customers.map((customer) => (
+                          <CustomerRow
+                            key={customer.id}
+                            name={customer.name}
+                            type={customer.type}
+                            lastOrder={customer.lastOrder || "Never"}
+                            totalOrders={customer.totalOrders || 0}
+                            totalSpentCAD={customer.totalSpentCAD || 0}
+                          />
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

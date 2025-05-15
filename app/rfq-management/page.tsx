@@ -1,10 +1,74 @@
+"use client"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useEffect, useState } from "react"
+import { rfqApi } from "@/lib/api-client"
+import { toast } from "sonner"
+
+interface RfqTableRowProps {
+  id: string
+  customer: string
+  date: string
+  source: string
+  items: number
+  status: string
+}
 
 export default function RfqManagement() {
+  const [rfqs, setRfqs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTab, setSelectedTab] = useState("all")
+
+  useEffect(() => {
+    fetchRfqs()
+  }, [selectedTab])
+
+  const fetchRfqs = async () => {
+    try {
+      setLoading(true)
+      const response = await rfqApi.list({ status: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      if (response.success && response.data) {
+        setRfqs(response.data as any[])
+      } else {
+        setError("Failed to load RFQs")
+        toast.error("Failed to load RFQs")
+      }
+    } catch (err) {
+      setError("An error occurred while loading RFQs")
+      toast.error("An error occurred while loading RFQs")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      fetchRfqs()
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await rfqApi.search(searchQuery, { status: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      if (response.success && response.data) {
+        setRfqs(response.data as any[])
+      } else {
+        setError("Failed to search RFQs")
+        toast.error("Failed to search RFQs")
+      }
+    } catch (err) {
+      setError("An error occurred while searching RFQs")
+      toast.error("An error occurred while searching RFQs")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -16,17 +80,14 @@ export default function RfqManagement() {
               <h2 className="text-lg font-medium mb-2">RFQ List</h2>
               <p className="text-sm text-muted-foreground mb-4">Review and manage all request for quotes</p>
 
-              <Tabs defaultValue="all">
+              <Tabs defaultValue="all" onValueChange={setSelectedTab}>
                 <TabsList className="mb-4">
                   <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="new">New</TabsTrigger>
-                  <TabsTrigger value="draft">Draft</TabsTrigger>
-                  <TabsTrigger value="priced">Priced</TabsTrigger>
-                  <TabsTrigger value="sent">Sent</TabsTrigger>
-                  <TabsTrigger value="negotiating">Negotiating</TabsTrigger>
-                  <TabsTrigger value="accepted">Accepted</TabsTrigger>
-                  <TabsTrigger value="declined">Declined</TabsTrigger>
-                  <TabsTrigger value="processed">Processed</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="in_review">In Review</TabsTrigger>
+                  <TabsTrigger value="approved">Approved</TabsTrigger>
+                  <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                  <TabsTrigger value="completed">Completed</TabsTrigger>
                 </TabsList>
 
                 <div className="flex justify-between mb-4">
@@ -38,12 +99,20 @@ export default function RfqManagement() {
                       <option>Customer Z-A</option>
                     </select>
                   </div>
-                  <div>
-                    <Input type="search" placeholder="Search RFQs..." className="w-64" />
+                  <div className="flex gap-2">
+                    <Input 
+                      type="search" 
+                      placeholder="Search RFQs..." 
+                      className="w-64"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    />
+                    <Button onClick={handleSearch}>Search</Button>
                   </div>
                 </div>
 
-                <TabsContent value="all" className="m-0">
+                <TabsContent value={selectedTab} className="m-0">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
@@ -58,243 +127,31 @@ export default function RfqManagement() {
                         </tr>
                       </thead>
                       <tbody>
-                        <RfqTableRow
-                          id="RFQ-1328"
-                          customer="Tech Solutions Inc"
-                          date="4/23/2025"
-                          source="Email"
-                          items={0}
-                          status="new"
-                        />
-                        <RfqTableRow
-                          id="RFQ-2301"
-                          customer="Midwest Distributors"
-                          date="4/23/2025"
-                          source="Website"
-                          items={0}
-                          status="draft"
-                        />
-                        <RfqTableRow
-                          id="RFQ-2302"
-                          customer="Global Systems"
-                          date="4/23/2025"
-                          source="Email"
-                          items={0}
-                          status="declined"
-                        />
-                        <RfqTableRow
-                          id="RFQ-2303"
-                          customer="Tech Solutions Inc"
-                          date="4/23/2025"
-                          source="Phone"
-                          items={0}
-                          status="processed"
-                        />
-                        <RfqTableRow
-                          id="RFQ-2304"
-                          customer="ABC Electronics"
-                          date="4/23/2025"
-                          source="Email"
-                          items={0}
-                          status="negotiating"
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="new" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <RfqTableRow
-                          id="RFQ-1328"
-                          customer="Tech Solutions Inc"
-                          date="4/23/2025"
-                          source="Email"
-                          items={0}
-                          status="new"
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="draft" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <RfqTableRow
-                          id="RFQ-2301"
-                          customer="Midwest Distributors"
-                          date="4/23/2025"
-                          source="Website"
-                          items={0}
-                          status="draft"
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="priced" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody></tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="sent" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody></tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="negotiating" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <RfqTableRow
-                          id="RFQ-2304"
-                          customer="ABC Electronics"
-                          date="4/23/2025"
-                          source="Email"
-                          items={0}
-                          status="negotiating"
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="accepted" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody></tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="declined" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <RfqTableRow
-                          id="RFQ-2302"
-                          customer="Global Systems"
-                          date="4/23/2025"
-                          source="Email"
-                          items={0}
-                          status="declined"
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="processed" className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium">RFQ Number</th>
-                          <th className="pb-2 font-medium">Customer</th>
-                          <th className="pb-2 font-medium">Date</th>
-                          <th className="pb-2 font-medium">Source</th>
-                          <th className="pb-2 font-medium">Items</th>
-                          <th className="pb-2 font-medium">Status</th>
-                          <th className="pb-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <RfqTableRow
-                          id="RFQ-2303"
-                          customer="Tech Solutions Inc"
-                          date="4/23/2025"
-                          source="Phone"
-                          items={0}
-                          status="processed"
-                        />
+                        {loading ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-4">Loading...</td>
+                          </tr>
+                        ) : error ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-4 text-red-500">{error}</td>
+                          </tr>
+                        ) : rfqs.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-4">No RFQs found</td>
+                          </tr>
+                        ) : (
+                          rfqs.map((rfq) => (
+                            <RfqTableRow
+                              key={rfq.id}
+                              id={rfq.rfqNumber}
+                              customer={rfq.customer?.name || "Unknown"}
+                              date={new Date(rfq.createdAt).toLocaleDateString()}
+                              source={rfq.source}
+                              items={rfq.items?.length || 0}
+                              status={rfq.status.toLowerCase()}
+                            />
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -308,36 +165,21 @@ export default function RfqManagement() {
   )
 }
 
-interface RfqTableRowProps {
-  id: string
-  customer: string
-  date: string
-  source: string
-  items: number
-  status: "new" | "draft" | "priced" | "sent" | "negotiating" | "accepted" | "declined" | "processed"
-}
-
 function RfqTableRow({ id, customer, date, source, items, status }: RfqTableRowProps) {
   const statusClasses = {
-    new: "status-new",
-    draft: "status-draft",
-    priced: "status-priced",
-    sent: "status-sent",
-    negotiating: "status-negotiating",
-    accepted: "status-accepted",
-    declined: "status-declined",
-    processed: "status-processed",
+    pending: "status-new",
+    in_review: "status-draft",
+    approved: "status-accepted",
+    rejected: "status-declined",
+    completed: "status-processed",
   }
 
   const statusLabels = {
-    new: "New",
-    draft: "Draft",
-    priced: "Priced",
-    sent: "Sent",
-    negotiating: "Negotiating",
-    accepted: "Accepted",
-    declined: "Declined",
-    processed: "Processed",
+    pending: "Pending",
+    in_review: "In Review",
+    approved: "Approved",
+    rejected: "Rejected",
+    completed: "Completed",
   }
 
   return (
@@ -348,7 +190,9 @@ function RfqTableRow({ id, customer, date, source, items, status }: RfqTableRowP
       <td className="py-3">{source}</td>
       <td className="py-3">{items}</td>
       <td className="py-3">
-        <span className={statusClasses[status]}>{statusLabels[status]}</span>
+        <span className={statusClasses[status as keyof typeof statusClasses]}>
+          {statusLabels[status as keyof typeof statusLabels]}
+        </span>
       </td>
       <td className="py-3">
         <div className="flex gap-2">
