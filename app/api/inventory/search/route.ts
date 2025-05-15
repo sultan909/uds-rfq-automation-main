@@ -1,8 +1,10 @@
 // app/api/inventory/search/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { InventoryService } from '../../lib/mock-db/service';
 import { createPaginatedResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
+import { db } from '../../../../db';
+import { inventoryItems } from '../../../../db/schema';
+import { like, or, count } from 'drizzle-orm';
 
 /**
  * GET /api/inventory/search
@@ -22,17 +24,33 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
 
-    // Perform search using the service
-    const filter = { search: query };
-    const searchResults = InventoryService.getAll(filter); // Use the existing getAll with search filter
+    // Build search conditions
+    const searchCondition = or(
+      like(inventoryItems.sku, `%${query}%`),
+      like(inventoryItems.mpn, `%${query}%`),
+      like(inventoryItems.brand, `%${query}%`),
+      like(inventoryItems.description, `%${query}%`),
+      like(inventoryItems.warehouseLocation, `%${query}%`)
+    );
 
-    // Apply pagination
-    const startIndex = (page - 1) * pageSize;
-    const paginatedResults = searchResults.slice(startIndex, startIndex + pageSize);
+    // Get total count of matching items
+    const totalCount = await db
+      .select({ value: count() })
+      .from(inventoryItems)
+      .where(searchCondition)
+      .then(result => result[0]?.value || 0);
+
+    // Get paginated search results
+    const searchResults = await db
+      .select()
+      .from(inventoryItems)
+      .where(searchCondition)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
 
     // Return response
     return NextResponse.json(
-      createPaginatedResponse(paginatedResults, page, pageSize, searchResults.length)
+      createPaginatedResponse(searchResults, page, pageSize, totalCount)
     );
   } catch (error) {
     return handleApiError(error);

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { InventoryService } from '../lib/mock-db/service';
 import { createPaginatedResponse, createSuccessResponse } from '../lib/api-response';
 import { handleApiError, ApiError } from '../lib/error-handler';
+import { db } from '../../../db';
+import { inventoryItems } from '../../../db/schema';
+import { eq, like, and, or, count, sql } from 'drizzle-orm';
 
 /**
  * GET /api/inventory
@@ -20,22 +22,47 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
     
-    // Apply filtering
-    const filter: any = {};
-    if (lowStock) filter.lowStock = lowStock;
-    if (outOfStock) filter.outOfStock = outOfStock;
-    if (search) filter.search = search;
+    // Build query conditions
+    const conditions = [];
     
-    // Get inventory items
-    const allItems = InventoryService.getAll(filter);
+    if (lowStock) {
+      conditions.push(and(
+        sql`${inventoryItems.stock} <= ${inventoryItems.lowStockThreshold}`,
+        sql`${inventoryItems.stock} > 0`
+      ));
+    }
     
-    // Apply pagination
-    const startIndex = (page - 1) * pageSize;
-    const paginatedItems = allItems.slice(startIndex, startIndex + pageSize);
+    if (outOfStock) {
+      conditions.push(eq(inventoryItems.stock, 0));
+    }
+    
+    if (search) {
+      conditions.push(or(
+        like(inventoryItems.sku, `%${search}%`),
+        like(inventoryItems.description, `%${search}%`),
+        like(inventoryItems.brand, `%${search}%`),
+        like(inventoryItems.mpn, `%${search}%`)
+      ));
+    }
+    
+    // Get total count
+    const totalCount = await db
+      .select({ value: count() })
+      .from(inventoryItems)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .then((result) => result[0]?.value || 0);
+    
+    // Get paginated items
+    const items = await db
+      .select()
+      .from(inventoryItems)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
     
     // Return response
     return NextResponse.json(
-      createPaginatedResponse(paginatedItems, page, pageSize, allItems.length)
+      createPaginatedResponse(items, page, pageSize, totalCount)
     );
   } catch (error) {
     return handleApiError(error);
@@ -63,31 +90,54 @@ export async function POST(request: NextRequest) {
       body.stock = 0;
     }
     
-    if (body.costCAD === undefined || body.costCAD === null) {
+    if (body.costCad === undefined || body.costCad === null) {
       throw new ApiError('Cost in CAD is required');
     }
     
+    if (!body.mpn) {
+      throw new ApiError('MPN is required');
+    }
+    
+    if (!body.brand) {
+      throw new ApiError('Brand is required');
+    }
+    
     // Check if SKU already exists
-    const existingItem = InventoryService.getBySku(body.sku);
+    const existingItem = await db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.sku, body.sku))
+      .then(result => result[0]);
+      
     if (existingItem) {
       throw new ApiError(`Inventory item with SKU ${body.sku} already exists`);
     }
-    
-    // Set flags based on stock
-    body.lowStock = body.stock > 0 && body.stock <= 5;
-    body.outOfStock = body.stock === 0;
-    
-    // Set last sale date if not provided
-    if (!body.lastSale) {
-      const today = new Date();
-      const month = today.getMonth() + 1;
-      const day = today.getDate();
-      const year = today.getFullYear();
-      body.lastSale = `${month}/${day}/${year}`;
+
+    // Format lastSaleDate as string if it exists
+    let lastSaleDate = null;
+    if (body.lastSaleDate) {
+      lastSaleDate = new Date(body.lastSaleDate).toISOString().split('T')[0];
     }
     
     // Create inventory item
-    const newItem = InventoryService.create(body);
+    const [newItem] = await db
+      .insert(inventoryItems)
+      .values({
+        sku: body.sku,
+        mpn: body.mpn,
+        brand: body.brand,
+        description: body.description,
+        stock: body.stock || 0,
+        costCad: body.costCad,
+        costUsd: body.costUsd,
+        warehouseLocation: body.warehouseLocation,
+        quantityOnHand: body.quantityOnHand || body.stock || 0,
+        quantityReserved: body.quantityReserved || 0,
+        lowStockThreshold: body.lowStockThreshold || 5,
+        lastSaleDate: lastSaleDate,
+        quickbooksItemId: body.quickbooksItemId
+      })
+      .returning();
     
     // Return response
     return NextResponse.json(

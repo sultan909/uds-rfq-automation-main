@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CustomerService } from '../lib/mock-db/service';
 import { createPaginatedResponse, createSuccessResponse } from '../lib/api-response';
 import { handleApiError, ApiError } from '../lib/error-handler';
+import { db } from '../../../db';
+import { customers } from '../../../db/schema';
+import { eq, like, and, count, desc } from 'drizzle-orm';
 
 /**
  * GET /api/customers
@@ -10,30 +12,33 @@ import { handleApiError, ApiError } from '../lib/error-handler';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    
     // Extract filter parameters
-    const type = searchParams.get('type') as 'Dealer' | 'Wholesaler' | null;
+    const type = searchParams.get('type');
     const search = searchParams.get('search');
-    
     // Extract pagination parameters
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-    
-    // Apply filtering
-    const filter: any = {};
-    if (type) filter.type = type;
-    if (search) filter.search = search;
-    
-    // Get customers
-    const allCustomers = CustomerService.getAll(filter);
-    
-    // Apply pagination
-    const startIndex = (page - 1) * pageSize;
-    const paginatedCustomers = allCustomers.slice(startIndex, startIndex + pageSize);
-    
-    // Return response
+    // Build query conditions
+    const conditions = [];
+    const allowedTypes = ['WHOLESALER', 'DEALER', 'RETAILER', 'DIRECT'] as const;
+    if (type && allowedTypes.includes(type as any)) conditions.push(eq(customers.type, type as typeof allowedTypes[number]));
+    if (search) conditions.push(like(customers.name, `%${search}%`));
+    // Get total count
+    const totalCount = await db
+      .select({ value: count() })
+      .from(customers)
+      .where(and(...conditions))
+      .then((result: { value: number }[]) => result[0]?.value || 0);
+    // Get paginated customers
+    const customerList = await db
+      .select()
+      .from(customers)
+      .where(and(...conditions))
+      .orderBy(desc(customers.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
     return NextResponse.json(
-      createPaginatedResponse(paginatedCustomers, page, pageSize, allCustomers.length)
+      createPaginatedResponse(customerList, page, pageSize, totalCount)
     );
   } catch (error) {
     return handleApiError(error);
@@ -47,37 +52,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
     // Validate required fields
     if (!body.name) {
       throw new ApiError('Name is required');
     }
-    
-    if (!body.type || !['Dealer', 'Wholesaler'].includes(body.type)) {
-      throw new ApiError('Type must be either "Dealer" or "Wholesaler"');
+    if (!body.type || !['WHOLESALER', 'DEALER', 'RETAILER', 'DIRECT'].includes(body.type)) {
+      throw new ApiError('Type must be one of WHOLESALER, DEALER, RETAILER, or DIRECT');
     }
-    
-    // Set defaults
-    if (!body.lastOrder) {
-      const today = new Date();
-      const month = today.getMonth() + 1;
-      const day = today.getDate();
-      const year = today.getFullYear();
-      body.lastOrder = `${month}/${day}/${year}`;
-    }
-    
-    if (body.totalOrders === undefined) {
-      body.totalOrders = 0;
-    }
-    
-    if (body.totalSpentCAD === undefined) {
-      body.totalSpentCAD = 0;
-    }
-    
-    // Create customer
-    const newCustomer = CustomerService.create(body);
-    
-    // Return response
+    // Insert new customer
+    const [newCustomer] = await db
+      .insert(customers)
+      .values({
+        name: body.name,
+        type: body.type,
+        region: body.region,
+        email: body.email,
+        phone: body.phone,
+        address: body.address,
+        contactPerson: body.contactPerson,
+        quickbooksId: body.quickbooksId,
+        isActive: body.isActive ?? true
+      })
+      .returning();
     return NextResponse.json(
       createSuccessResponse(newCustomer),
       { status: 201 }

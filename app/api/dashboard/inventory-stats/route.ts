@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
-import { InventoryService, RfqService } from '../../lib/mock-db/service';
+import { db } from '../../../../db';
+import { inventoryItems, rfqs, rfqItems } from '../../../../db/schema';
+import { count, eq, and, sql, gt, desc } from 'drizzle-orm';
 
 /**
  * GET /api/dashboard/inventory-stats
@@ -9,33 +11,35 @@ import { InventoryService, RfqService } from '../../lib/mock-db/service';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get all inventory items
-    const allItems = InventoryService.getAll();
-    
-    // Get all RFQs
-    const allRfqs = RfqService.getAll();
-    
     // Calculate inventory status metrics
-    const inventoryStatus = {
-      totalItems: allItems.length,
-      inStock: allItems.filter(item => !item.outOfStock && !item.lowStock).length,
-      lowStock: allItems.filter(item => item.lowStock).length,
-      outOfStock: allItems.filter(item => item.outOfStock).length
-    };
+    const inventoryStatus = await db
+      .select({
+        totalItems: count(),
+        inStock: sql<number>`COUNT(CASE WHEN stock > low_stock_threshold THEN 1 END)`,
+        lowStock: sql<number>`COUNT(CASE WHEN stock <= low_stock_threshold AND stock > 0 THEN 1 END)`,
+        outOfStock: sql<number>`COUNT(CASE WHEN stock = 0 THEN 1 END)`
+      })
+      .from(inventoryItems)
+      .then(result => result[0] || { totalItems: 0, inStock: 0, lowStock: 0, outOfStock: 0 });
     
     // Calculate total inventory value
-    const totalInventoryValueCAD = allItems.reduce((sum, item) => sum + (item.stock * item.costCAD), 0);
+    const totalInventoryValue = await db
+      .select({
+        value: sql<number>`COALESCE(SUM(stock * cost_cad), 0)`
+      })
+      .from(inventoryItems)
+      .then(result => result[0]?.value || 0);
     
     // Calculate top requested items
-    const topRequestedItems = calculateTopRequestedItems(allRfqs, allItems);
+    const topRequestedItems = await calculateTopRequestedItems();
     
     // Calculate missed opportunities due to out of stock
-    const missedOpportunities = calculateMissedOpportunities(allRfqs, allItems);
+    const missedOpportunities = await calculateMissedOpportunities();
     
     // Return statistics
     return NextResponse.json(createSuccessResponse({
       inventoryStatus,
-      totalInventoryValueCAD,
+      totalInventoryValueCAD: totalInventoryValue,
       topRequestedItems,
       missedOpportunities,
       timestamp: new Date().toISOString()
@@ -46,69 +50,73 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to calculate top requested items
-function calculateTopRequestedItems(rfqs: any[], items: any[]) {
-  // Create a map to store the count for each SKU
-  const skuCounts: Record<string, { count: number, totalQuantity: number }> = {};
+async function calculateTopRequestedItems() {
+  // Get counts of each item in RFQs
+  const topItems = await db.execute(sql`
+    SELECT 
+      i.id,
+      i.sku,
+      i.description as description,
+      COUNT(ri.id) as rfq_count,
+      COALESCE(SUM(ri.quantity), 0) as total_quantity,
+      i.stock,
+      i.cost_cad
+    FROM 
+      inventory_items i
+    JOIN 
+      rfq_items ri ON i.id = ri.internal_product_id
+    GROUP BY 
+      i.id, i.sku, i.description, i.stock, i.cost_cad
+    ORDER BY 
+      rfq_count DESC
+    LIMIT 10
+  `);
   
-  // Count occurrences of each SKU in RFQs
-  rfqs.forEach(rfq => {
-    rfq.items.forEach((item: any) => {
-      if (!skuCounts[item.sku]) {
-        skuCounts[item.sku] = { count: 0, totalQuantity: 0 };
-      }
-      skuCounts[item.sku].count += 1;
-      skuCounts[item.sku].totalQuantity += item.quantity;
-    });
-  });
-  
-  // Convert to array and add item information
-  const topItems = Object.entries(skuCounts).map(([sku, { count, totalQuantity }]) => {
-    const itemInfo = items.find(item => item.sku === sku);
+  return topItems.map(item => {
+    const itemRecord = item as Record<string, unknown>;
     return {
-      sku,
-      description: itemInfo?.description || 'Unknown Item',
-      rfqCount: count,
-      totalQuantity,
-      stock: itemInfo?.stock || 0,
-      costCAD: itemInfo?.costCAD || 0
+      sku: String(itemRecord.sku || ''),
+      description: String(itemRecord.description || ''),
+      rfqCount: Number(itemRecord.rfq_count || 0),
+      totalQuantity: Number(itemRecord.total_quantity || 0),
+      stock: Number(itemRecord.stock || 0),
+      costCAD: Number(itemRecord.cost_cad || 0)
     };
   });
-  
-  // Sort by rfqCount in descending order
-  topItems.sort((a, b) => b.rfqCount - a.rfqCount);
-  
-  // Return top 10 items
-  return topItems.slice(0, 10);
 }
 
 // Helper function to calculate missed opportunities
-function calculateMissedOpportunities(rfqs: any[], items: any[]) {
-  const missedOpportunities = [];
+async function calculateMissedOpportunities() {
+  // Find rejected RFQs with items that are out of stock
+  const missedOpportunities = await db.execute(sql`
+    SELECT 
+      i.sku,
+      i.description as description,
+      r.id as rfq_id,
+      r.rfq_number,
+      r.created_at as date,
+      ri.quantity,
+      ri.quantity * COALESCE(ri.final_price, ri.suggested_price, i.cost_cad * 1.3) as potential_value_cad
+    FROM 
+      rfqs r
+    JOIN 
+      rfq_items ri ON r.id = ri.rfq_id
+    JOIN 
+      inventory_items i ON ri.internal_product_id = i.id
+    WHERE 
+      r.status = 'REJECTED' AND i.stock = 0
+  `);
   
-  // Find declined RFQs
-  const declinedRfqs = rfqs.filter(rfq => rfq.status === 'declined');
-  
-  // Check if any items in declined RFQs were out of stock
-  for (const rfq of declinedRfqs) {
-    for (const rfqItem of rfq.items) {
-      const inventoryItem = items.find(item => item.sku === rfqItem.sku);
-      
-      if (inventoryItem && inventoryItem.outOfStock) {
-        // Calculate the potential value
-        const potentialValueCAD = rfqItem.quantity * (rfqItem.price || inventoryItem.costCAD * 1.3); // Assuming 30% markup
-        
-        missedOpportunities.push({
-            sku: rfqItem.sku,
-            description: inventoryItem.description,
-            rfqId: rfq.id,
-            rfqNumber: rfq.rfqNumber,
-            date: rfq.date,
-            quantity: rfqItem.quantity,
-            potentialValueCAD: potentialValueCAD
-          });
-        }
-      }
-    }
-    
-    return missedOpportunities;
+  return missedOpportunities.map(item => {
+    const itemRecord = item as Record<string, unknown>;
+    return {
+      sku: String(itemRecord.sku || ''),
+      description: String(itemRecord.description || ''),
+      rfqId: String(itemRecord.rfq_id || ''),
+      rfqNumber: String(itemRecord.rfq_number || ''),
+      date: new Date(String(itemRecord.date || new Date())),
+      quantity: Number(itemRecord.quantity || 0),
+      potentialValueCAD: Number(itemRecord.potential_value_cad || 0)
+    };
+  });
 }
