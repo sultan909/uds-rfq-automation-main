@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { RfqService, CustomerService } from '../../../lib/mock-db/service';
 import { createSuccessResponse } from '../../../lib/api-response';
 import { handleApiError, ApiError } from '../../../lib/error-handler';
+import { db } from '../../../../../db';
+import { rfqs, customers, users, rfqItems, inventoryItems } from '../../../../../db/schema';
+import { eq } from 'drizzle-orm';
 
 interface RouteParams {
   params: {
@@ -11,49 +13,78 @@ interface RouteParams {
 
 /**
  * GET /api/rfq/:id/export
- * Export an RFQ to PDF/Excel
+ * Export RFQ data in the requested format
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
-    const format = request.nextUrl.searchParams.get('format') || 'json';
+    const format = request.nextUrl.searchParams.get('format') || 'pdf';
     
-    // Get RFQ
-    const rfq = RfqService.getById(id);
-    
-    // Check if RFQ exists
-    if (!rfq) {
+    // Get RFQ with related data
+    const rfqData = await db
+      .select({
+        rfq: rfqs,
+        customer: {
+          id: customers.id,
+          name: customers.name,
+          email: customers.email,
+          type: customers.type,
+          phone: customers.phone,
+          address: customers.address,
+          contactPerson: customers.contactPerson
+        },
+        requestor: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role
+        }
+      })
+      .from(rfqs)
+      .leftJoin(customers, eq(rfqs.customerId, customers.id))
+      .leftJoin(users, eq(rfqs.requestorId, users.id))
+      .where(eq(rfqs.id, parseInt(id)))
+      .then(result => result[0]);
+
+    if (!rfqData) {
       throw new ApiError(`RFQ with ID ${id} not found`, 404);
     }
-    
-    // Get customer
-    const customer = CustomerService.getById(rfq.customerId);
-    
-    // Combine RFQ and customer data
-    const exportData = {
-      ...rfq,
-      customer: {
-        id: customer?.id,
-        name: customer?.name,
-        email: customer?.email,
-        phone: customer?.phone,
-        address: customer?.address
-      },
-      exportDate: new Date().toISOString(),
-      format
-    };
-    
-    // In a real application, we would generate the actual export file
-    // based on the requested format (PDF, Excel, etc.)
-    
-    // For the mock implementation, we'll just return the data
-    // along with a "downloadUrl" that would normally point to the generated file
-    return NextResponse.json(
-      createSuccessResponse({
-        ...exportData,
-        downloadUrl: `/api/downloads/rfq-${id}.${format === 'excel' ? 'xlsx' : 'pdf'}`
+
+    // Get RFQ items with inventory data
+    const items = await db
+      .select({
+        item: rfqItems,
+        inventory: {
+          id: inventoryItems.id,
+          sku: inventoryItems.sku,
+          description: inventoryItems.description,
+          stock: inventoryItems.stock,
+          costCad: inventoryItems.costCad,
+          costUsd: inventoryItems.costUsd
+        }
       })
-    );
+      .from(rfqItems)
+      .leftJoin(inventoryItems, eq(rfqItems.internalProductId, inventoryItems.id))
+      .where(eq(rfqItems.rfqId, parseInt(id)));
+
+    // Transform the data to match the expected format
+    const exportData = {
+      ...rfqData.rfq,
+      customer: rfqData.customer,
+      requestor: rfqData.requestor,
+      items: items.map(item => ({
+        ...item.item,
+        inventory: item.inventory
+      }))
+    };
+
+    // In a real application, we would generate the file based on the format
+    // For now, we'll just return the data
+    return NextResponse.json(createSuccessResponse({
+      format,
+      data: exportData,
+      filename: `RFQ-${rfqData.rfq.rfqNumber}.${format}`
+    }));
   } catch (error) {
     return handleApiError(error);
   }

@@ -1,48 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, createPaginatedResponse } from '../../lib/api-response';
-import { handleApiError } from '../../lib/error-handler';
-
-// Mock data for RFQ templates
-const templates = [
-  {
-    id: '1',
-    name: 'Standard RFQ',
-    description: 'Standard template for regular customers',
-    createdAt: '2025-01-15T08:00:00Z',
-    updatedAt: '2025-04-10T14:30:00Z',
-    columns: [
-      { id: 'sku', label: 'SKU', show: true, order: 1 },
-      { id: 'description', label: 'Description', show: true, order: 2 },
-      { id: 'quantity', label: 'Quantity', show: true, order: 3 },
-      { id: 'price', label: 'Price', show: true, order: 4 },
-      { id: 'total', label: 'Total', show: true, order: 5 },
-      { id: 'stock', label: 'In Stock', show: true, order: 6 },
-      { id: 'marketPrice', label: 'Market Price', show: false, order: 7 },
-      { id: 'lastPurchase', label: 'Last Purchase', show: false, order: 8 }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Wholesaler RFQ',
-    description: 'Template for wholesaler customers with volume pricing',
-    createdAt: '2025-02-20T10:15:00Z',
-    updatedAt: '2025-04-12T09:45:00Z',
-    columns: [
-      { id: 'sku', label: 'SKU', show: true, order: 1 },
-      { id: 'description', label: 'Description', show: true, order: 2 },
-      { id: 'quantity', label: 'Quantity', show: true, order: 3 },
-      { id: 'price', label: 'Unit Price', show: true, order: 4 },
-      { id: 'bulkPrice', label: 'Bulk Price', show: true, order: 5 },
-      { id: 'total', label: 'Total', show: true, order: 6 },
-      { id: 'stock', label: 'In Stock', show: true, order: 7 },
-      { id: 'availability', label: 'Availability', show: true, order: 8 }
-    ]
-  }
-];
+import { handleApiError, ApiError } from '../../lib/error-handler';
+import { db } from '../../../../db';
+import { rfqTemplates } from '../../../../db/schema';
+import { eq, like, desc, count, and } from 'drizzle-orm';
 
 /**
  * GET /api/rfq/templates
- * Get RFQ templates
+ * Get all RFQ templates with optional filtering and pagination
  */
 export async function GET(request: NextRequest) {
   try {
@@ -55,24 +20,32 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
     
-    // Apply filtering
-    let filteredTemplates = [...templates];
-    
+    // Build query conditions
+    const conditions = [];
     if (search) {
-      const searchLower = search.toLowerCase();
-      filteredTemplates = filteredTemplates.filter(template => 
-        template.name.toLowerCase().includes(searchLower) ||
-        template.description.toLowerCase().includes(searchLower)
+      conditions.push(
+        like(rfqTemplates.name, `%${search}%`)
       );
     }
-    
-    // Apply pagination
-    const startIndex = (page - 1) * pageSize;
-    const paginatedTemplates = filteredTemplates.slice(startIndex, startIndex + pageSize);
-    
-    // Return response
+
+    // Get total count
+    const totalCount = await db
+      .select({ value: count() })
+      .from(rfqTemplates)
+      .where(and(...conditions))
+      .then(result => result[0].value);
+
+    // Get paginated templates
+    const templates = await db
+      .select()
+      .from(rfqTemplates)
+      .where(and(...conditions))
+      .orderBy(desc(rfqTemplates.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
     return NextResponse.json(
-      createPaginatedResponse(paginatedTemplates, page, pageSize, filteredTemplates.length)
+      createPaginatedResponse(templates, page, pageSize, totalCount)
     );
   } catch (error) {
     return handleApiError(error);
@@ -80,7 +53,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/rfq/templates/create
+ * POST /api/rfq/templates
  * Create a new RFQ template
  */
 export async function POST(request: NextRequest) {
@@ -89,35 +62,108 @@ export async function POST(request: NextRequest) {
     
     // Validate required fields
     if (!body.name) {
-      return NextResponse.json(
-        { success: false, error: 'Name is required' },
-        { status: 400 }
-      );
+      throw new ApiError('Template name is required');
     }
     
-    // Create a new template
-    const newTemplate = {
-      id: `${templates.length + 1}`,
-      name: body.name,
-      description: body.description || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      columns: body.columns || [
-        { id: 'sku', label: 'SKU', show: true, order: 1 },
-        { id: 'description', label: 'Description', show: true, order: 2 },
-        { id: 'quantity', label: 'Quantity', show: true, order: 3 },
-        { id: 'price', label: 'Price', show: true, order: 4 },
-        { id: 'total', label: 'Total', show: true, order: 5 }
-      ]
-    };
-    
-    // Add the template to the list
-    templates.push(newTemplate);
-    
-    // Return the created template
+    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      throw new ApiError('At least one item is required');
+    }
+
+    // Create template
+    const [newTemplate] = await db
+      .insert(rfqTemplates)
+      // @ts-ignore
+
+      .values({
+        name: body.name,
+        description: body.description,
+        items: body.items,
+        metadata: body.metadata
+      })
+      .returning();
+
     return NextResponse.json(
       createSuccessResponse(newTemplate),
       { status: 201 }
+    );
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * PATCH /api/rfq/templates/:id
+ * Update an RFQ template
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id) {
+      throw new ApiError('Template ID is required');
+    }
+
+    const body = await request.json();
+    
+    // Check if template exists
+    const existingTemplate = await db
+      .select()
+      .from(rfqTemplates)
+      .where(eq(rfqTemplates.id, parseInt(id)))
+      .then(result => result[0]);
+
+    if (!existingTemplate) {
+      throw new ApiError(`Template with ID ${id} not found`, 404);
+    }
+
+    // Update template
+    const [updatedTemplate] = await db
+      .update(rfqTemplates)
+      .set({
+        name: body.name,
+        description: body.description,
+      // @ts-ignore
+
+        items: body.items,
+        metadata: body.metadata
+      })
+      .where(eq(rfqTemplates.id, parseInt(id)))
+      .returning();
+
+    return NextResponse.json(createSuccessResponse(updatedTemplate));
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * DELETE /api/rfq/templates/:id
+ * Delete an RFQ template
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id) {
+      throw new ApiError('Template ID is required');
+    }
+
+    // Check if template exists
+    const existingTemplate = await db
+      .select()
+      .from(rfqTemplates)
+      .where(eq(rfqTemplates.id, parseInt(id)))
+      .then(result => result[0]);
+
+    if (!existingTemplate) {
+      throw new ApiError(`Template with ID ${id} not found`, 404);
+    }
+
+    // Delete template
+    await db
+      .delete(rfqTemplates)
+      .where(eq(rfqTemplates.id, parseInt(id)));
+
+    return NextResponse.json(
+      createSuccessResponse({ message: `Template ${id} deleted successfully` })
     );
   } catch (error) {
     return handleApiError(error);
