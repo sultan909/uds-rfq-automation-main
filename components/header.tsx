@@ -4,33 +4,46 @@ import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { DatePicker } from "@/components/date-picker"
 
 interface HeaderProps {
   title: string
   subtitle?: string
-  showNewRfq?: boolean
+  showDateFilter?: boolean
   showNewCustomer?: boolean
+  showNewInventory?: boolean
 }
 
-export function Header({ title, subtitle, showNewRfq = false, showNewCustomer }: HeaderProps) {
+export function Header({ title, subtitle, showDateFilter, showNewCustomer, showNewInventory }: HeaderProps) {
   const pathname = usePathname()
 
   return (
-    <div className="flex items-center justify-between p-4 border-b">
-      <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+    <header className="border-b bg-background">
+      <div className="flex h-16 items-center px-4">
+        <div className="flex-1">
+          <h1 className="text-lg font-semibold">{title}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        </div>
+        <div className="flex items-center gap-4">
+          {showDateFilter && (
+            <div className="flex items-center gap-2">
+              <DatePicker />
+            </div>
+          )}
+          <ThemeToggle />
+          <CurrencyToggle />
+          {showNewCustomer && (
+            <Button asChild>
+              <a href="/customers/new">New Customer</a>
+            </Button>
+          )}
+          {showNewInventory && (
+            <Button asChild>
+              <a href="/inventory/new">New Item</a>
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <ThemeToggle />
-        <CurrencyToggle />
-        {showNewRfq && <Button onClick={() => (window.location.href = "/rfq-management/new")}>New RFQ</Button>}
-        {showNewCustomer && (
-          <Button asChild>
-            <a href="/customers/new">New Customer</a>
-          </Button>
-        )}
-      </div>
-    </div>
+    </header>
   )
 }

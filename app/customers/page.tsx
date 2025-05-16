@@ -131,7 +131,6 @@ export default function CustomerManagement() {
               <h2 className="text-lg font-semibold">Customer List</h2>
               <div className="flex gap-2">
                 <Input type="search" placeholder="Search customers..." className="w-64" />
-                <Button>Add Customer</Button>
               </div>
             </div>
 

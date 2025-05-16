@@ -114,22 +114,27 @@ export const customerApi = {
 
 // Inventory API endpoints
 export const inventoryApi = {
-  getById: (id: string) => apiFetch(`/api/inventory/${id}`),
-  list: (params?: Record<string, string>) =>
-    apiFetch("/api/inventory/list", { params }),
+  list: (params?: Record<string, string | undefined>) =>
+    apiFetch("/api/inventory/", { params }),
+  search: (query: string, params?: Record<string, string | undefined>) =>
+    apiFetch("/api/inventory/search", {
+      params: { query, ...params },
+    }),
   create: (data: any) =>
     apiFetch("/api/inventory/create", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  get: (id: string) =>
+    apiFetch(`/api/inventory/${id}`),
   update: (id: string, data: any) =>
     apiFetch(`/api/inventory/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(data),
     }),
-  getHistory: (id: string, period?: string) =>
-    apiFetch(`/api/inventory/${id}/history`, {
-      params: period ? { period } : undefined,
+  delete: (id: string) =>
+    apiFetch(`/api/inventory/${id}`, {
+      method: "DELETE",
     }),
 };
 

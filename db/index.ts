@@ -7,30 +7,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 if (!process.env.DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL environment variable is not set");
-  process.exit(1);
+  throw new Error('DATABASE_URL is not set');
 }
 
-// Connection options for Supabase
-const connectionOptions = {
-  ssl: {
-    rejectUnauthorized: false, // This will allow self-signed certificates
-  },
-};
+const connectionString = process.env.DATABASE_URL;
 
 // For migrations and seeding (CLI operations)
-export const migrationClient = postgres(process.env.DATABASE_URL, { 
-  ...connectionOptions,
-  max: 1 
-});
+export const migrationClient = postgres(connectionString, { max: 1 });
 export const db = drizzle(migrationClient, { schema });
 
 // For application usage
-const queryClient = postgres(process.env.DATABASE_URL, {
-  ...connectionOptions,
-  max: 10 // You can adjust this based on your needs
-});
-export const queryDb = drizzle(queryClient, { schema });
+export const queryClient = postgres(connectionString, { max: 10 });
 
 // Utility function to run migrations
 export const runMigrations = async () => {
