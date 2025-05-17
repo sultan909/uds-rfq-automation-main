@@ -104,10 +104,10 @@ export function Sidebar() {
     <div 
       className={`border-r h-screen bg-background min-w-20 z-30 ${
         isReady ? `transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}` : initialWidth
-      } flex flex-col`}
+      }`}
       data-state={isCollapsed ? "collapsed" : "expanded"}
     >
-      <div className={`border-b flex items-center ${isCollapsed ? 'flex-col justify-center p-2 h-20' : 'justify-between p-4'} relative`}>
+      <div className={`border-b flex items-center ${isCollapsed ? 'flex-col justify-center p-2 h-16' : 'justify-between p-4 h-16'} relative`}>
         {!isCollapsed ? (
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold truncate">UDS</h1>
@@ -115,7 +115,7 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="w-full flex flex-col items-center justify-center">
-            <h1 className="text-xl font-bold mb-2">UDS</h1>
+            <h1 className="text-xl font-bold">UDS</h1>
           </div>
         )}
         {isReady && (
@@ -165,7 +165,6 @@ export function Sidebar() {
               </li>
             );
           })}
-          
         </ul>
       </nav>
     </div>
