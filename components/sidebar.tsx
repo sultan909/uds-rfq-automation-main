@@ -165,6 +165,7 @@ export function Sidebar() {
               </li>
             );
           })}
+          
         </ul>
       </nav>
     </div>

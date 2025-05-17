@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DatePicker } from "@/components/date-picker"
+import Link from "next/link"
+import { Settings as SettingsIcon } from "lucide-react"
 
 interface HeaderProps {
   title: string
@@ -31,7 +33,7 @@ export function Header({ title, subtitle, showDateFilter, showNewCustomer, showN
             </div>
           )}
           <ThemeToggle />
-          <CurrencyToggle />
+          <CurrencyToggle showOverride={false} />
           {showNewCustomer && (
             <Button asChild>
               <a href="/customers/new">New Customer</a>
@@ -42,6 +44,9 @@ export function Header({ title, subtitle, showDateFilter, showNewCustomer, showN
               <a href="/inventory/new">New Item</a>
             </Button>
           )}
+          <Link href="/settings" className="p-2 hover:bg-muted rounded-full" title="Settings">
+            <SettingsIcon className="h-5 w-5" />
+          </Link>
         </div>
       </div>
     </header>

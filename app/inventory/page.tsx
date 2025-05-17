@@ -11,6 +11,7 @@ import { useEffect, useState } from "react"
 import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { useCurrency } from "@/contexts/currency-context"
 
 interface InventoryTableRowProps {
   id: string
@@ -62,6 +63,7 @@ export default function InventoryManagement() {
     outOfStock: 0,
     active: 0
   })
+  const { currency, formatCurrency, convertCurrency } = useCurrency();
 
   useEffect(() => {
     fetchInventory()
@@ -260,7 +262,7 @@ export default function InventoryManagement() {
                         </th>
                         <th className="py-3 px-4 text-left font-semibold">
                           <div className="flex items-center gap-2">
-                            Price (CAD)
+                            Price ({currency})
                             <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </th>
@@ -303,7 +305,11 @@ export default function InventoryManagement() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              ${item.costCad ? item.costCad.toFixed(2) : '0.00'}
+                              {formatCurrency(
+                                currency === "CAD"
+                                  ? item.costCad || 0
+                                  : convertCurrency(item.costCad || 0, "CAD")
+                              )}
                             </td>
                             <td className="py-4 px-4">
                               <div className="max-w-xs truncate">{item.warehouseLocation || 'N/A'}</div>
