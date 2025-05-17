@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const rfqList = await db
       .select({
         id: rfqs.id,
+        rfqNumber: rfqs.rfqNumber,
         customerId: rfqs.customerId,
         customerName: customers.name,
         createdAt: rfqs.createdAt,

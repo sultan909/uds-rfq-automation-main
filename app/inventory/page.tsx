@@ -194,6 +194,9 @@ export default function InventoryManagement() {
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <Button onClick={handleSearch}>Search</Button>
+                <Button asChild>
+                  <a href="/inventory/new">New Item</a>
+                </Button>
               </div>
             </div>
 

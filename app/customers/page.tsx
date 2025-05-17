@@ -130,7 +130,18 @@ export default function CustomerManagement() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Customer List</h2>
               <div className="flex gap-2">
-                <Input type="search" placeholder="Search customers..." className="w-64" />
+                <Input 
+                  type="search" 
+                  placeholder="Search customers..." 
+                  className="w-64"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <Button onClick={handleSearch}>Search</Button>
+                <Button asChild>
+                  <a href="/customers/new">New Customer</a>
+                </Button>
               </div>
             </div>
 
@@ -151,17 +162,6 @@ export default function CustomerManagement() {
                     <option>Name A-Z</option>
                     <option>Name Z-A</option>
                   </select>
-                </div>
-                <div className="flex gap-2">
-                  <Input 
-                    type="search" 
-                    placeholder="Search customers..." 
-                    className="w-64"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                  <Button onClick={handleSearch}>Search</Button>
                 </div>
               </div>
 

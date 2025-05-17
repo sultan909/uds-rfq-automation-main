@@ -24,8 +24,8 @@ export function Header({ title, subtitle, showDateFilter, showNewCustomer, showN
     <header className="border-b bg-background">
       <div className="flex h-16 items-center px-4">
         <div className="flex-1">
-          <h1 className="text-lg font-semibold">{title}</h1>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          <h1 className="text-lg font-semibold leading-6">{title}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground leading-5">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-4">
           {showDateFilter && (
@@ -35,21 +35,6 @@ export function Header({ title, subtitle, showDateFilter, showNewCustomer, showN
           )}
           <ThemeToggle />
           <CurrencyToggle showOverride={false} />
-          {showNewCustomer && (
-            <Button asChild>
-              <a href="/customers/new">New Customer</a>
-            </Button>
-          )}
-          {showNewInventory && (
-            <Button asChild>
-              <a href="/inventory/new">New Item</a>
-            </Button>
-          )}
-          {showNewRfq && (
-            <Button asChild>
-              <a href="/rfq-management/new">New RFQ</a>
-            </Button>
-          )}
           <Link href="/settings" className="p-2 hover:bg-muted rounded-full" title="Settings">
             <SettingsIcon className="h-5 w-5" />
           </Link>
