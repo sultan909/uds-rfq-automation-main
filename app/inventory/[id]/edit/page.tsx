@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Spinner } from "@/components/spinner"
 
 interface InventoryItem {
   id: number
@@ -30,7 +31,11 @@ interface InventoryItem {
   updatedAt: string
 }
 
-export default function InventoryItemEdit({ params }: { params: { id: string } }) {
+export default function InventoryItemEdit({
+  params,
+}: {
+  params: { id: string };
+}) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -85,14 +90,23 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === "quantityOnHand" || name === "quantityReserved" || name === "costCad" || name === "costUsd" || name === "lowStockThreshold" 
-        ? parseFloat(value) || 0 
-        : value
-    }))
+      [name]:
+        name === "quantityOnHand" ||
+        name === "quantityReserved" ||
+        name === "costCad" ||
+        name === "costUsd" ||
+        name === "lowStockThreshold"
+          ? parseFloat(value) || 0
+          : value,
+    }));
   }
 
   if (loading) {
@@ -100,10 +114,15 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Edit Inventory Item" subtitle="Update inventory item details" />
+          <Header
+            title="Edit Inventory Item"
+            subtitle="Update inventory item details"
+          />
           <div className="flex-1 overflow-auto p-4">
             <Card className="p-6">
-              <div className="text-center">Loading...</div>
+              <div className="flex justify-center items-center">
+                <Spinner size={32} />
+              </div>
             </Card>
           </div>
         </div>
@@ -115,7 +134,10 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Edit Inventory Item" subtitle="Update inventory item details" />
+        <Header
+          title="Edit Inventory Item"
+          subtitle="Update inventory item details"
+        />
         <div className="flex-1 overflow-auto p-4">
           <Card className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -198,7 +220,7 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                       type="number"
                       min="0"
                       step="0.01"
-                      value={formData.costCad || ''}
+                      value={formData.costCad || ""}
                       onChange={handleChange}
                     />
                   </div>
@@ -210,25 +232,31 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                       type="number"
                       min="0"
                       step="0.01"
-                      value={formData.costUsd || ''}
+                      value={formData.costUsd || ""}
                       onChange={handleChange}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Additional Information</h3>
+                  <h3 className="text-lg font-semibold">
+                    Additional Information
+                  </h3>
                   <div>
-                    <Label htmlFor="warehouseLocation">Warehouse Location</Label>
+                    <Label htmlFor="warehouseLocation">
+                      Warehouse Location
+                    </Label>
                     <Input
                       id="warehouseLocation"
                       name="warehouseLocation"
-                      value={formData.warehouseLocation || ''}
+                      value={formData.warehouseLocation || ""}
                       onChange={handleChange}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
+                    <Label htmlFor="lowStockThreshold">
+                      Low Stock Threshold
+                    </Label>
                     <Input
                       id="lowStockThreshold"
                       name="lowStockThreshold"
@@ -244,7 +272,7 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                     <Input
                       id="quickbooksItemId"
                       name="quickbooksItemId"
-                      value={formData.quickbooksItemId || ''}
+                      value={formData.quickbooksItemId || ""}
                       onChange={handleChange}
                     />
                   </div>
@@ -269,4 +297,4 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
       </div>
     </div>
   )
-} 
+}

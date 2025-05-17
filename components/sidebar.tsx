@@ -13,6 +13,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -107,27 +109,38 @@ export function Sidebar() {
       }`}
       data-state={isCollapsed ? "collapsed" : "expanded"}
     >
-      <div className={`border-b flex items-center ${isCollapsed ? 'flex-col justify-center p-2 h-16' : 'justify-between p-4 h-16'} relative`}>
+      <div className={`border-b flex items-center h-16 relative ${isCollapsed ? 'px-2' : 'px-4'}`}>
         {!isCollapsed ? (
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">UDS</h1>
-            <p className="text-sm text-muted-foreground truncate">RFQ Management</p>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold truncate">UDS</h1>
+              <p className="text-sm text-muted-foreground truncate">RFQ Management</p>
+            </div>
+            {isReady && (
+              <button 
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-md ml-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+                aria-label="Collapse sidebar"
+                type="button"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ) : (
-          <div className="w-full flex flex-col items-center justify-center">
-            <h1 className="text-xl font-bold">UDS</h1>
+          <div className="flex items-center justify-between w-full">
+            <h1 className="text-lg font-bold">UDS</h1>
+            {isReady && (
+              <button 
+                onClick={toggleSidebar}
+                className="p-1 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+                aria-label="Expand sidebar"
+                type="button"
+              >
+                <PanelLeftOpen className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-        )}
-        {isReady && (
-          <button 
-            onClick={toggleSidebar}
-            className={`p-1 rounded-md hover:bg-muted flex-shrink-0 ${isCollapsed ? 'mt-0' : 'ml-1'}`}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            type="button"
-            style={isCollapsed ? { zIndex: 40 } : {}}
-          >
-            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          </button>
         )}
       </div>
       <nav className="p-2 flex-1 overflow-y-auto">
@@ -137,7 +150,7 @@ export function Sidebar() {
             const navLink = (
               <Link
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md ${
+                className={`flex items-center gap-3 p-2 rounded-md ${
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "hover:bg-muted"

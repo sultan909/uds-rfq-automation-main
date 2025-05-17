@@ -7,10 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEffect, useState } from "react"
 import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Spinner } from "@/components/spinner"
 
 interface RfqTableRowProps {
   rfqId: number
-  rfqNumber:string
+  rfqNumber: string
   customer: string
   date: string
   source: string
@@ -28,12 +29,14 @@ export default function RfqManagement() {
   useEffect(() => {
     fetchRfqs()
   }, [selectedTab])
-console.log("rfqs",rfqs);
+  console.log("rfqs", rfqs)
 
   const fetchRfqs = async () => {
     try {
       setLoading(true)
-      const response = await rfqApi.list({ status: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      const response = await rfqApi.list({
+        status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
+      })
       if (response.success && response.data) {
         setRfqs(response.data as any[])
       } else {
@@ -55,8 +58,10 @@ console.log("rfqs",rfqs);
     }
 
     try {
-      setLoading(true)
-      const response = await rfqApi.search(searchQuery, { status: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      setLoading(true);
+      const response = await rfqApi.search(searchQuery, {
+        status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
+      })
       if (response.success && response.data) {
         setRfqs(response.data as any[])
       } else {
@@ -75,12 +80,18 @@ console.log("rfqs",rfqs);
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="RFQ Management" subtitle="Handle and process requests for quotes" showNewRfq />
+        <Header
+          title="RFQ Management"
+          subtitle="Handle and process requests for quotes"
+          showNewRfq
+        />
         <div className="flex-1 overflow-auto p-4">
           <div className="bg-background border rounded-lg overflow-hidden">
             <div className="p-4">
               <h2 className="text-lg font-medium mb-2">RFQ List</h2>
-              <p className="text-sm text-muted-foreground mb-4">Review and manage all request for quotes</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Review and manage all request for quotes
+              </p>
 
               <Tabs defaultValue="all" onValueChange={setSelectedTab}>
                 <TabsList className="mb-4">
@@ -102,9 +113,9 @@ console.log("rfqs",rfqs);
                     </select>
                   </div>
                   <div className="flex gap-2">
-                    <Input 
-                      type="search" 
-                      placeholder="Search RFQs..." 
+                    <Input
+                      type="search"
+                      placeholder="Search RFQs..."
                       className="w-64"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -122,27 +133,52 @@ console.log("rfqs",rfqs);
                     <table className="w-full">
                       <thead>
                         <tr className="border-b text-left">
-                          <th className="pb-2 font-medium text-foreground">RFQ Number</th>
-                          <th className="pb-2 font-medium text-foreground">Customer</th>
-                          <th className="pb-2 font-medium text-foreground">Date</th>
-                          <th className="pb-2 font-medium text-foreground">Source</th>
-                          <th className="pb-2 font-medium text-foreground">Items</th>
-                          <th className="pb-2 font-medium text-foreground">Status</th>
-                          <th className="pb-2 font-medium text-foreground">Actions</th>
+                          <th className="pb-2 font-medium text-foreground">
+                            RFQ Number
+                          </th>
+                          <th className="pb-2 font-medium text-foreground">
+                            Customer
+                          </th>
+                          <th className="pb-2 font-medium text-foreground">
+                            Date
+                          </th>
+                          <th className="pb-2 font-medium text-foreground">
+                            Source
+                          </th>
+                          <th className="pb-2 font-medium text-foreground">
+                            Items
+                          </th>
+                          <th className="pb-2 font-medium text-foreground">
+                            Status
+                          </th>
+                          <th className="pb-2 font-medium text-foreground">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {loading ? (
                           <tr>
-                            <td colSpan={7} className="text-center py-4">Loading...</td>
+                            <td colSpan={7} className="text-center py-8">
+                              <div className="flex justify-center items-center">
+                                <Spinner size={32} />
+                              </div>
+                            </td>
                           </tr>
                         ) : error ? (
                           <tr>
-                            <td colSpan={7} className="text-center py-4 text-red-500">{error}</td>
+                            <td
+                              colSpan={7}
+                              className="text-center py-4 text-red-500"
+                            >
+                              {error}
+                            </td>
                           </tr>
                         ) : rfqs.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="text-center py-4">No RFQs found</td>
+                            <td colSpan={7} className="text-center py-4">
+                              No RFQs found
+                            </td>
                           </tr>
                         ) : (
                           rfqs.map((rfq) => (
@@ -151,7 +187,9 @@ console.log("rfqs",rfqs);
                               rfqId={rfq.id}
                               rfqNumber={rfq.rfqNumber}
                               customer={rfq.customer?.name || "Unknown"}
-                              date={new Date(rfq.createdAt).toLocaleDateString()}
+                              date={new Date(
+                                rfq.createdAt
+                              ).toLocaleDateString()}
                               source={rfq.source}
                               items={rfq.items?.length || 0}
                               status={rfq.status.toLowerCase()}

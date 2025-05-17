@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState, use } from "react"
 import { customerApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Spinner } from "@/components/spinner"
 
 interface Customer {
   id: number
@@ -19,7 +20,11 @@ interface Customer {
   address: string | null
 }
 
-export default function CustomerEdit({ params }: { params: Promise<{ id: string }> }) {
+export default function CustomerEdit({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const router = useRouter()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
@@ -96,7 +101,9 @@ export default function CustomerEdit({ params }: { params: Promise<{ id: string 
           <Header title="Edit Customer" subtitle="Edit customer details" />
           <div className="flex-1 overflow-auto p-4">
             <Card className="p-6">
-              <div className="text-center">Loading...</div>
+              <div className="flex justify-center items-center">
+                <Spinner size={32} />
+              </div>
             </Card>
           </div>
         </div>
@@ -130,26 +137,53 @@ export default function CustomerEdit({ params }: { params: Promise<{ id: string 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
-                <Input name="name" value={form.name} onChange={handleChange} required />
+                <Input
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Type</label>
-                <Input name="type" value={form.type} onChange={handleChange} required />
+                <Input
+                  name="type"
+                  value={form.type}
+                  onChange={handleChange}
+                  required
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Email</label>
-                <Input name="email" value={form.email} onChange={handleChange} type="email" />
+                <Input
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  type="email"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Phone</label>
-                <Input name="phone" value={form.phone} onChange={handleChange} />
+                <Input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Address</label>
-                <Input name="address" value={form.address} onChange={handleChange} />
+                <label className="block text-sm font-medium mb-1">
+                  Address
+                </label>
+                <Input
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                />
               </div>
               <div className="flex justify-end">
-                <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
               </div>
             </form>
           </Card>
@@ -157,4 +191,4 @@ export default function CustomerEdit({ params }: { params: Promise<{ id: string 
       </div>
     </div>
   )
-} 
+}

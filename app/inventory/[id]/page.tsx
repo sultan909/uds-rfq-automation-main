@@ -8,7 +8,15 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState, use } from "react"
 import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table"
+import { Spinner } from "@/components/spinner"
 
 interface InventoryItem {
   id: number
@@ -28,7 +36,11 @@ interface InventoryItem {
   updatedAt: string
 }
 
-export default function InventoryItemView({ params }: { params: Promise<{ id: string }> }) {
+export default function InventoryItemView({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const router = useRouter()
   const [item, setItem] = useState<InventoryItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -84,10 +96,15 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Inventory Item" subtitle="View inventory item details" />
+          <Header
+            title="Inventory Item"
+            subtitle="View inventory item details"
+          />
           <div className="flex-1 overflow-auto p-4">
             <Card className="p-6">
-              <div className="text-center">Loading...</div>
+              <div className="flex justify-center items-center">
+                <Spinner size={32} />
+              </div>
             </Card>
           </div>
         </div>
@@ -100,7 +117,10 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Inventory Item" subtitle="View inventory item details" />
+          <Header
+            title="Inventory Item"
+            subtitle="View inventory item details"
+          />
           <div className="flex-1 overflow-auto p-4">
             <Card className="p-6">
               <div className="text-center text-red-500">Item not found</div>
@@ -125,7 +145,9 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Basic Information
+                </h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-muted-foreground">SKU</label>
@@ -136,34 +158,52 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                     <div className="font-medium">{item.mpn}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Brand</label>
+                    <label className="text-sm text-muted-foreground">
+                      Brand
+                    </label>
                     <div className="font-medium">{item.brand}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Description</label>
+                    <label className="text-sm text-muted-foreground">
+                      Description
+                    </label>
                     <div className="font-medium">{item.description}</div>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-4">Stock Information</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Stock Information
+                </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Quantity On Hand</label>
+                    <label className="text-sm text-muted-foreground">
+                      Quantity On Hand
+                    </label>
                     <div className="font-medium">{item.quantityOnHand}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Reserved Quantity</label>
+                    <label className="text-sm text-muted-foreground">
+                      Reserved Quantity
+                    </label>
                     <div className="font-medium">{item.quantityReserved}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Cost (CAD)</label>
-                    <div className="font-medium">${item.costCad?.toFixed(2) || '0.00'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Cost (CAD)
+                    </label>
+                    <div className="font-medium">
+                      ${item.costCad?.toFixed(2) || "0.00"}
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Cost (USD)</label>
-                    <div className="font-medium">${item.costUsd?.toFixed(2) || '0.00'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Cost (USD)
+                    </label>
+                    <div className="font-medium">
+                      ${item.costUsd?.toFixed(2) || "0.00"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -172,32 +212,52 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                 <h3 className="text-lg font-semibold mb-4">Stock Levels</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Low Stock Threshold</label>
+                    <label className="text-sm text-muted-foreground">
+                      Low Stock Threshold
+                    </label>
                     <div className="font-medium">{item.lowStockThreshold}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Last Sale Date</label>
+                    <label className="text-sm text-muted-foreground">
+                      Last Sale Date
+                    </label>
                     <div className="font-medium">
-                      {item.lastSaleDate ? new Date(item.lastSaleDate).toLocaleDateString() : 'No sales yet'}
+                      {item.lastSaleDate
+                        ? new Date(item.lastSaleDate).toLocaleDateString()
+                        : "No sales yet"}
                     </div>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-4">Additional Information</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Additional Information
+                </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Warehouse Location</label>
-                    <div className="font-medium">{item.warehouseLocation || 'Not specified'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Warehouse Location
+                    </label>
+                    <div className="font-medium">
+                      {item.warehouseLocation || "Not specified"}
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">QuickBooks ID</label>
-                    <div className="font-medium">{item.quickbooksItemId || 'Not linked'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      QuickBooks ID
+                    </label>
+                    <div className="font-medium">
+                      {item.quickbooksItemId || "Not linked"}
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Last Updated</label>
-                    <div className="font-medium">{new Date(item.updatedAt).toLocaleString()}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Last Updated
+                    </label>
+                    <div className="font-medium">
+                      {new Date(item.updatedAt).toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -211,7 +271,9 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
               <div>Loading history...</div>
             ) : historyError ? (
               <div className="text-red-500">{historyError}</div>
-            ) : history && history.transactions && history.transactions.length > 0 ? (
+            ) : history &&
+              history.transactions &&
+              history.transactions.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -226,12 +288,22 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                 <TableBody>
                   {history.transactions.map((tx: any) => (
                     <TableRow key={tx.id + tx.type + tx.date}>
-                      <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>
+                        {tx.date ? new Date(tx.date).toLocaleDateString() : "-"}
+                      </TableCell>
                       <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell>{tx.documentNumber || '-'}</TableCell>
+                      <TableCell>{tx.documentNumber || "-"}</TableCell>
                       <TableCell>{tx.quantity}</TableCell>
-                      <TableCell>{tx.price !== undefined && tx.price !== null ? `$${tx.price.toFixed(2)}` : '-'}</TableCell>
-                      <TableCell>{tx.totalAmount !== undefined && tx.totalAmount !== null ? `$${tx.totalAmount.toFixed(2)}` : '-'}</TableCell>
+                      <TableCell>
+                        {tx.price !== undefined && tx.price !== null
+                          ? `$${tx.price.toFixed(2)}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {tx.totalAmount !== undefined && tx.totalAmount !== null
+                          ? `$${tx.totalAmount.toFixed(2)}`
+                          : "-"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -244,4 +316,4 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
       </div>
     </div>
   )
-} 
+}

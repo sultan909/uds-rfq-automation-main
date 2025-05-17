@@ -11,6 +11,7 @@ import { useCurrency } from "@/contexts/currency-context"
 import { useEffect, useState } from "react"
 import { customerApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Spinner } from "@/components/spinner"
 
 interface CustomerTableRowProps {
   id: string
@@ -40,18 +41,20 @@ export default function CustomerManagement() {
   const fetchCustomers = async () => {
     try {
       setLoading(true)
-      const params = selectedTab === "all" ? {} : { type: selectedTab.toUpperCase() }
+      const params =
+        selectedTab === "all" ? {} : { type: selectedTab.toUpperCase() }
       const response = await customerApi.list(params)
-      
+
       if (response.success && response.data) {
         const customerData = response.data as any[]
         setCustomers(customerData)
-        
+
         // Calculate statistics
         setStats({
           total: customerData.length,
-          dealers: customerData.filter(c => c.type === 'DEALER').length,
-          wholesalers: customerData.filter(c => c.type === 'WHOLESALER').length
+          dealers: customerData.filter((c) => c.type === "DEALER").length,
+          wholesalers: customerData.filter((c) => c.type === "WHOLESALER")
+            .length,
         })
       } else {
         setError("Failed to load customers")
@@ -72,8 +75,10 @@ export default function CustomerManagement() {
     }
 
     try {
-      setLoading(true)
-      const response = await customerApi.search(searchQuery, { type: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      setLoading(true);
+      const response = await customerApi.search(searchQuery, {
+        type: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
+      })
       if (response.success && response.data) {
         setCustomers(response.data as any[])
       } else {
@@ -92,7 +97,11 @@ export default function CustomerManagement() {
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Customer Management" subtitle="Manage customer information and relationships" showNewCustomer />
+        <Header
+          title="Customer Management"
+          subtitle="Manage customer information and relationships"
+          showNewCustomer
+        />
         <div className="flex-1 overflow-auto p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-4 flex items-center gap-4">
@@ -100,7 +109,9 @@ export default function CustomerManagement() {
                 <Users className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Total Customers</div>
+                <div className="text-sm text-muted-foreground">
+                  Total Customers
+                </div>
                 <div className="text-2xl font-bold">{stats.total}</div>
               </div>
             </Card>
@@ -130,9 +141,9 @@ export default function CustomerManagement() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Customer List</h2>
               <div className="flex gap-2">
-                <Input 
-                  type="search" 
-                  placeholder="Search customers..." 
+                <Input
+                  type="search"
+                  placeholder="Search customers..."
                   className="w-64"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -206,15 +217,26 @@ export default function CustomerManagement() {
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4">Loading...</td>
+                          <td colSpan={7} className="text-center py-8">
+                            <div className="flex justify-center items-center">
+                              <Spinner size={32} />
+                            </div>
+                          </td>
                         </tr>
                       ) : error ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4 text-red-500">{error}</td>
+                          <td
+                            colSpan={6}
+                            className="text-center py-4 text-red-500"
+                          >
+                            {error}
+                          </td>
                         </tr>
                       ) : customers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4">No customers found</td>
+                          <td colSpan={6} className="text-center py-4">
+                            No customers found
+                          </td>
                         </tr>
                       ) : (
                         customers.map((customer) => (
@@ -246,7 +268,7 @@ export default function CustomerManagement() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 interface CustomerRowProps {
@@ -258,28 +280,49 @@ interface CustomerRowProps {
   totalSpentCAD: number
 }
 
-function CustomerRow({ id, name, type, lastOrder, totalOrders, totalSpentCAD }: CustomerRowProps) {
+function CustomerRow({
+  id,
+  name,
+  type,
+  lastOrder,
+  totalOrders,
+  totalSpentCAD,
+}: CustomerRowProps) {
   const { currency, formatCurrency, convertCurrency } = useCurrency()
   const router = require('next/navigation').useRouter();
 
   // Format the total spent based on the selected currency
-  const formattedTotalSpent = formatCurrency(currency === "CAD" ? totalSpentCAD : convertCurrency(totalSpentCAD, "CAD"))
+  const formattedTotalSpent = formatCurrency(
+    currency === "CAD" ? totalSpentCAD : convertCurrency(totalSpentCAD, "CAD")
+  )
 
   return (
     <tr className="border-b">
       <td className="py-3">{name}</td>
       <td className="py-3">
-        <span className={type === "Dealer" ? "status-processed" : "status-pending"}>{type}</span>
+        <span
+          className={type === "Dealer" ? "status-processed" : "status-pending"}
+        >
+          {type}
+        </span>
       </td>
       <td className="py-3">{lastOrder}</td>
       <td className="py-3">{totalOrders}</td>
       <td className="py-3">{formattedTotalSpent}</td>
       <td className="py-3">
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => router.push(`/customers/${id}`)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/customers/${id}`)}
+          >
             View
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => router.push(`/customers/${id}/edit`)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/customers/${id}/edit`)}
+          >
             Edit
           </Button>
         </div>

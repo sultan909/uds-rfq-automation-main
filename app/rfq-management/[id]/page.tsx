@@ -21,14 +21,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { rfqApi } from "@/lib/api-client";
 import { toast } from "sonner";
+import { Spinner } from "@/components/spinner"
 
-export default function RfqDetail({ params }: { params: Promise<{ id: string }> }) {
+export default function RfqDetail({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const { currency, formatCurrency, convertCurrency } = useCurrency();
   const [rfqData, setRfqData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-console.log();
+  console.log();
 
   useEffect(() => {
     const fetchRfqData = async () => {
@@ -93,9 +98,13 @@ console.log();
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Loading..." subtitle="Please wait while we load the RFQ details" />
+          <Header title="RFQ Detail" subtitle="View RFQ details" />
           <div className="flex-1 overflow-auto p-4">
-            <div className="text-center">Loading RFQ data...</div>
+            <Card className="p-6">
+              <div className="flex justify-center items-center">
+                <Spinner size={32} />
+              </div>
+            </Card>
           </div>
         </div>
       </div>
@@ -109,7 +118,9 @@ console.log();
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Error" subtitle="Failed to load RFQ details" />
           <div className="flex-1 overflow-auto p-4">
-            <div className="text-center text-red-500">{error || "RFQ not found"}</div>
+            <div className="text-center text-red-500">
+              {error || "RFQ not found"}
+            </div>
           </div>
         </div>
       </div>
@@ -135,7 +146,9 @@ console.log();
                   <div className="flex items-center gap-3">
                     <User className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <div className="font-medium">{rfqData.customer?.name || "Unknown"}</div>
+                      <div className="font-medium">
+                        {rfqData.customer?.name || "Unknown"}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         Customer
                       </div>
@@ -144,7 +157,9 @@ console.log();
                   <div className="flex items-center gap-3">
                     <Building className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <div className="font-medium">{rfqData.customer?.type || "Unknown"}</div>
+                      <div className="font-medium">
+                        {rfqData.customer?.type || "Unknown"}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         Customer Type
                       </div>
@@ -153,7 +168,9 @@ console.log();
                   <div className="flex items-center gap-3">
                     <Calendar className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <div className="font-medium">{new Date(rfqData.createdAt).toLocaleDateString()}</div>
+                      <div className="font-medium">
+                        {new Date(rfqData.createdAt).toLocaleDateString()}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         Date Received
                       </div>
@@ -171,7 +188,9 @@ console.log();
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>
-                    <span className="font-medium capitalize">{rfqData.status.toLowerCase()}</span>
+                    <span className="font-medium capitalize">
+                      {rfqData.status.toLowerCase()}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Source:</span>
@@ -180,12 +199,16 @@ console.log();
                   {rfqData.dueDate && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Due Date:</span>
-                      <span className="font-medium">{new Date(rfqData.dueDate).toLocaleDateString()}</span>
+                      <span className="font-medium">
+                        {new Date(rfqData.dueDate).toLocaleDateString()}
+                      </span>
                     </div>
                   )}
                   {rfqData.totalBudget && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Budget:</span>
+                      <span className="text-muted-foreground">
+                        Total Budget:
+                      </span>
                       <span className="font-medium">
                         {formatCurrency(
                           currency === "CAD"
@@ -260,21 +283,47 @@ console.log();
                   <tbody>
                     {rfqData.items?.map((item: any) => (
                       <tr key={item.id} className="border-b">
-                        <td className="py-3">{item.customerSku || item.inventory?.sku || "N/A"}</td>
-                        <td className="py-3">{item.description || item.inventory?.description || "N/A"}</td>
-                        <td className="py-3">{item.quantity} {item.unit}</td>
+                        <td className="py-3">
+                          {item.customerSku || item.inventory?.sku || "N/A"}
+                        </td>
+                        <td className="py-3">
+                          {item.description ||
+                            item.inventory?.description ||
+                            "N/A"}
+                        </td>
+                        <td className="py-3">
+                          {item.quantity} {item.unit}
+                        </td>
                         <td className="py-3">
                           {formatCurrency(
                             currency === "CAD"
-                              ? (item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0)
-                              : convertCurrency(item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0, "CAD")
+                              ? item.finalPrice ||
+                                  item.suggestedPrice ||
+                                  item.estimatedPrice ||
+                                  0
+                              : convertCurrency(
+                                  item.finalPrice ||
+                                    item.suggestedPrice ||
+                                    item.estimatedPrice ||
+                                    0,
+                                  "CAD"
+                                )
                           )}
                         </td>
                         <td className="py-3">
                           {formatCurrency(
                             currency === "CAD"
-                              ? ((item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0) * item.quantity)
-                              : convertCurrency((item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0) * item.quantity, "CAD")
+                              ? (item.finalPrice ||
+                                  item.suggestedPrice ||
+                                  item.estimatedPrice ||
+                                  0) * item.quantity
+                              : convertCurrency(
+                                  (item.finalPrice ||
+                                    item.suggestedPrice ||
+                                    item.estimatedPrice ||
+                                    0) * item.quantity,
+                                  "CAD"
+                                )
                           )}
                         </td>
                         <td className="py-3">
@@ -390,15 +439,21 @@ console.log();
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="notifications" />
-                      <Label htmlFor="notifications">Enable email notifications</Label>
+                      <Label htmlFor="notifications">
+                        Enable email notifications
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox id="auto-pricing" />
-                      <Label htmlFor="auto-pricing">Enable automatic pricing</Label>
+                      <Label htmlFor="auto-pricing">
+                        Enable automatic pricing
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox id="stock-check" />
-                      <Label htmlFor="stock-check">Check stock availability</Label>
+                      <Label htmlFor="stock-check">
+                        Check stock availability
+                      </Label>
                     </div>
                   </div>
                 </CardContent>

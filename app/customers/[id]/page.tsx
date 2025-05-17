@@ -4,11 +4,19 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, use } from "react"
 import { customerApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Spinner } from "@/components/spinner"
 
 interface Customer {
   id: number
@@ -21,7 +29,11 @@ interface Customer {
   updatedAt: string
 }
 
-export default function CustomerView({ params }: { params: Promise<{ id: string }> }) {
+export default function CustomerView({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const router = useRouter()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
@@ -80,7 +92,9 @@ export default function CustomerView({ params }: { params: Promise<{ id: string 
           <Header title="Customer" subtitle="View customer details" />
           <div className="flex-1 overflow-auto p-4">
             <Card className="p-6">
-              <div className="text-center">Loading...</div>
+              <div className="flex justify-center items-center">
+                <Spinner size={32} />
+              </div>
             </Card>
           </div>
         </div>
@@ -117,27 +131,41 @@ export default function CustomerView({ params }: { params: Promise<{ id: string 
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Basic Information
+                </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Name</label>
+                    <label className="text-sm text-muted-foreground">
+                      Name
+                    </label>
                     <div className="font-medium">{customer.name}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Type</label>
-                    <div className="font-medium capitalize">{customer.type}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Type
+                    </label>
+                    <div className="font-medium capitalize">
+                      {customer.type}
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Email</label>
-                    <div className="font-medium">{customer.email || '-'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Email
+                    </label>
+                    <div className="font-medium">{customer.email || "-"}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Phone</label>
-                    <div className="font-medium">{customer.phone || '-'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Phone
+                    </label>
+                    <div className="font-medium">{customer.phone || "-"}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Address</label>
-                    <div className="font-medium">{customer.address || '-'}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Address
+                    </label>
+                    <div className="font-medium">{customer.address || "-"}</div>
                   </div>
                 </div>
               </div>
@@ -145,12 +173,20 @@ export default function CustomerView({ params }: { params: Promise<{ id: string 
                 <h3 className="text-lg font-semibold mb-4">Timestamps</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Created At</label>
-                    <div className="font-medium">{new Date(customer.createdAt).toLocaleString()}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Created At
+                    </label>
+                    <div className="font-medium">
+                      {new Date(customer.createdAt).toLocaleString()}
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Last Updated</label>
-                    <div className="font-medium">{new Date(customer.updatedAt).toLocaleString()}</div>
+                    <label className="text-sm text-muted-foreground">
+                      Last Updated
+                    </label>
+                    <div className="font-medium">
+                      {new Date(customer.updatedAt).toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -161,7 +197,9 @@ export default function CustomerView({ params }: { params: Promise<{ id: string 
           <Card className="p-6">
             <h3 className="text-xl font-semibold mb-4">Customer History</h3>
             {historyLoading ? (
-              <div>Loading history...</div>
+              <div className="flex justify-center items-center py-4">
+                <Spinner size={32} />
+              </div>
             ) : historyError ? (
               <div className="text-red-500">{historyError}</div>
             ) : history && history.length > 0 ? (
@@ -180,13 +218,23 @@ export default function CustomerView({ params }: { params: Promise<{ id: string 
                 <TableBody>
                   {history.map((tx: any) => (
                     <TableRow key={tx.id + tx.type + tx.date}>
-                      <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>
+                        {tx.date ? new Date(tx.date).toLocaleDateString() : "-"}
+                      </TableCell>
                       <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell>{tx.documentNumber || '-'}</TableCell>
-                      <TableCell>{tx.sku || '-'}</TableCell>
+                      <TableCell>{tx.documentNumber || "-"}</TableCell>
+                      <TableCell>{tx.sku || "-"}</TableCell>
                       <TableCell>{tx.quantity}</TableCell>
-                      <TableCell>{tx.price !== undefined && tx.price !== null ? `$${tx.price.toFixed(2)}` : '-'}</TableCell>
-                      <TableCell>{tx.totalAmount !== undefined && tx.totalAmount !== null ? `$${tx.totalAmount.toFixed(2)}` : '-'}</TableCell>
+                      <TableCell>
+                        {tx.price !== undefined && tx.price !== null
+                          ? `$${tx.price.toFixed(2)}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {tx.totalAmount !== undefined && tx.totalAmount !== null
+                          ? `$${tx.totalAmount.toFixed(2)}`
+                          : "-"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -199,4 +247,4 @@ export default function CustomerView({ params }: { params: Promise<{ id: string 
       </div>
     </div>
   )
-} 
+}
