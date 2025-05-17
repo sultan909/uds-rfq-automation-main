@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -22,109 +22,141 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-
-// Sample data for SKU mappings
-const initialMappings = [
-  {
-    id: 1,
-    standardSku: "CF226X",
-    standardDescription: "HP 26X High Yield Black Toner Cartridge",
-    variations: [
-      { id: 1, sku: "HP26X", source: "Tech Solutions Inc" },
-      { id: 2, sku: "HP-26-X", source: "ABC Electronics" },
-      { id: 3, sku: "CF-226-X", source: "Global Systems" },
-    ],
-  },
-  {
-    id: 2,
-    standardSku: "CE255X",
-    standardDescription: "HP 55X High Yield Black Toner Cartridge",
-    variations: [
-      { id: 4, sku: "HP55X", source: "Tech Solutions Inc" },
-      { id: 5, sku: "HP-55-X", source: "Midwest Distributors" },
-    ],
-  },
-  {
-    id: 3,
-    standardSku: "CC364X",
-    standardDescription: "HP 64X High Yield Black Toner Cartridge",
-    variations: [
-      { id: 6, sku: "HP64X", source: "Tech Solutions Inc" },
-      { id: 7, sku: "HP-64-X", source: "ABC Electronics" },
-      { id: 8, sku: "CC-364-X", source: "Global Systems" },
-    ],
-  },
-  {
-    id: 4,
-    standardSku: "Q2612A",
-    standardDescription: "HP 12A Black Toner Cartridge",
-    variations: [
-      { id: 9, sku: "HP12A", source: "Tech Solutions Inc" },
-      { id: 10, sku: "HP-12-A", source: "ABC Electronics" },
-    ],
-  },
-  {
-    id: 5,
-    standardSku: "CE505X",
-    standardDescription: "HP 05X High Yield Black Toner Cartridge",
-    variations: [
-      { id: 11, sku: "HP05X", source: "Tech Solutions Inc" },
-      { id: 12, sku: "HP-05-X", source: "Midwest Distributors" },
-    ],
-  },
-]
+import { customerApi } from "@/lib/api-client"
+import AllMappingsTab from "./AllMappingsTab"
+import RecentlyAddedTab from "./RecentlyAddedTab"
+import ProblematicSkusTab from "./ProblematicSkusTab"
 
 export default function SkuMapping() {
-  const [mappings, setMappings] = useState(initialMappings)
+  const [mappings, setMappings] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [newMapping, setNewMapping] = useState({
     standardSku: "",
     standardDescription: "",
-    variations: [{ sku: "", source: "" }],
+    variations: [{ sku: "", source: "", customerId: undefined }],
   })
   const [editMapping, setEditMapping] = useState<any>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [mappingToDelete, setMappingToDelete] = useState<number | null>(null)
+  const [inventorySkus, setInventorySkus] = useState<any[]>([])
+  const [skuOptions, setSkuOptions] = useState<any[]>([])
+  const [skuDropdownOpen, setSkuDropdownOpen] = useState(false)
+  const skuInputRef = useRef<HTMLInputElement>(null)
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerOptions, setCustomerOptions] = useState<any[][]>([]); // Array of options per variation
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState<number | null>(null);
+
+  // Fetch mappings from backend on mount
+  useEffect(() => {
+    const fetchMappings = async () => {
+      try {
+        const res = await fetch("/api/sku-mapping");
+        const data = await res.json();
+        setMappings(data.data || []);
+      } catch (err) {
+        // Optionally show error toast
+        setMappings([]);
+      }
+    };
+    fetchMappings();
+  }, []);
+
+  // Fetch inventory SKUs and filter out mapped SKUs when modal opens
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      const fetchData = async () => {
+        const invRes = await fetch("/api/inventory/list?page=1&pageSize=1000")
+        const invData = await invRes.json()
+        console.log("Full inventory API response:", invData)
+        // Try to resolve the items array from possible response shapes
+        const items = Array.isArray(invData.data) ? invData.data
+                    : Array.isArray(invData.data.items) ? invData.data.items
+                    : Array.isArray(invData) ? invData
+                    : [];
+        console.log("Resolved inventory items array:", items)
+        const mapRes = await fetch("/api/sku-mapping?page=1&pageSize=1000")
+        const mapData = await mapRes.json()
+        console.log("Full SKU mapping API response:", mapData)
+        const mappedSkus = new Set((mapData.data || []).map((m: any) => m.standardSku))
+        console.log("Mapped SKUs:", mappedSkus)
+        const available = items.filter((item: any) => item.sku && !mappedSkus.has(item.sku))
+        console.log("Available inventory SKUs:", available)
+        setInventorySkus(available)
+        setSkuOptions(available)
+        // Fetch all customers using customerApi
+        try {
+          const custData = await customerApi.list({ page: String(1), pageSize: String(1000) });
+          let custItems: any[] = [];
+          if (custData && Array.isArray(custData.data)) {
+            custItems = custData.data;
+          } else if (custData && custData.data && Array.isArray((custData.data as any).items)) {
+            custItems = (custData.data as any).items;
+          }
+          setCustomers(custItems);
+          setCustomerOptions([[]]);
+        } catch (err) {
+          setCustomers([]);
+          setCustomerOptions([[]]);
+        }
+      }
+      fetchData()
+    }
+  }, [isAddDialogOpen])
 
   // Filter mappings based on search term
   const filteredMappings = mappings.filter(
-    (mapping) =>
+    (mapping: any) =>
       mapping.standardSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mapping.standardDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mapping.variations.some(
-        (v) =>
-          v.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (v: any) =>
+          v.variationSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
           v.source.toLowerCase().includes(searchTerm.toLowerCase()),
       ),
   )
 
-  // Add a new mapping
-  const handleAddMapping = () => {
-    const newId = Math.max(...mappings.map((m) => m.id), 0) + 1
-    const variationsWithIds = newMapping.variations.map((v, index) => ({
-      ...v,
-      id: Math.max(...mappings.flatMap((m) => m.variations.map((v) => v.id)), 0) + index + 1,
-    }))
-
-    setMappings([
-      ...mappings,
-      {
-        ...newMapping,
-        id: newId,
-        variations: variationsWithIds,
-      },
-    ])
-
-    setNewMapping({
-      standardSku: "",
-      standardDescription: "",
-      variations: [{ sku: "", source: "" }],
-    })
-
-    setIsAddDialogOpen(false)
-  }
+  // Add a new mapping (integrated with backend, supports batch)
+  const handleAddMapping = async () => {
+    // Support for future batch: if newMapping is an array, send all
+    const mappingsToAdd = Array.isArray(newMapping) ? newMapping : [newMapping];
+    try {
+      // POST each mapping (or batch if backend supports it)
+      const responses = await Promise.all(
+        mappingsToAdd.map(async (mapping) => {
+          const res = await fetch("/api/sku-mapping", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              standardSku: mapping.standardSku,
+              standardDescription: mapping.standardDescription,
+              variations: mapping.variations.map((v: any) => ({
+                sku: v.sku,
+                source: v.source,
+                customerId: v.customerId || 1 // fallback if not selected
+              })),
+            }),
+          });
+          if (!res.ok) throw new Error("Failed to add mapping");
+          return res.json();
+        })
+      );
+      // After adding, fetch updated mappings from backend
+      const fetchRes = await fetch("/api/sku-mapping");
+      const data = await fetchRes.json();
+      setMappings(data.data || []);
+      setNewMapping({
+        standardSku: "",
+        standardDescription: "",
+        variations: [{ sku: "", source: "", customerId: undefined }],
+      });
+      setIsAddDialogOpen(false);
+    } catch (err) {
+      // Optionally show error toast
+      alert("Failed to add SKU mapping(s)");
+    }
+  };
 
   // Update an existing mapping
   const handleUpdateMapping = () => {
@@ -149,7 +181,7 @@ export default function SkuMapping() {
   const addVariationToNew = () => {
     setNewMapping({
       ...newMapping,
-      variations: [...newMapping.variations, { sku: "", source: "" }],
+      variations: [...newMapping.variations, { sku: "", source: "", customerId: undefined }],
     })
   }
 
@@ -165,11 +197,11 @@ export default function SkuMapping() {
   const addVariationToEdit = () => {
     if (!editMapping) return
 
-    const newId = Math.max(...mappings.flatMap((m) => m.variations.map((v) => v.id)), 0) + 1
+    const newId = Math.max(...mappings.flatMap((m: any) => m.variations.map((v: any) => v.id)), 0) + 1
 
     setEditMapping({
       ...editMapping,
-      variations: [...editMapping.variations, { id: newId, sku: "", source: "" }],
+      variations: [...editMapping.variations, { id: newId, sku: "", source: "", customerId: undefined }],
     })
   }
 
@@ -182,6 +214,70 @@ export default function SkuMapping() {
       variations: editMapping.variations.filter((v: any) => v.id !== id),
     })
   }
+
+  // Handle Standard SKU input change (typeahead logic)
+  const handleStandardSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewMapping({ ...newMapping, standardSku: value });
+    if (!value) {
+      setSkuOptions(inventorySkus);
+      setSkuDropdownOpen(false);
+      setNewMapping((prev) => ({ ...prev, standardDescription: "" }));
+      return;
+    }
+    // Filter options (case-insensitive, partial match)
+    const filtered = inventorySkus.filter((item: any) =>
+      item.sku && item.sku.toLowerCase().includes(value.toLowerCase())
+    );
+    console.log("Filtered options:", filtered, "Input value:", value);
+    setSkuOptions(filtered);
+    setSkuDropdownOpen(filtered.length > 0 || value.length > 0);
+    const match = inventorySkus.find((item: any) => item.sku && item.sku.toLowerCase() === value.toLowerCase());
+    if (match) {
+      setNewMapping((prev) => ({ ...prev, standardDescription: match.description }));
+    } else {
+      setNewMapping((prev) => ({ ...prev, standardDescription: "" }));
+    }
+  };
+
+  // Handle SKU option select
+  const handleSkuOptionSelect = (sku: string, description: string) => {
+    setNewMapping((prev) => ({ ...prev, standardSku: sku, standardDescription: description }))
+    setSkuDropdownOpen(false)
+    // Focus out of input
+    skuInputRef.current?.blur()
+  }
+
+  // Handle customer source input change for a variation
+  const handleCustomerSourceChange = (index: number, value: string) => {
+    const updatedVariations = [...newMapping.variations];
+    updatedVariations[index] = {
+      ...updatedVariations[index],
+      source: value,
+      customerId: undefined // Reset customerId if typing
+    };
+    setNewMapping({ ...newMapping, variations: updatedVariations });
+    // Filter customer options
+    const filtered = customers.filter((c: any) =>
+      c.name && c.name.toLowerCase().includes(value.toLowerCase())
+    );
+    const newOptions = [...customerOptions];
+    newOptions[index] = filtered;
+    setCustomerOptions(newOptions);
+    setCustomerDropdownOpen(filtered.length > 0 ? index : null);
+  };
+
+  // Handle customer option select
+  const handleCustomerOptionSelect = (index: number, customer: any) => {
+    const updatedVariations = [...newMapping.variations];
+    updatedVariations[index] = {
+      ...updatedVariations[index],
+      source: customer.name,
+      customerId: customer.id
+    };
+    setNewMapping({ ...newMapping, variations: updatedVariations });
+    setCustomerDropdownOpen(null);
+  };
 
   return (
     <div className="flex h-screen">
@@ -212,12 +308,36 @@ export default function SkuMapping() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label htmlFor="standard-sku">Standard SKU</Label>
-                            <Input
-                              id="standard-sku"
-                              value={newMapping.standardSku}
-                              onChange={(e) => setNewMapping({ ...newMapping, standardSku: e.target.value })}
-                              placeholder="e.g. CF226X"
-                            />
+                            <div className="relative">
+                              <Input
+                                id="standard-sku"
+                                ref={skuInputRef}
+                                value={newMapping.standardSku}
+                                onChange={handleStandardSkuChange}
+                                onFocus={() => setSkuDropdownOpen(skuOptions.length > 0)}
+                                onBlur={() => { setTimeout(() => setSkuDropdownOpen(false), 100); }}
+                                placeholder="e.g. CF226X"
+                                autoComplete="off"
+                              />
+                              {skuDropdownOpen && (
+                                <div className="absolute z-10 bg-white border rounded shadow w-full max-h-48 overflow-auto" style={{overflow: 'auto'}}>
+                                  {skuOptions.length > 0 ? (
+                                    skuOptions.map((item: any) => (
+                                      <div
+                                        key={item.sku}
+                                        className="px-3 py-2 cursor-pointer hover:bg-muted"
+                                        onMouseDown={() => handleSkuOptionSelect(item.sku, item.description)}
+                                      >
+                                        <div className="font-medium">{item.sku}</div>
+                                        <div className="text-xs text-muted-foreground">{item.description}</div>
+                                      </div>
+                                    ))
+                                  ) : newMapping.standardSku ? (
+                                    <div className="px-3 py-2 text-muted-foreground">No matches found</div>
+                                  ) : null}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div>
                             <Label htmlFor="standard-description">Description</Label>
@@ -226,6 +346,7 @@ export default function SkuMapping() {
                               value={newMapping.standardDescription}
                               onChange={(e) => setNewMapping({ ...newMapping, standardDescription: e.target.value })}
                               placeholder="e.g. HP 26X High Yield Black Toner"
+                              readOnly={!!inventorySkus.find((item: any) => item.sku === newMapping.standardSku)}
                             />
                           </div>
                         </div>
@@ -235,26 +356,55 @@ export default function SkuMapping() {
                           <div className="space-y-2 mt-2">
                             {newMapping.variations.map((variation, index) => (
                               <div key={index} className="flex gap-2">
-                                <Input
-                                  value={variation.sku}
+                                <div className="relative w-2/5">
+                                  <Input
+                                    value={variation.sku}
                                   onChange={(e) => {
                                     const updatedVariations = [...newMapping.variations]
                                     updatedVariations[index].sku = e.target.value
                                     setNewMapping({ ...newMapping, variations: updatedVariations })
                                   }}
-                                  placeholder="Variation SKU"
-                                  className="flex-1"
-                                />
-                                <Input
-                                  value={variation.source}
-                                  onChange={(e) => {
-                                    const updatedVariations = [...newMapping.variations]
-                                    updatedVariations[index].source = e.target.value
-                                    setNewMapping({ ...newMapping, variations: updatedVariations })
-                                  }}
-                                  placeholder="Source (e.g. Customer)"
-                                  className="flex-1"
-                                />
+                                    placeholder="Variation SKU"
+                                    className="flex-1 min-w-0"
+                                  />
+                                </div>
+
+                                <div className="relative w-3/5">
+                                  <Input
+                                    value={variation.source}
+                                    onChange={(e) => handleCustomerSourceChange(index, e.target.value)}
+                                    onFocus={() => {
+                                      const filtered = customers.filter((c: any) =>
+                                        c.name && c.name.toLowerCase().includes(variation.source?.toLowerCase() || "")
+                                      );
+                                      const newOptions = [...customerOptions];
+                                      newOptions[index] = filtered;
+                                      setCustomerOptions(newOptions);
+                                      setCustomerDropdownOpen(filtered.length > 0 ? index : null);
+                                    }}
+                                    onBlur={(e) => {
+                                      // Only close if not clicking dropdown
+                                      setTimeout(() => setCustomerDropdownOpen(null), 100);
+                                    }}
+                                    placeholder="Source (e.g. Customer)"
+                                    className="flex-1 min-w-0"
+                                    autoComplete="off"
+                                  />
+                                  {customerDropdownOpen === index && customerOptions[index]?.length > 0 && (
+                                    <div className="absolute left-0 top-full z-10 bg-white border rounded shadow w-full max-h-48 overflow-auto" style={{overflow: 'auto', width: '100%'}}>
+                                      {customerOptions[index].map((c: any) => (
+                                        <div
+                                          key={c.id}
+                                          className="px-3 py-2 cursor-pointer hover:bg-muted"
+                                          onMouseDown={() => handleCustomerOptionSelect(index, c)}
+                                        >
+                                          <div className="font-medium">{c.name}</div>
+                                          <div className="text-xs text-muted-foreground">{c.email}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -321,280 +471,55 @@ export default function SkuMapping() {
                   </TabsList>
 
                   <TabsContent value="all" className="m-0">
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[180px]">
-                              <div className="flex items-center gap-1">
-                                Standard SKU
-                                <ArrowUpDown className="h-4 w-4" />
-                              </div>
-                            </TableHead>
-                            <TableHead>
-                              <div className="flex items-center gap-1">
-                                Description
-                                <ArrowUpDown className="h-4 w-4" />
-                              </div>
-                            </TableHead>
-                            <TableHead>Variations</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredMappings.map((mapping) => (
-                            <TableRow key={mapping.id}>
-                              <TableCell className="font-medium">{mapping.standardSku}</TableCell>
-                              <TableCell>{mapping.standardDescription}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {mapping.variations.map((variation) => (
-                                    <Badge key={variation.id} variant="outline" className="flex items-center gap-1">
-                                      {variation.sku}
-                                      <span className="text-xs text-muted-foreground">({variation.source})</span>
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                  <Dialog
-                                    open={isEditDialogOpen && editMapping?.id === mapping.id}
-                                    onOpenChange={(open) => {
-                                      if (open) {
-                                        setEditMapping(mapping)
-                                      }
-                                      setIsEditDialogOpen(open)
-                                    }}
-                                  >
-                                    <DialogTrigger asChild>
-                                      <Button variant="ghost" size="icon">
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[600px]">
-                                      <DialogHeader>
-                                        <DialogTitle>Edit SKU Mapping</DialogTitle>
-                                        <DialogDescription>
-                                          Update the mapping between a standard SKU and its variations.
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                      {editMapping && (
-                                        <div className="grid gap-4 py-4">
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <Label htmlFor="edit-standard-sku">Standard SKU</Label>
-                                              <Input
-                                                id="edit-standard-sku"
-                                                value={editMapping.standardSku}
-                                                onChange={(e) =>
-                                                  setEditMapping({ ...editMapping, standardSku: e.target.value })
-                                                }
-                                              />
-                                            </div>
-                                            <div>
-                                              <Label htmlFor="edit-standard-description">Description</Label>
-                                              <Input
-                                                id="edit-standard-description"
-                                                value={editMapping.standardDescription}
-                                                onChange={(e) =>
-                                                  setEditMapping({
-                                                    ...editMapping,
-                                                    standardDescription: e.target.value,
-                                                  })
-                                                }
-                                              />
-                                            </div>
-                                          </div>
-
-                                          <div>
-                                            <Label>SKU Variations</Label>
-                                            <div className="space-y-2 mt-2">
-                                              {editMapping.variations.map((variation: any) => (
-                                                <div key={variation.id} className="flex gap-2">
-                                                  <Input
-                                                    value={variation.sku}
-                                                    onChange={(e) => {
-                                                      const updatedVariations = [...editMapping.variations]
-                                                      const index = updatedVariations.findIndex(
-                                                        (v) => v.id === variation.id,
-                                                      )
-                                                      updatedVariations[index].sku = e.target.value
-                                                      setEditMapping({ ...editMapping, variations: updatedVariations })
-                                                    }}
-                                                    placeholder="Variation SKU"
-                                                    className="flex-1"
-                                                  />
-                                                  <Input
-                                                    value={variation.source}
-                                                    onChange={(e) => {
-                                                      const updatedVariations = [...editMapping.variations]
-                                                      const index = updatedVariations.findIndex(
-                                                        (v) => v.id === variation.id,
-                                                      )
-                                                      updatedVariations[index].source = e.target.value
-                                                      setEditMapping({ ...editMapping, variations: updatedVariations })
-                                                    }}
-                                                    placeholder="Source (e.g. Customer)"
-                                                    className="flex-1"
-                                                  />
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => removeVariationFromEdit(variation.id)}
-                                                    disabled={editMapping.variations.length === 1}
-                                                  >
-                                                    <Trash2 className="h-4 w-4" />
-                                                  </Button>
-                                                </div>
-                                              ))}
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={addVariationToEdit}
-                                                className="mt-2"
-                                              >
-                                                <Plus className="mr-2 h-4 w-4" />
-                                                Add Variation
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )}
-                                      <DialogFooter>
-                                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                                          Cancel
-                                        </Button>
-                                        <Button onClick={handleUpdateMapping}>Update Mapping</Button>
-                                      </DialogFooter>
-                                    </DialogContent>
-                                  </Dialog>
-
-                                  <Dialog
-                                    open={isDeleteDialogOpen && mappingToDelete === mapping.id}
-                                    onOpenChange={(open) => {
-                                      if (open) {
-                                        setMappingToDelete(mapping.id)
-                                      }
-                                      setIsDeleteDialogOpen(open)
-                                    }}
-                                  >
-                                    <DialogTrigger asChild>
-                                      <Button variant="ghost" size="icon">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                      <DialogHeader>
-                                        <DialogTitle>Delete SKU Mapping</DialogTitle>
-                                        <DialogDescription>
-                                          Are you sure you want to delete this SKU mapping? This action cannot be
-                                          undone.
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                      <DialogFooter>
-                                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-                                          Cancel
-                                        </Button>
-                                        <Button variant="destructive" onClick={handleDeleteMapping}>
-                                          Delete
-                                        </Button>
-                                      </DialogFooter>
-                                    </DialogContent>
-                                  </Dialog>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <AllMappingsTab
+                      mappings={filteredMappings}
+                      isEditDialogOpen={isEditDialogOpen}
+                      editMapping={editMapping}
+                      setEditMapping={setEditMapping}
+                      setIsEditDialogOpen={setIsEditDialogOpen}
+                      isDeleteDialogOpen={isDeleteDialogOpen}
+                      mappingToDelete={mappingToDelete}
+                      setMappingToDelete={setMappingToDelete}
+                      setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+                      handleCustomerSourceChange={handleCustomerSourceChange}
+                      customerOptions={customerOptions}
+                      customerDropdownOpen={customerDropdownOpen}
+                      setCustomerOptions={setCustomerOptions}
+                      setCustomerDropdownOpen={setCustomerDropdownOpen}
+                      customers={customers}
+                      removeVariationFromEdit={removeVariationFromEdit}
+                      addVariationToEdit={addVariationToEdit}
+                      setMappings={setMappings}
+                      handleDeleteMapping={handleDeleteMapping}
+                    />
                   </TabsContent>
 
                   <TabsContent value="recent" className="m-0">
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[180px]">Standard SKU</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Variations</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {/* This would show recently added mappings */}
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
-                              No recent mappings found
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <RecentlyAddedTab
+                      mappings={mappings}
+                      isEditDialogOpen={isEditDialogOpen}
+                      editMapping={editMapping}
+                      setEditMapping={setEditMapping}
+                      setIsEditDialogOpen={setIsEditDialogOpen}
+                      isDeleteDialogOpen={isDeleteDialogOpen}
+                      mappingToDelete={mappingToDelete}
+                      setMappingToDelete={setMappingToDelete}
+                      setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+                      handleCustomerSourceChange={handleCustomerSourceChange}
+                      customerOptions={customerOptions}
+                      customerDropdownOpen={customerDropdownOpen}
+                      setCustomerOptions={setCustomerOptions}
+                      setCustomerDropdownOpen={setCustomerDropdownOpen}
+                      customers={customers}
+                      removeVariationFromEdit={removeVariationFromEdit}
+                      addVariationToEdit={addVariationToEdit}
+                      setMappings={setMappings}
+                      handleDeleteMapping={handleDeleteMapping}
+                    />
                   </TabsContent>
 
                   <TabsContent value="problematic" className="m-0">
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[180px]">Problematic SKU</TableHead>
-                            <TableHead>Source</TableHead>
-                            <TableHead>Suggested Mapping</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell className="font-medium">HP-26X-TONER</TableCell>
-                            <TableCell>New Customer Inc.</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span>CF226X (HP 26X High Yield Black Toner)</span>
-                                <Badge variant="outline" className="bg-green-50">
-                                  98% Match
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button variant="outline" size="sm">
-                                  <Check className="mr-2 h-4 w-4" />
-                                  Accept
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  Edit
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell className="font-medium">HP55-X-BLK</TableCell>
-                            <TableCell>Office Supplies Ltd.</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span>CE255X (HP 55X High Yield Black Toner)</span>
-                                <Badge variant="outline" className="bg-green-50">
-                                  95% Match
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button variant="outline" size="sm">
-                                  <Check className="mr-2 h-4 w-4" />
-                                  Accept
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  Edit
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <ProblematicSkusTab />
                   </TabsContent>
                 </Tabs>
               </CardContent>
