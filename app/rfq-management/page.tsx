@@ -10,6 +10,7 @@ import { toast } from "sonner"
 
 interface RfqTableRowProps {
   id: string
+  rfqNumber:string
   customer: string
   date: string
   source: string
@@ -27,6 +28,7 @@ export default function RfqManagement() {
   useEffect(() => {
     fetchRfqs()
   }, [selectedTab])
+console.log("rfqs",rfqs);
 
   const fetchRfqs = async () => {
     try {
@@ -143,7 +145,8 @@ export default function RfqManagement() {
                           rfqs.map((rfq) => (
                             <RfqTableRow
                               key={rfq.id}
-                              id={rfq.rfqNumber}
+                              id={rfq.id}
+                              rfqNumber={rfq.rfqNumber}
                               customer={rfq.customer?.name || "Unknown"}
                               date={new Date(rfq.createdAt).toLocaleDateString()}
                               source={rfq.source}
@@ -165,7 +168,9 @@ export default function RfqManagement() {
   )
 }
 
-function RfqTableRow({ id, customer, date, source, items, status }: RfqTableRowProps) {
+function RfqTableRow({ id,rfqNumber, customer, date, source, items, status }: RfqTableRowProps) {
+  console.log("iddd",id);
+  
   const statusClasses = {
     pending: "status-new",
     in_review: "status-draft",
@@ -184,7 +189,7 @@ function RfqTableRow({ id, customer, date, source, items, status }: RfqTableRowP
 
   return (
     <tr className="border-b text-foreground">
-      <td className="py-3">{id}</td>
+      <td className="py-3">{rfqNumber}</td>
       <td className="py-3">{customer}</td>
       <td className="py-3">{date}</td>
       <td className="py-3">{source}</td>

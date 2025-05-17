@@ -32,9 +32,23 @@ interface DashboardMetrics {
   }
 }
 
+interface RfqListItem {
+  id: number
+  rfqNumber: string
+  customerName: string
+  createdAt: string
+  status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "COMPLETED"
+  itemCount: number
+}
+
+interface DashboardRfqList {
+  activeRfqs: RfqListItem[]
+  completedRfqs: RfqListItem[]
+}
+
 export default function Dashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
-  const [rfqList, setRfqList] = useState<{ activeRfqs: any[]; completedRfqs: any[] } | null>(null)
+  const [rfqList, setRfqList] = useState<DashboardRfqList | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,6 +79,9 @@ export default function Dashboard() {
 
     fetchData()
   }, [])
+
+  console.log("rfqq",rfqList);
+  
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>
   if (error) return <div className="flex h-screen items-center justify-center text-red-500">{error}</div>
@@ -124,7 +141,7 @@ export default function Dashboard() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b text-left">
-                      <th className="pb-2 font-medium text-foreground">RFQ ID</th>
+                      <th className="pb-2 font-medium text-foreground">RFQ Number</th>
                       <th className="pb-2 font-medium text-foreground">Customer</th>
                       <th className="pb-2 font-medium text-foreground">Date</th>
                       <th className="pb-2 font-medium text-foreground">Items</th>
@@ -134,14 +151,22 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {rfqList?.activeRfqs.map(rfq => (
-                      <RfqRow
-                        key={rfq.id}
-                        id={`RFQ-${rfq.id}`}
-                        customer={rfq.customerName}
-                        date={new Date(rfq.createdAt).toLocaleDateString()}
-                        items={rfq.itemCount}
-                        status={rfq.status as "pending" | "in_review" | "approved" | "rejected" | "completed"}
-                      />
+                      <tr key={rfq.id} className="border-b text-foreground">
+                        <td className="py-3">{rfq.rfqNumber}</td>
+                        <td className="py-3">{rfq.customerName}</td>
+                        <td className="py-3">{new Date(rfq.createdAt).toLocaleDateString()}</td>
+                        <td className="py-3">{rfq.itemCount}</td>
+                        <td className="py-3">
+                          <span className={getStatusClass(rfq.status)}>
+                            {getStatusLabel(rfq.status)}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <a href={`/rfq-management/${rfq.id}`} className="text-primary hover:underline">
+                            View
+                          </a>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -160,7 +185,7 @@ export default function Dashboard() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b text-left">
-                      <th className="pb-2 font-medium text-foreground">RFQ ID</th>
+                      <th className="pb-2 font-medium text-foreground">RFQ Number</th>
                       <th className="pb-2 font-medium text-foreground">Customer</th>
                       <th className="pb-2 font-medium text-foreground">Date</th>
                       <th className="pb-2 font-medium text-foreground">Items</th>
@@ -170,14 +195,22 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {rfqList?.completedRfqs.map(rfq => (
-                      <RfqRow
-                        key={rfq.id}
-                        id={`RFQ-${rfq.id}`}
-                        customer={rfq.customerName}
-                        date={new Date(rfq.createdAt).toLocaleDateString()}
-                        items={rfq.itemCount}
-                        status={rfq.status as "pending" | "in_review" | "approved" | "rejected" | "completed"}
-                      />
+                      <tr key={rfq.id} className="border-b text-foreground">
+                        <td className="py-3">{rfq.rfqNumber}</td>
+                        <td className="py-3">{rfq.customerName}</td>
+                        <td className="py-3">{new Date(rfq.createdAt).toLocaleDateString()}</td>
+                        <td className="py-3">{rfq.itemCount}</td>
+                        <td className="py-3">
+                          <span className={getStatusClass(rfq.status)}>
+                            {getStatusLabel(rfq.status)}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <a href={`/rfq-management/${rfq.id}`} className="text-primary hover:underline">
+                            View
+                          </a>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -252,50 +285,25 @@ function MetricCard({ label, value, change, trend, color }: MetricCardProps) {
   )
 }
 
-interface RfqRowProps {
-  id: string
-  customer: string
-  date: string
-  items: number
-  status: "pending" | "in_review" | "approved" | "rejected" | "completed"
+// Helper functions for status display
+function getStatusClass(status: string) {
+  const statusClasses = {
+    PENDING: "status-new",
+    IN_REVIEW: "status-draft",
+    APPROVED: "status-accepted",
+    REJECTED: "status-declined",
+    COMPLETED: "status-processed"
+  }
+  return statusClasses[status as keyof typeof statusClasses]
 }
 
-function RfqRow({ id, customer, date, items, status }: RfqRowProps) {
-  const statusClasses = {
-    pending: "status-new",
-    in_review: "status-draft",
-    approved: "status-accepted",
-    rejected: "status-declined",
-    completed: "status-processed"
-  }
-
+function getStatusLabel(status: string) {
   const statusLabels = {
-    pending: "Pending",
-    in_review: "In Review",
-    approved: "Approved",
-    rejected: "Rejected",
-    completed: "Completed"
+    PENDING: "Pending",
+    IN_REVIEW: "In Review",
+    APPROVED: "Approved",
+    REJECTED: "Rejected",
+    COMPLETED: "Completed"
   }
-
-  // Convert status to lowercase for display
-  const displayStatus = status.toLowerCase() as keyof typeof statusClasses
-
-  return (
-    <tr className="border-b text-foreground">
-      <td className="py-3">{id}</td>
-      <td className="py-3">{customer}</td>
-      <td className="py-3">{date}</td>
-      <td className="py-3">{items}</td>
-      <td className="py-3">
-        <span className={statusClasses[displayStatus]}>
-          {statusLabels[displayStatus]}
-        </span>
-      </td>
-      <td className="py-3">
-        <a href={`/rfq-management/${id}`} className="text-primary hover:underline">
-          View
-        </a>
-      </td>
-    </tr>
-  )
+  return statusLabels[status as keyof typeof statusLabels]
 }
