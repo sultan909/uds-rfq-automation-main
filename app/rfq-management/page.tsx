@@ -111,6 +111,9 @@ console.log("rfqs",rfqs);
                       onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     />
                     <Button onClick={handleSearch}>Search</Button>
+                    <Button asChild>
+                      <a href="/rfq-management/new">Add New RFQ</a>
+                    </Button>
                   </div>
                 </div>
 
@@ -202,8 +205,8 @@ function RfqTableRow({ rfqId, rfqNumber, customer, date, source, items, status }
           <Button variant="ghost" size="sm" asChild>
             <a href={`/rfq-management/${rfqId}`}>View</a>
           </Button>
-          <Button variant="ghost" size="sm">
-            Quote
+          <Button variant="ghost" size="sm" asChild>
+            <a href={`/rfq-management/${rfqId}/create-quote`}>Quote</a>
           </Button>
         </div>
       </td>

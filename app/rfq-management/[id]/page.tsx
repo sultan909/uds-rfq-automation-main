@@ -196,7 +196,9 @@ console.log();
                     </div>
                   )}
                   <div className="pt-4 flex gap-2">
-                    <Button onClick={handleCreateQuote}>Create Quote</Button>
+                    <Button asChild>
+                      <a href={`/rfq-management/${id}/create-quote`}>Create Quote</a>
+                    </Button>
                     <Button variant="outline" onClick={handleRejectRfq}>
                       Reject RFQ
                     </Button>
