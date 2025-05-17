@@ -21,13 +21,37 @@ interface InventoryTableRowProps {
   unitPrice: number
   warehouse_location: string
   status: string
+  category: string
   onView: (id: string) => void
   onEdit: (id: string) => void
 }
 
+interface InventoryItem {
+  id: number
+  sku: string
+  description: string
+  brand: string
+  category: string
+  quantityOnHand: number
+  quantityReserved: number
+  lowStockThreshold: number
+  costCad: number | null
+  warehouseLocation: string | null
+}
+
+interface CategoryCount {
+  category: string
+  count: number
+}
+
+interface InventoryApiResponse {
+  items: InventoryItem[]
+  categories: CategoryCount[]
+}
+
 export default function InventoryManagement() {
   const router = useRouter()
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -35,7 +59,8 @@ export default function InventoryManagement() {
   const [stats, setStats] = useState({
     total: 0,
     lowStock: 0,
-    outOfStock: 0
+    outOfStock: 0,
+    active: 0
   })
 
   useEffect(() => {
@@ -45,18 +70,32 @@ export default function InventoryManagement() {
   const fetchInventory = async () => {
     try {
       setLoading(true)
-      const params = selectedTab === "all" ? {} : { status: selectedTab.toUpperCase() }
+      let params = {};
+      
+      switch (selectedTab) {
+        case "low_stock":
+          params = { lowStock: true };
+          break;
+        case "out_of_stock":
+          params = { outOfStock: true };
+          break;
+        case "active":
+          params = { status: "ACTIVE" };
+          break;
+      }
+      
       const response = await inventoryApi.list(params)
       
       if (response.success && response.data) {
-        const inventoryData = response.data as any[]
+        const { items: inventoryData, categories } = response.data as InventoryApiResponse
         setItems(inventoryData)
         
         // Calculate statistics
         setStats({
           total: inventoryData.length,
-          lowStock: inventoryData.filter(item => item.quantity <= item.minStockLevel).length,
-          outOfStock: inventoryData.filter(item => item.quantity === 0).length
+          lowStock: inventoryData.filter((item: InventoryItem) => item.quantityOnHand <= item.lowStockThreshold && item.quantityOnHand > 0).length,
+          outOfStock: inventoryData.filter((item: InventoryItem) => item.quantityOnHand === 0).length,
+          active: inventoryData.filter((item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold).length
         })
       } else {
         setError("Failed to load inventory")
@@ -80,7 +119,8 @@ export default function InventoryManagement() {
       setLoading(true)
       const response = await inventoryApi.search(searchQuery, { status: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
       if (response.success && response.data) {
-        setItems(response.data as any[])
+        const searchData = response.data as InventoryItem[]
+        setItems(searchData)
       } else {
         setError("Failed to search inventory")
         toast.error("Failed to search inventory")
@@ -157,84 +197,138 @@ export default function InventoryManagement() {
 
             <Tabs defaultValue="all" onValueChange={setSelectedTab}>
               <TabsList className="mb-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="low_stock">Low Stock</TabsTrigger>
-                <TabsTrigger value="out_of_stock">Out of Stock</TabsTrigger>
+                <TabsTrigger value="all" className="relative">
+                  All
+                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    {stats.total}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="active" className="relative">
+                  Active
+                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                    {stats.active}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="low_stock" className="relative">
+                  Low Stock
+                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                    {stats.lowStock}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="out_of_stock" className="relative">
+                  Out of Stock
+                  <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                    {stats.outOfStock}
+                  </span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value={selectedTab} className="m-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b text-left">
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
+                      <tr className="border-b bg-muted/50">
+                        <th className="py-3 px-4 text-left font-semibold">
+                          <div className="flex items-center gap-2">
                             SKU
-                            <ArrowUpDown className="h-4 w-4" />
+                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Name
-                            <ArrowUpDown className="h-4 w-4" />
+                        <th className="py-3 px-4 text-left font-semibold">
+                          <div className="flex items-center gap-2">
+                            Description
+                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
+                        <th className="py-3 px-4 text-left font-semibold">
+                          <div className="flex items-center gap-2">
                             Brand
-                            <ArrowUpDown className="h-4 w-4" />
+                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
+                        <th className="py-3 px-4 text-left font-semibold">
+                          <div className="flex items-center gap-2">
+                            Category
+                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </th>
+                        <th className="py-3 px-4 text-left font-semibold">
+                          <div className="flex items-center gap-2">
                             Stock
-                            <ArrowUpDown className="h-4 w-4" />
+                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Unit Price
-                            <ArrowUpDown className="h-4 w-4" />
+                        <th className="py-3 px-4 text-left font-semibold">
+                          <div className="flex items-center gap-2">
+                            Price (CAD)
+                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Location
-                            <ArrowUpDown className="h-4 w-4" />
-                          </div>
-                        </th>
-                        <th className="pb-2 font-medium">Actions</th>
+                        <th className="py-3 px-4 text-left font-semibold">Location</th>
+                        <th className="py-3 px-4 text-left font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-4">Loading...</td>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</td>
                         </tr>
                       ) : error ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-4 text-red-500">{error}</td>
+                          <td colSpan={7} className="text-center py-8 text-red-500">{error}</td>
                         </tr>
                       ) : items.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-4">No items found</td>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">No items found</td>
                         </tr>
                       ) : (
                         items.map((item) => (
-                          <InventoryTableRow
-                            key={item.id}
-                            id={item.id}
-                            sku={item.sku}
-                            name={item.name}
-                            brand={item.brand}
-                            stock={item.quantity}
-                            unitPrice={item.unitPrice}
-                            warehouse_location={item.warehouseLocation}
-                            status={item.status}
-                            onView={handleView}
-                            onEdit={handleEdit}
-                          />
+                          <tr key={item.id} className="border-b hover:bg-muted/50 transition-colors">
+                            <td className="py-4 px-4">{item.sku}</td>
+                            <td className="py-4 px-4">
+                              <div className="max-w-xs truncate">{item.description}</div>
+                            </td>
+                            <td className="py-4 px-4">{item.brand}</td>
+                            <td className="py-4 px-4">
+                              <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 inline-block">
+                                {item.category}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                ${item.quantityOnHand === 0 ? 'bg-red-100 text-red-800' : 
+                                  item.quantityOnHand <= item.lowStockThreshold ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-green-100 text-green-800'}`}>
+                                {item.quantityOnHand}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              ${item.costCad ? item.costCad.toFixed(2) : '0.00'}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="max-w-xs truncate">{item.warehouseLocation || 'N/A'}</div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  className="h-8 px-3 text-xs"
+                                  onClick={() => handleView(item.id.toString())}
+                                >
+                                  View
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  className="h-8 px-3 text-xs"
+                                  onClick={() => handleEdit(item.id.toString())}
+                                >
+                                  Edit
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
                         ))
                       )}
                     </tbody>
@@ -258,6 +352,7 @@ function InventoryTableRow({
   unitPrice, 
   warehouse_location, 
   status,
+  category,
   onView,
   onEdit 
 }: InventoryTableRowProps) {
@@ -272,6 +367,11 @@ function InventoryTableRow({
       <td className="py-3">{sku}</td>
       <td className="py-3">{name}</td>
       <td className="py-3">{brand}</td>
+      <td className="py-3">
+        <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 inline-block">
+          {category}
+        </div>
+      </td>
       <td className="py-3">
         <span className={getStatusClass(stock, 5)}>
           {stock}

@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       sku,
       mpn,
       brand,
+      category,
       description,
       stock,
       costCad,
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!sku || !mpn || !brand || !description) {
+    if (!sku || !mpn || !brand || !description || !category) {
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
         { status: 400 }
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
         sku,
         mpn,
         brand,
+        category,
         description,
         stock: stock || 0,
         costCad,

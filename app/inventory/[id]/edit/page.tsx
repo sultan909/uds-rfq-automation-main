@@ -13,18 +13,21 @@ import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
 
 interface InventoryItem {
-  id: string
+  id: number
   sku: string
-  name: string
+  mpn: string
   brand: string
-  stock: number
-  unitPrice: number
-  warehouse_location: string
-  status: string
-  description?: string
-  minStockLevel: number
-  maxStockLevel?: number
-  supplier?: string
+  description: string
+  quantityOnHand: number
+  quantityReserved: number
+  costCad: number | null
+  costUsd: number | null
+  warehouseLocation: string | null
+  lowStockThreshold: number
+  lastSaleDate: string | null
+  quickbooksItemId: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export default function InventoryItemEdit({ params }: { params: { id: string } }) {
@@ -33,16 +36,15 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
     sku: "",
-    name: "",
+    mpn: "",
     brand: "",
-    stock: 0,
-    unitPrice: 0,
-    warehouse_location: "",
     description: "",
-    minStockLevel: 0,
-    maxStockLevel: 0,
-    supplier: "",
-    status: "ACTIVE"
+    quantityOnHand: 0,
+    quantityReserved: 0,
+    costCad: null,
+    costUsd: null,
+    warehouseLocation: null,
+    lowStockThreshold: 5
   })
 
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: name === "stock" || name === "unitPrice" || name === "minStockLevel" || name === "maxStockLevel" 
+      [name]: name === "quantityOnHand" || name === "quantityReserved" || name === "costCad" || name === "costUsd" || name === "lowStockThreshold" 
         ? parseFloat(value) || 0 
         : value
     }))
@@ -131,11 +133,11 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                     />
                   </div>
                   <div>
-                    <Label htmlFor="name">Name</Label>
+                    <Label htmlFor="mpn">MPN</Label>
                     <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
+                      id="mpn"
+                      name="mpn"
+                      value={formData.mpn}
                       onChange={handleChange}
                       required
                     />
@@ -157,6 +159,7 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                       name="description"
                       value={formData.description}
                       onChange={handleChange}
+                      required
                     />
                   </div>
                 </div>
@@ -164,64 +167,50 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Stock Information</h3>
                   <div>
-                    <Label htmlFor="stock">Current Stock</Label>
+                    <Label htmlFor="quantityOnHand">Quantity On Hand</Label>
                     <Input
-                      id="stock"
-                      name="stock"
+                      id="quantityOnHand"
+                      name="quantityOnHand"
                       type="number"
                       min="0"
-                      value={formData.stock}
+                      value={formData.quantityOnHand}
                       onChange={handleChange}
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="unitPrice">Unit Price</Label>
+                    <Label htmlFor="quantityReserved">Reserved Quantity</Label>
                     <Input
-                      id="unitPrice"
-                      name="unitPrice"
+                      id="quantityReserved"
+                      name="quantityReserved"
+                      type="number"
+                      min="0"
+                      value={formData.quantityReserved}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="costCad">Cost (CAD)</Label>
+                    <Input
+                      id="costCad"
+                      name="costCad"
                       type="number"
                       min="0"
                       step="0.01"
-                      value={formData.unitPrice}
+                      value={formData.costCad || ''}
                       onChange={handleChange}
-                      required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="warehouse_location">Warehouse Location</Label>
+                    <Label htmlFor="costUsd">Cost (USD)</Label>
                     <Input
-                      id="warehouse_location"
-                      name="warehouse_location"
-                      value={formData.warehouse_location}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Stock Levels</h3>
-                  <div>
-                    <Label htmlFor="minStockLevel">Minimum Stock Level</Label>
-                    <Input
-                      id="minStockLevel"
-                      name="minStockLevel"
+                      id="costUsd"
+                      name="costUsd"
                       type="number"
                       min="0"
-                      value={formData.minStockLevel}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="maxStockLevel">Maximum Stock Level</Label>
-                    <Input
-                      id="maxStockLevel"
-                      name="maxStockLevel"
-                      type="number"
-                      min="0"
-                      value={formData.maxStockLevel}
+                      step="0.01"
+                      value={formData.costUsd || ''}
                       onChange={handleChange}
                     />
                   </div>
@@ -230,28 +219,34 @@ export default function InventoryItemEdit({ params }: { params: { id: string } }
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Additional Information</h3>
                   <div>
-                    <Label htmlFor="supplier">Supplier</Label>
+                    <Label htmlFor="warehouseLocation">Warehouse Location</Label>
                     <Input
-                      id="supplier"
-                      name="supplier"
-                      value={formData.supplier}
+                      id="warehouseLocation"
+                      name="warehouseLocation"
+                      value={formData.warehouseLocation || ''}
                       onChange={handleChange}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="status">Status</Label>
-                    <select
-                      id="status"
-                      name="status"
-                      value={formData.status}
+                    <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
+                    <Input
+                      id="lowStockThreshold"
+                      name="lowStockThreshold"
+                      type="number"
+                      min="0"
+                      value={formData.lowStockThreshold}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
                       required
-                    >
-                      <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
-                      <option value="DISCONTINUED">Discontinued</option>
-                    </select>
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="quickbooksItemId">QuickBooks Item ID</Label>
+                    <Input
+                      id="quickbooksItemId"
+                      name="quickbooksItemId"
+                      value={formData.quickbooksItemId || ''}
+                      onChange={handleChange}
+                    />
                   </div>
                 </div>
               </div>

@@ -145,16 +145,22 @@ async function main() {
 
     // --- Seed Inventory Items ---
     console.log('Seeding inventory items...');
-    const brands = ['HP', 'Canon', 'Brother', 'Epson', 'Samsung', 'Lexmark'];
+    const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Lexmark', 'Samsung', 'Xerox', 'Ricoh'];
+    const categories = ['TONER', 'DRUM', 'INK', 'PARTS', 'OTHER'];
     
     const inventoryItemsData = Array(10).fill(null).map(() => {
       const brand = getRandomElement(brands);
+      const category = getRandomElement(categories);
       const costCad = parseFloat(faker.commerce.price({ min: 20, max: 500 }));
       return {
         sku: `${brand.substring(0, 2).toUpperCase()}-${faker.string.alphanumeric(5).toUpperCase()}`,
         mpn: faker.string.alphanumeric(8).toUpperCase(),
         brand: brand,
-        description: `${brand} ${faker.commerce.productName()} Toner Cartridge`,
+        category: category,
+        description: `${brand} ${faker.commerce.productName()} ${category === 'TONER' ? 'Toner Cartridge' : 
+          category === 'DRUM' ? 'Drum Unit' : 
+          category === 'INK' ? 'Ink Cartridge' : 
+          category === 'PARTS' ? 'Replacement Part' : 'Accessory'}`,
         stock: faker.number.int({ min: 0, max: 100 }),
         costCad: costCad,
         costUsd: parseFloat((costCad * 0.75).toFixed(2)),

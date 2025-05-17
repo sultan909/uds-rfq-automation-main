@@ -10,18 +10,21 @@ import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
 
 interface InventoryItem {
-  id: string
+  id: number
   sku: string
-  name: string
+  mpn: string
   brand: string
-  stock: number
-  unitPrice: number
-  warehouse_location: string
-  status: string
-  description?: string
-  minStockLevel: number
-  maxStockLevel?: number
-  supplier?: string
+  description: string
+  quantityOnHand: number
+  quantityReserved: number
+  costCad: number | null
+  costUsd: number | null
+  warehouseLocation: string | null
+  lowStockThreshold: number
+  lastSaleDate: string | null
+  quickbooksItemId: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export default function InventoryItemView({ params }: { params: Promise<{ id: string }> }) {
@@ -94,7 +97,7 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
         <div className="flex-1 overflow-auto p-4">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">{item.name}</h2>
+              <h2 className="text-2xl font-bold">{item.mpn}</h2>
               <Button onClick={handleEdit}>Edit Item</Button>
             </div>
 
@@ -107,12 +110,16 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                     <div className="font-medium">{item.sku}</div>
                   </div>
                   <div>
+                    <label className="text-sm text-muted-foreground">MPN</label>
+                    <div className="font-medium">{item.mpn}</div>
+                  </div>
+                  <div>
                     <label className="text-sm text-muted-foreground">Brand</label>
                     <div className="font-medium">{item.brand}</div>
                   </div>
                   <div>
                     <label className="text-sm text-muted-foreground">Description</label>
-                    <div className="font-medium">{item.description || "No description"}</div>
+                    <div className="font-medium">{item.description}</div>
                   </div>
                 </div>
               </div>
@@ -121,16 +128,20 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                 <h3 className="text-lg font-semibold mb-4">Stock Information</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Current Stock</label>
-                    <div className="font-medium">{item.stock}</div>
+                    <label className="text-sm text-muted-foreground">Quantity On Hand</label>
+                    <div className="font-medium">{item.quantityOnHand}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Unit Price</label>
-                    <div className="font-medium">${item.unitPrice?.toFixed(2) || '0.00'}</div>
+                    <label className="text-sm text-muted-foreground">Reserved Quantity</label>
+                    <div className="font-medium">{item.quantityReserved}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Warehouse Location</label>
-                    <div className="font-medium">{item.warehouse_location}</div>
+                    <label className="text-sm text-muted-foreground">Cost (CAD)</label>
+                    <div className="font-medium">${item.costCad?.toFixed(2) || '0.00'}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">Cost (USD)</label>
+                    <div className="font-medium">${item.costUsd?.toFixed(2) || '0.00'}</div>
                   </div>
                 </div>
               </div>
@@ -139,12 +150,14 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                 <h3 className="text-lg font-semibold mb-4">Stock Levels</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Minimum Stock Level</label>
-                    <div className="font-medium">{item.minStockLevel}</div>
+                    <label className="text-sm text-muted-foreground">Low Stock Threshold</label>
+                    <div className="font-medium">{item.lowStockThreshold}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Maximum Stock Level</label>
-                    <div className="font-medium">{item.maxStockLevel || "Not set"}</div>
+                    <label className="text-sm text-muted-foreground">Last Sale Date</label>
+                    <div className="font-medium">
+                      {item.lastSaleDate ? new Date(item.lastSaleDate).toLocaleDateString() : 'No sales yet'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -153,12 +166,16 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                 <h3 className="text-lg font-semibold mb-4">Additional Information</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">Supplier</label>
-                    <div className="font-medium">{item.supplier || "Not specified"}</div>
+                    <label className="text-sm text-muted-foreground">Warehouse Location</label>
+                    <div className="font-medium">{item.warehouseLocation || 'Not specified'}</div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Status</label>
-                    <div className="font-medium">{item.status}</div>
+                    <label className="text-sm text-muted-foreground">QuickBooks ID</label>
+                    <div className="font-medium">{item.quickbooksItemId || 'Not linked'}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">Last Updated</label>
+                    <div className="font-medium">{new Date(item.updatedAt).toLocaleString()}</div>
                   </div>
                 </div>
               </div>

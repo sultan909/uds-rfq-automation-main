@@ -306,6 +306,7 @@ export const inventoryItems = pgTable('inventory_items', {
   sku: varchar('sku', { length: 100 }).notNull().unique(),
   mpn: varchar('mpn', { length: 100 }).notNull(),
   brand: varchar('brand', { length: 100 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull().default('OTHER'),
   description: text('description').notNull(),
   stock: integer('stock').default(0).notNull(),
   costCad: real('cost_cad'),

@@ -18,15 +18,15 @@ export default function NewInventory() {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     sku: "",
-    name: "",
-    description: "",
+    mpn: "",
+    brand: "",
     category: "",
-    quantity: "0",
-    unitPrice: "",
-    minStockLevel: "0",
-    maxStockLevel: "",
-    location: "",
-    supplier: "",
+    description: "",
+    quantityOnHand: "0",
+    costCad: "",
+    costUsd: "",
+    warehouseLocation: "",
+    lowStockThreshold: "5",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,10 +36,10 @@ export default function NewInventory() {
     try {
       const response = await inventoryApi.create({
         ...formData,
-        quantity: parseInt(formData.quantity),
-        unitPrice: parseFloat(formData.unitPrice),
-        minStockLevel: parseInt(formData.minStockLevel),
-        maxStockLevel: formData.maxStockLevel ? parseInt(formData.maxStockLevel) : undefined,
+        quantityOnHand: parseInt(formData.quantityOnHand),
+        costCad: formData.costCad ? parseFloat(formData.costCad) : null,
+        costUsd: formData.costUsd ? parseFloat(formData.costUsd) : null,
+        lowStockThreshold: parseInt(formData.lowStockThreshold),
       })
 
       if (response.success) {
@@ -86,25 +86,26 @@ export default function NewInventory() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="mpn">MPN</Label>
                   <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
+                    id="mpn"
+                    name="mpn"
+                    value={formData.mpn}
                     onChange={handleChange}
                     required
-                    placeholder="Enter item name"
+                    placeholder="Enter Manufacturer Part Number"
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
+                <div className="space-y-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Input
+                    id="brand"
+                    name="brand"
+                    value={formData.brand}
                     onChange={handleChange}
-                    placeholder="Enter item description"
+                    required
+                    placeholder="Enter brand name"
                   />
                 </div>
 
@@ -113,6 +114,7 @@ export default function NewInventory() {
                   <Select
                     value={formData.category}
                     onValueChange={(value) => handleSelectChange("category", value)}
+                    required
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -127,93 +129,97 @@ export default function NewInventory() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="supplier">Supplier</Label>
-                  <Input
-                    id="supplier"
-                    name="supplier"
-                    value={formData.supplier}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
-                    placeholder="Enter supplier name"
+                    required
+                    placeholder="Enter item description"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantityOnHand">Quantity On Hand</Label>
                   <Input
-                    id="quantity"
-                    name="quantity"
+                    id="quantityOnHand"
+                    name="quantityOnHand"
                     type="number"
                     min="0"
-                    value={formData.quantity}
+                    value={formData.quantityOnHand}
                     onChange={handleChange}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="unitPrice">Unit Price</Label>
+                  <Label htmlFor="costCad">Cost (CAD)</Label>
                   <Input
-                    id="unitPrice"
-                    name="unitPrice"
+                    id="costCad"
+                    name="costCad"
                     type="number"
                     min="0"
                     step="0.01"
-                    value={formData.unitPrice}
+                    value={formData.costCad}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter cost in CAD"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="costUsd">Cost (USD)</Label>
+                  <Input
+                    id="costUsd"
+                    name="costUsd"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.costUsd}
+                    onChange={handleChange}
+                    placeholder="Enter cost in USD (optional)"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="warehouseLocation">Warehouse Location</Label>
+                  <Input
+                    id="warehouseLocation"
+                    name="warehouseLocation"
+                    value={formData.warehouseLocation}
+                    onChange={handleChange}
+                    placeholder="Enter warehouse location"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
+                  <Input
+                    id="lowStockThreshold"
+                    name="lowStockThreshold"
+                    type="number"
+                    min="0"
+                    value={formData.lowStockThreshold}
                     onChange={handleChange}
                     required
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="minStockLevel">Minimum Stock Level</Label>
-                  <Input
-                    id="minStockLevel"
-                    name="minStockLevel"
-                    type="number"
-                    min="0"
-                    value={formData.minStockLevel}
-                    onChange={handleChange}
-                    required
-                  />
+                <div className="md:col-span-2 flex justify-end gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.back()}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Creating..." : "Create Item"}
+                  </Button>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="maxStockLevel">Maximum Stock Level</Label>
-                  <Input
-                    id="maxStockLevel"
-                    name="maxStockLevel"
-                    type="number"
-                    min="0"
-                    value={formData.maxStockLevel}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    placeholder="Enter storage location"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Creating..." : "Create Item"}
-                </Button>
               </div>
             </form>
           </Card>
