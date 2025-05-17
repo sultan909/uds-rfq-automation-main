@@ -1,10 +1,9 @@
 // app/api/inventory/search/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createPaginatedResponse } from '../../lib/api-response';
-import { handleApiError, ApiError } from '../../lib/error-handler';
-import { db } from '../../../../db';
+import { createSuccessResponse, handleApiError } from '@/lib/api-response';
+import  {db}  from '../../../../db';
 import { inventoryItems } from '../../../../db/schema';
-import { like, or, count } from 'drizzle-orm';
+import { or, like } from 'drizzle-orm';
 
 /**
  * GET /api/inventory/search
@@ -12,46 +11,26 @@ import { like, or, count } from 'drizzle-orm';
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-
-    // Extract search parameters
+    const { searchParams } = new URL(request.url);
     const query = searchParams.get('query');
+
     if (!query) {
-      throw new ApiError('Search query parameter "query" is required', 400);
+      return createSuccessResponse([]);
     }
 
-    // Extract pagination parameters
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-
-    // Build search conditions
-    const searchCondition = or(
-      like(inventoryItems.sku, `%${query}%`),
-      like(inventoryItems.mpn, `%${query}%`),
-      like(inventoryItems.brand, `%${query}%`),
-      like(inventoryItems.description, `%${query}%`),
-      like(inventoryItems.warehouseLocation, `%${query}%`)
-    );
-
-    // Get total count of matching items
-    const totalCount = await db
-      .select({ value: count() })
-      .from(inventoryItems)
-      .where(searchCondition)
-      .then(result => result[0]?.value || 0);
-
-    // Get paginated search results
-    const searchResults = await db
+    const items = await db
       .select()
       .from(inventoryItems)
-      .where(searchCondition)
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+      .where(
+        or(
+          like(inventoryItems.description, `%${query}%`),
+          like(inventoryItems.sku, `%${query}%`),
+          like(inventoryItems.mpn, `%${query}%`),
+          like(inventoryItems.brand, `%${query}%`)
+        )
+      );
 
-    // Return response
-    return NextResponse.json(
-      createPaginatedResponse(searchResults, page, pageSize, totalCount)
-    );
+    return createSuccessResponse(items);
   } catch (error) {
     return handleApiError(error);
   }

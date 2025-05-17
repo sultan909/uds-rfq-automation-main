@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSuccessResponse } from '../../lib/api-response';
-import { handleApiError, ApiError } from '../../lib/error-handler';
-import { db } from '../../../../db';
-import { inventoryItems, marketPricing } from '../../../../db/schema';
-import { eq, avg } from 'drizzle-orm';
+import { createSuccessResponse, handleApiError } from '@/lib/api-response';
+import { db } from '@/db';
+import { inventoryItems } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 interface RouteParams {
   params: {
@@ -17,106 +16,92 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
-    
-    // Get inventory item
-    const item = await db
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.id, parseInt(id)))
-      .then(results => results[0]);
-    
-    // Check if item exists
+    const item = await db.query.inventoryItems.findFirst({
+      where: eq(inventoryItems.id, parseInt(params.id)),
+    });
+
     if (!item) {
-      throw new ApiError(`Inventory item with ID ${id} not found`, 404);
+      return NextResponse.json(
+        { success: false, message: 'Inventory item not found' },
+        { status: 404 }
+      );
     }
-    
-    // Get marketplace data for SKU
-    const marketplaceData = await db
-      .select()
-      .from(marketPricing)
-      .where(eq(marketPricing.productId, parseInt(id)));
-    
-    // Get average marketplace price
-    const avgMarketPrice = await db
-      .select({
-        averagePrice: avg(marketPricing.price)
-      })
-      .from(marketPricing)
-      .where(eq(marketPricing.productId, parseInt(id)))
-      .then(result => result[0]?.averagePrice || 0);
-    
-    // Combine item and marketplace data
-    const responseData = {
-      ...item,
-      marketplaceData,
-      avgMarketPrice
-    };
-    
-    // Return response
-    return NextResponse.json(createSuccessResponse(responseData));
+
+    return createSuccessResponse(item);
   } catch (error) {
     return handleApiError(error);
   }
 }
 
 /**
- * PATCH /api/inventory/:id
+ * PUT /api/inventory/:id
  * Update a specific inventory item
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
     const body = await request.json();
-    
-    // Check if item exists
-    const existingItem = await db
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.id, parseInt(id)))
-      .then(results => results[0]);
-      
-    if (!existingItem) {
-      throw new ApiError(`Inventory item with ID ${id} not found`, 404);
+    const {
+      sku,
+      mpn,
+      brand,
+      description,
+      stock,
+      costCad,
+      costUsd,
+      warehouseLocation,
+      quantityOnHand,
+      quantityReserved,
+      lowStockThreshold,
+    } = body;
+
+    // Validate required fields
+    if (!sku || !mpn || !brand || !description) {
+      return NextResponse.json(
+        { success: false, message: 'Missing required fields' },
+        { status: 400 }
+      );
     }
-    
-    // Prepare update values
-    const updateValues: Record<string, any> = {};
-    
-    // Only update fields that are provided in the request body
-    if (body.sku !== undefined) updateValues.sku = body.sku;
-    if (body.mpn !== undefined) updateValues.mpn = body.mpn;
-    if (body.brand !== undefined) updateValues.brand = body.brand;
-    if (body.description !== undefined) updateValues.description = body.description;
-    if (body.stock !== undefined) updateValues.stock = body.stock;
-    if (body.costCad !== undefined) updateValues.costCad = body.costCad;
-    if (body.costUsd !== undefined) updateValues.costUsd = body.costUsd;
-    if (body.warehouseLocation !== undefined) updateValues.warehouseLocation = body.warehouseLocation;
-    if (body.quantityOnHand !== undefined) updateValues.quantityOnHand = body.quantityOnHand;
-    if (body.quantityReserved !== undefined) updateValues.quantityReserved = body.quantityReserved;
-    if (body.lowStockThreshold !== undefined) updateValues.lowStockThreshold = body.lowStockThreshold;
-    
-    // Format lastSaleDate as string if it exists
-    if (body.lastSaleDate !== undefined) {
-      updateValues.lastSaleDate = body.lastSaleDate ? 
-        new Date(body.lastSaleDate).toISOString().split('T')[0] : 
-        null;
+
+    // Check if SKU is already taken by another item
+    const existingItem = await db.query.inventoryItems.findFirst({
+      where: eq(inventoryItems.sku, sku),
+    });
+
+    if (existingItem && existingItem.id !== parseInt(params.id)) {
+      return NextResponse.json(
+        { success: false, message: 'SKU already exists' },
+        { status: 400 }
+      );
     }
-    
-    if (body.quickbooksItemId !== undefined) updateValues.quickbooksItemId = body.quickbooksItemId;
-    
-    // Set updated timestamp
-    updateValues.updatedAt = new Date().toISOString();
-    
-    // Update item
+
+    // Update the item
     const [updatedItem] = await db
       .update(inventoryItems)
-      .set(updateValues)
-      .where(eq(inventoryItems.id, parseInt(id)))
+      .set({
+        sku,
+        mpn,
+        brand,
+        description,
+        stock,
+        costCad,
+        costUsd,
+        warehouseLocation,
+        quantityOnHand,
+        quantityReserved,
+        lowStockThreshold,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryItems.id, parseInt(params.id)))
       .returning();
-    
-    // Return response
-    return NextResponse.json(createSuccessResponse(updatedItem));
+
+    if (!updatedItem) {
+      return NextResponse.json(
+        { success: false, message: 'Inventory item not found' },
+        { status: 404 }
+      );
+    }
+
+    return createSuccessResponse(updatedItem);
   } catch (error) {
     return handleApiError(error);
   }
@@ -128,28 +113,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
-    
-    // Check if item exists
-    const existingItem = await db
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.id, parseInt(id)))
-      .then(results => results[0]);
-      
-    if (!existingItem) {
-      throw new ApiError(`Inventory item with ID ${id} not found`, 404);
-    }
-    
-    // Delete the item
-    await db
+    const [deletedItem] = await db
       .delete(inventoryItems)
-      .where(eq(inventoryItems.id, parseInt(id)));
-    
-    // Return success response
-    return NextResponse.json(
-      createSuccessResponse({ message: `Inventory item ${id} deleted successfully` })
-    );
+      .where(eq(inventoryItems.id, parseInt(params.id)))
+      .returning();
+
+    if (!deletedItem) {
+      return NextResponse.json(
+        { success: false, message: 'Inventory item not found' },
+        { status: 404 }
+      );
+    }
+
+    return createSuccessResponse(deletedItem);
   } catch (error) {
     return handleApiError(error);
   }

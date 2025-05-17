@@ -120,8 +120,8 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get('dateTo');
     
     // Extract pagination parameters
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10) || 10));
     
     // Build query conditions
     const conditions = [];

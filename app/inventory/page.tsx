@@ -6,15 +6,106 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertTriangle, ArrowUpDown, Package } from "lucide-react"
-import { useCurrency } from "@/contexts/currency-context"
+import { ArrowUpDown, Package } from "lucide-react"
+import { useEffect, useState } from "react"
+import { inventoryApi } from "@/lib/api-client"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
-export default function Inventory() {
+interface InventoryTableRowProps {
+  id: string
+  sku: string
+  name: string
+  brand: string
+  stock: number
+  unitPrice: number
+  warehouse_location: string
+  status: string
+  onView: (id: string) => void
+  onEdit: (id: string) => void
+}
+
+export default function InventoryManagement() {
+  const router = useRouter()
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTab, setSelectedTab] = useState("all")
+  const [stats, setStats] = useState({
+    total: 0,
+    lowStock: 0,
+    outOfStock: 0
+  })
+
+  useEffect(() => {
+    fetchInventory()
+  }, [selectedTab])
+
+  const fetchInventory = async () => {
+    try {
+      setLoading(true)
+      const params = selectedTab === "all" ? {} : { status: selectedTab.toUpperCase() }
+      const response = await inventoryApi.list(params)
+      
+      if (response.success && response.data) {
+        const inventoryData = response.data as any[]
+        setItems(inventoryData)
+        
+        // Calculate statistics
+        setStats({
+          total: inventoryData.length,
+          lowStock: inventoryData.filter(item => item.quantity <= item.minStockLevel).length,
+          outOfStock: inventoryData.filter(item => item.quantity === 0).length
+        })
+      } else {
+        setError("Failed to load inventory")
+        toast.error("Failed to load inventory")
+      }
+    } catch (err) {
+      setError("An error occurred while loading inventory")
+      toast.error("An error occurred while loading inventory")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      fetchInventory()
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await inventoryApi.search(searchQuery, { status: selectedTab === "all" ? undefined : selectedTab.toUpperCase() })
+      if (response.success && response.data) {
+        setItems(response.data as any[])
+      } else {
+        setError("Failed to search inventory")
+        toast.error("Failed to search inventory")
+      }
+    } catch (err) {
+      setError("An error occurred while searching inventory")
+      toast.error("An error occurred while searching inventory")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleView = (id: string) => {
+    router.push(`/inventory/${id}`)
+  }
+
+  const handleEdit = (id: string) => {
+    router.push(`/inventory/${id}/edit`)
+  }
+
   return (
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Inventory Management" subtitle="Track and manage your product inventory" showDateFilter />
+        <Header title="Inventory Management" subtitle="Manage and track inventory items" showNewInventory />
         <div className="flex-1 overflow-auto p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-4 flex items-center gap-4">
@@ -22,81 +113,94 @@ export default function Inventory() {
                 <Package className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Total SKUs</div>
-                <div className="text-2xl font-bold">1,248</div>
+                <div className="text-sm text-muted-foreground">Total Items</div>
+                <div className="text-2xl font-bold">{stats.total}</div>
               </div>
             </Card>
 
             <Card className="p-4 flex items-center gap-4">
-              <div className="bg-green-100 p-3 rounded-full">
-                <Package className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">In Stock</div>
-                <div className="text-2xl font-bold">876</div>
-              </div>
-            </Card>
-
-            <Card className="p-4 flex items-center gap-4">
-              <div className="bg-amber-100 p-3 rounded-full">
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              <div className="bg-yellow-100 p-3 rounded-full">
+                <Package className="h-6 w-6 text-yellow-600" />
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Low Stock</div>
-                <div className="text-2xl font-bold">14</div>
+                <div className="text-2xl font-bold">{stats.lowStock}</div>
+              </div>
+            </Card>
+
+            <Card className="p-4 flex items-center gap-4">
+              <div className="bg-red-100 p-3 rounded-full">
+                <Package className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Out of Stock</div>
+                <div className="text-2xl font-bold">{stats.outOfStock}</div>
               </div>
             </Card>
           </div>
 
           <Card className="p-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Inventory Items</h2>
+              <h2 className="text-lg font-semibold">Inventory List</h2>
               <div className="flex gap-2">
-                <Input type="search" placeholder="Search SKUs..." className="w-64" />
-                <Button>Add SKU</Button>
+                <Input 
+                  type="search" 
+                  placeholder="Search inventory..." 
+                  className="w-64"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <Button onClick={handleSearch}>Search</Button>
               </div>
             </div>
 
-            <Tabs defaultValue="all">
+            <Tabs defaultValue="all" onValueChange={setSelectedTab}>
               <TabsList className="mb-4">
-                <TabsTrigger value="all">All Items</TabsTrigger>
-                <TabsTrigger value="in-stock">In Stock</TabsTrigger>
-                <TabsTrigger value="low-stock">Low Stock</TabsTrigger>
-                <TabsTrigger value="out-of-stock">Out of Stock</TabsTrigger>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="active">Active</TabsTrigger>
+                <TabsTrigger value="low_stock">Low Stock</TabsTrigger>
+                <TabsTrigger value="out_of_stock">Out of Stock</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="all" className="m-0">
+              <TabsContent value={selectedTab} className="m-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b text-left">
                         <th className="pb-2 font-medium">
                           <div className="flex items-center gap-1">
-                            SKU ID
+                            SKU
                             <ArrowUpDown className="h-4 w-4" />
                           </div>
                         </th>
                         <th className="pb-2 font-medium">
                           <div className="flex items-center gap-1">
-                            Description
+                            Name
                             <ArrowUpDown className="h-4 w-4" />
                           </div>
                         </th>
                         <th className="pb-2 font-medium">
                           <div className="flex items-center gap-1">
-                            In Stock
+                            Brand
                             <ArrowUpDown className="h-4 w-4" />
                           </div>
                         </th>
                         <th className="pb-2 font-medium">
                           <div className="flex items-center gap-1">
-                            Avg. Cost
+                            Stock
                             <ArrowUpDown className="h-4 w-4" />
                           </div>
                         </th>
                         <th className="pb-2 font-medium">
                           <div className="flex items-center gap-1">
-                            Last Sale
+                            Unit Price
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="pb-2 font-medium">
+                          <div className="flex items-center gap-1">
+                            Location
                             <ArrowUpDown className="h-4 w-4" />
                           </div>
                         </th>
@@ -104,58 +208,38 @@ export default function Inventory() {
                       </tr>
                     </thead>
                     <tbody>
-                      <InventoryRow
-                        sku="CF226X"
-                        description="HP 26X High Yield Black Toner"
-                        stock={24}
-                        costCAD={89.5}
-                        lastSale="4/15/2025"
-                      />
-                      <InventoryRow
-                        sku="CE255X"
-                        description="HP 55X High Yield Black Toner"
-                        stock={12}
-                        costCAD={78.25}
-                        lastSale="4/18/2025"
-                      />
-                      <InventoryRow
-                        sku="CE505X"
-                        description="HP 05X High Yield Black Toner"
-                        stock={3}
-                        costCAD={65.75}
-                        lastSale="4/20/2025"
-                        lowStock
-                      />
-                      <InventoryRow
-                        sku="Q2612A"
-                        description="HP 12A Black Toner"
-                        stock={0}
-                        costCAD={45.99}
-                        lastSale="4/10/2025"
-                        outOfStock
-                      />
-                      <InventoryRow
-                        sku="CC364X"
-                        description="HP 64X High Yield Black Toner"
-                        stock={18}
-                        costCAD={112.5}
-                        lastSale="4/22/2025"
-                      />
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-4">Loading...</td>
+                        </tr>
+                      ) : error ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-4 text-red-500">{error}</td>
+                        </tr>
+                      ) : items.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-4">No items found</td>
+                        </tr>
+                      ) : (
+                        items.map((item) => (
+                          <InventoryTableRow
+                            key={item.id}
+                            id={item.id}
+                            sku={item.sku}
+                            name={item.name}
+                            brand={item.brand}
+                            stock={item.quantity}
+                            unitPrice={item.unitPrice}
+                            warehouse_location={item.warehouseLocation}
+                            status={item.status}
+                            onView={handleView}
+                            onEdit={handleEdit}
+                          />
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
-              </TabsContent>
-
-              <TabsContent value="in-stock" className="m-0">
-                {/* Similar table structure for in-stock items */}
-              </TabsContent>
-
-              <TabsContent value="low-stock" className="m-0">
-                {/* Similar table structure for low-stock items */}
-              </TabsContent>
-
-              <TabsContent value="out-of-stock" className="m-0">
-                {/* Similar table structure for out-of-stock items */}
               </TabsContent>
             </Tabs>
           </Card>
@@ -165,43 +249,50 @@ export default function Inventory() {
   )
 }
 
-interface InventoryRowProps {
-  sku: string
-  description: string
-  stock: number
-  costCAD: number
-  lastSale: string
-  lowStock?: boolean
-  outOfStock?: boolean
-}
-
-function InventoryRow({ sku, description, stock, costCAD, lastSale, lowStock, outOfStock }: InventoryRowProps) {
-  const { currency, formatCurrency, convertCurrency } = useCurrency()
-
-  // Format the cost based on the selected currency
-  const formattedCost = formatCurrency(currency === "CAD" ? costCAD : convertCurrency(costCAD, "CAD"))
+function InventoryTableRow({ 
+  id, 
+  sku, 
+  name, 
+  brand, 
+  stock, 
+  unitPrice, 
+  warehouse_location, 
+  status,
+  onView,
+  onEdit 
+}: InventoryTableRowProps) {
+  const getStatusClass = (stock: number, minStockLevel: number) => {
+    if (stock === 0) return "status-declined"
+    if (stock <= minStockLevel) return "status-pending"
+    return "status-processed"
+  }
 
   return (
     <tr className="border-b">
       <td className="py-3">{sku}</td>
-      <td className="py-3">{description}</td>
+      <td className="py-3">{name}</td>
+      <td className="py-3">{brand}</td>
       <td className="py-3">
-        {outOfStock ? (
-          <span className="status-rejected">Out of Stock</span>
-        ) : lowStock ? (
-          <span className="status-pending">{stock} (Low)</span>
-        ) : (
-          <span>{stock}</span>
-        )}
+        <span className={getStatusClass(stock, 5)}>
+          {stock}
+        </span>
       </td>
-      <td className="py-3">{formattedCost}</td>
-      <td className="py-3">{lastSale}</td>
+      <td className="py-3">${unitPrice ? unitPrice.toFixed(2) : '0.00'}</td>
+      <td className="py-3">{warehouse_location}</td>
       <td className="py-3">
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => onView(id)}
+          >
             View
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => onEdit(id)}
+          >
             Edit
           </Button>
         </div>
