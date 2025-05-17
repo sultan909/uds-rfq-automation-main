@@ -12,9 +12,10 @@ interface HeaderProps {
   showDateFilter?: boolean
   showNewCustomer?: boolean
   showNewInventory?: boolean
+  showNewRfq?: boolean
 }
 
-export function Header({ title, subtitle, showDateFilter, showNewCustomer, showNewInventory }: HeaderProps) {
+export function Header({ title, subtitle, showDateFilter, showNewCustomer, showNewInventory, showNewRfq }: HeaderProps) {
   const pathname = usePathname()
 
   return (
@@ -32,6 +33,11 @@ export function Header({ title, subtitle, showDateFilter, showNewCustomer, showN
           )}
           <ThemeToggle />
           <CurrencyToggle />
+          {showNewRfq && (
+            <Button asChild>
+              <a href="/rfq-management/new">New RFQ</a>
+            </Button>
+          )}
           {showNewCustomer && (
             <Button asChild>
               <a href="/customers/new">New Customer</a>
