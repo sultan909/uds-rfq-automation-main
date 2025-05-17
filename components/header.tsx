@@ -14,9 +14,10 @@ interface HeaderProps {
   showDateFilter?: boolean
   showNewCustomer?: boolean
   showNewInventory?: boolean
+  showNewRfq?: boolean
 }
 
-export function Header({ title, subtitle, showDateFilter, showNewCustomer, showNewInventory }: HeaderProps) {
+export function Header({ title, subtitle, showDateFilter, showNewCustomer, showNewInventory, showNewRfq }: HeaderProps) {
   const pathname = usePathname()
 
   return (
