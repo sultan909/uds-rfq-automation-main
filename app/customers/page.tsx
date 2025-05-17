@@ -220,6 +220,7 @@ export default function CustomerManagement() {
                         customers.map((customer) => (
                           <CustomerRow
                             key={customer.id}
+                            id={customer.id}
                             name={customer.name}
                             type={customer.type}
                             lastOrder={customer.lastOrder || "Never"}
@@ -249,15 +250,17 @@ export default function CustomerManagement() {
 }
 
 interface CustomerRowProps {
+  id: string
   name: string
-  type: "Dealer" | "Wholesaler"
+  type: string
   lastOrder: string
   totalOrders: number
   totalSpentCAD: number
 }
 
-function CustomerRow({ name, type, lastOrder, totalOrders, totalSpentCAD }: CustomerRowProps) {
+function CustomerRow({ id, name, type, lastOrder, totalOrders, totalSpentCAD }: CustomerRowProps) {
   const { currency, formatCurrency, convertCurrency } = useCurrency()
+  const router = require('next/navigation').useRouter();
 
   // Format the total spent based on the selected currency
   const formattedTotalSpent = formatCurrency(currency === "CAD" ? totalSpentCAD : convertCurrency(totalSpentCAD, "CAD"))
@@ -273,10 +276,10 @@ function CustomerRow({ name, type, lastOrder, totalOrders, totalSpentCAD }: Cust
       <td className="py-3">{formattedTotalSpent}</td>
       <td className="py-3">
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/customers/${id}`)}>
             View
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/customers/${id}/edit`)}>
             Edit
           </Button>
         </div>

@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const navItems = [
   {
@@ -97,32 +98,33 @@ export function Sidebar() {
 
   // Prevent layout shift by maintaining the last known width during SSR and initial hydration
   // This effectively prevents any flicker by keeping the initial render consistent
-  const initialWidth = store.isInitialized ? (store.isCollapsed ? 'w-16' : 'w-64') : 'w-64';
+  const initialWidth = store.isInitialized ? (store.isCollapsed ? 'w-20' : 'w-64') : 'w-64';
 
   return (
     <div 
-      className={`border-r h-screen bg-background ${
-        isReady ? `transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}` : initialWidth
+      className={`border-r h-screen bg-background min-w-20 z-30 ${
+        isReady ? `transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}` : initialWidth
       } flex flex-col`}
       data-state={isCollapsed ? "collapsed" : "expanded"}
     >
-      <div className="p-4 border-b flex items-center justify-between">
+      <div className={`border-b flex items-center ${isCollapsed ? 'flex-col justify-center p-2 h-20' : 'justify-between p-4'} relative`}>
         {!isCollapsed ? (
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold truncate">UDS</h1>
             <p className="text-sm text-muted-foreground truncate">RFQ Management</p>
           </div>
         ) : (
-          <div className="w-full flex justify-center">
-            <h1 className="text-xl font-bold">UDS</h1>
+          <div className="w-full flex flex-col items-center justify-center">
+            <h1 className="text-xl font-bold mb-2">UDS</h1>
           </div>
         )}
         {isReady && (
           <button 
             onClick={toggleSidebar}
-            className="p-1 rounded-md hover:bg-muted flex-shrink-0 ml-1"
+            className={`p-1 rounded-md hover:bg-muted flex-shrink-0 ${isCollapsed ? 'mt-0' : 'ml-1'}`}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             type="button"
+            style={isCollapsed ? { zIndex: 40 } : {}}
           >
             {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </button>
@@ -132,20 +134,34 @@ export function Sidebar() {
         <ul className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const navLink = (
+              <Link
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md ${
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted"
+                } ${isCollapsed ? 'justify-center' : ''}`}
+                title={isCollapsed ? item.name : undefined}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && <span className="truncate">{item.name}</span>}
+              </Link>
+            );
             return (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted"
-                  } ${isCollapsed ? 'justify-center' : ''}`}
-                  title={isCollapsed ? item.name : undefined}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span className="truncate">{item.name}</span>}
-                </Link>
+                {isCollapsed ? (
+                  <TooltipProvider>
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>{navLink}</TooltipTrigger>
+                      <TooltipContent side="right" className="select-none">
+                        {item.name}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  navLink
+                )}
               </li>
             );
           })}

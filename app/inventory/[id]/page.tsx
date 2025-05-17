@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState, use } from "react"
 import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 
 interface InventoryItem {
   id: number
@@ -32,9 +33,13 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
   const [item, setItem] = useState<InventoryItem | null>(null)
   const [loading, setLoading] = useState(true)
   const resolvedParams = use(params)
+  const [history, setHistory] = useState<any>(null)
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchItem()
+    fetchHistory()
   }, [resolvedParams.id])
 
   const fetchItem = async () => {
@@ -50,6 +55,23 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
       toast.error("An error occurred while loading the item")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchHistory = async () => {
+    try {
+      setHistoryLoading(true)
+      setHistoryError(null)
+      const response = await inventoryApi.getHistory(resolvedParams.id)
+      if (response.success && response.data) {
+        setHistory(response.data)
+      } else {
+        setHistoryError("Failed to load item history")
+      }
+    } catch (error) {
+      setHistoryError("An error occurred while loading item history")
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -95,7 +117,7 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Inventory Item" subtitle="View inventory item details" />
         <div className="flex-1 overflow-auto p-4">
-          <Card className="p-6">
+          <Card className="p-6 mb-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">{item.mpn}</h2>
               <Button onClick={handleEdit}>Edit Item</Button>
@@ -180,6 +202,43 @@ export default function InventoryItemView({ params }: { params: Promise<{ id: st
                 </div>
               </div>
             </div>
+          </Card>
+
+          {/* SKU Item History Section */}
+          <Card className="p-6">
+            <h3 className="text-xl font-semibold mb-4">SKU Item History</h3>
+            {historyLoading ? (
+              <div>Loading history...</div>
+            ) : historyError ? (
+              <div className="text-red-500">{historyError}</div>
+            ) : history && history.transactions && history.transactions.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Document #</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Unit Price</TableHead>
+                    <TableHead>Total Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.transactions.map((tx: any) => (
+                    <TableRow key={tx.id + tx.type + tx.date}>
+                      <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="capitalize">{tx.type}</TableCell>
+                      <TableCell>{tx.documentNumber || '-'}</TableCell>
+                      <TableCell>{tx.quantity}</TableCell>
+                      <TableCell>{tx.price !== undefined && tx.price !== null ? `$${tx.price.toFixed(2)}` : '-'}</TableCell>
+                      <TableCell>{tx.totalAmount !== undefined && tx.totalAmount !== null ? `$${tx.totalAmount.toFixed(2)}` : '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div>No history found for this item.</div>
+            )}
           </Card>
         </div>
       </div>

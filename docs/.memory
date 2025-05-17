@@ -1,0 +1,131 @@
+# UDS-RFQ Project Context
+
+## Project Overview
+
+UDS-RFQ is a specialized automation system designed to streamline the Request for Quote (RFQ) process for a client operating in the toner industry. The application helps manage RFQs, customer interactions, inventory, and provides integration with QuickBooks and marketplace data sources.
+
+## Core Functionality
+
+1. **RFQ Management**
+   - Creation, tracking, and processing of RFQs received via email, phone, or manual entry
+   - Status tracking (Pending, In Review, Approved, Rejected, Completed)
+   - Historical RFQ data tracking for trend analysis
+
+2. **SKU Management & Mapping**
+   - Standardization of SKUs across different customer naming conventions
+   - Ability to identify non-standard SKUs and map them to standard internal SKUs
+   - Tracking of SKU-specific history and pricing data
+
+3. **Pricing & Currency Support**
+   - Toggle between CAD and USD currencies for international customers
+   - Price recommendation based on historical data and market trends
+   - Flexible pricing adjustments before finalizing quotes
+
+4. **Customer Management**
+   - Customer type categorization (Wholesaler, Dealer, Retailer, Direct)
+   - Customer purchase history and preferences tracking
+   - Customer-specific SKU mapping
+
+5. **QuickBooks Integration**
+   - Syncing with QuickBooks for inventory and financial data
+   - Ability to push RFQs to QuickBooks for estimate generation
+   - Linking back to QuickBooks records for data validation
+
+6. **Marketplace Data Integration**
+   - Connection to external marketplace sites for competitive pricing information
+   - Real-time SKU pricing and availability tracking from external sources
+
+7. **Email Parsing**
+   - Automatic extraction of RFQ data from emails and attachments
+   - Intelligent detection of customer details and SKU information
+
+8. **Reporting & Analytics**
+   - Dashboard with key metrics and KPIs
+   - Customizable reports and data visualizations
+
+## Technical Architecture
+
+1. **Frontend**
+   - Built with Next.js 15 (App Router) and React 18
+   - TypeScript for type safety
+   - Tailwind CSS for styling with shadcn/ui component library
+   - Responsive design for desktop and mobile usage
+
+2. **Backend**
+   - Next.js API routes for server-side functionality
+   - PostgreSQL database with Drizzle ORM for data management
+   - RESTful API design for client-server communication
+
+3. **Database Schema**
+   - Comprehensive data model with relationships between:
+     - Users, Customers, Vendors
+     - RFQs, Quotations, Inventory Items
+     - SKU Mappings and Variations
+     - Sales History, Purchase Orders
+     - Email Integration, Templates, and Parsing
+
+4. **Authentication & Security**
+   - Role-based access control (Admin, Manager, Employee, Sales)
+   - Password hashing with bcrypt
+   - Audit logging for tracking system changes
+
+5. **Integration Points**
+   - QuickBooks API integration
+   - External marketplace data sources
+   - Email system integration for parsing RFQs
+
+## Project Status
+
+The project is in active development with core functionality implemented. The main focus areas include:
+
+1. **Completed Components**
+   - Basic dashboard and UI structure
+   - RFQ listing and management
+   - Currency handling
+   - Database schema and ORM setup
+
+2. **In Progress/Planned Features**
+   - Email parsing automation
+   - QuickBooks integration
+   - Advanced reporting
+   - Marketplace data integration
+
+## Technologies Used
+
+1. **Core Framework**: Next.js 15.2.4 with App Router
+2. **UI Components**: React 18.3.1, shadcn/ui, Tailwind CSS, Recharts
+3. **State Management**: React Context API, React Hooks
+4. **Database**: PostgreSQL with Drizzle ORM, Supabase
+5. **Utilities**: Zod, React Hook Form, date-fns, Faker.js
+
+## Important Concepts
+
+1. **RFQ Workflow**: 
+   - RFQs follow a specific flow: Pending → In Review → Approved/Rejected → Completed
+   - Each stage has specific actions and permissions
+
+2. **SKU Standardization**:
+   - Customers use different codes for the same product
+   - System maps these variations to standard internal SKUs
+   - Critical for accurate pricing and inventory management
+
+3. **Currency Handling**:
+   - All prices stored in CAD with conversion to USD as needed
+   - Exchange rates are simplified in the current implementation
+   - Currency context available throughout the application
+
+4. **Email Processing**:
+   - System checks email at regular intervals
+   - Parses RFQ details from email text and attachments
+   - Uses confidence thresholds for automatic processing
+
+## Development Guidelines
+
+1. Follow the component structure established in the project
+2. Use TypeScript types for all new functionality
+3. Add new API endpoints in the appropriate folders under app/api
+4. Update database schema in db/schema.ts when adding new data models
+5. Use the existing context providers for global state
+6. Follow the shadcn/ui component patterns for UI consistency
+7. Add appropriate error handling for all API calls
+8. Update documentation when adding significant new features
