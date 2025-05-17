@@ -212,6 +212,26 @@ console.log();
                 <FileText className="h-4 w-4 mr-2" />
                 Items
               </TabsTrigger>
+              <TabsTrigger value="customer-history">
+                <User className="h-4 w-4 mr-2" />
+                Customer History
+              </TabsTrigger>
+              <TabsTrigger value="market-prices">
+                <Tag className="h-4 w-4 mr-2" />
+                Market Prices
+              </TabsTrigger>
+              <TabsTrigger value="sales-history">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Sales History
+              </TabsTrigger>
+              <TabsTrigger value="custom-table">
+                <Building className="h-4 w-4 mr-2" />
+                Custom Table
+              </TabsTrigger>
+              <TabsTrigger value="original-request">
+                <FileText className="h-4 w-4 mr-2" />
+                Original Request
+              </TabsTrigger>
               <TabsTrigger value="history">
                 <History className="h-4 w-4 mr-2" />
                 History
@@ -270,6 +290,61 @@ console.log();
                   </tbody>
                 </table>
               </div>
+            </TabsContent>
+
+            <TabsContent value="customer-history" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Customer History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-muted-foreground">Customer history details go here.</div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="market-prices" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Market Prices</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-muted-foreground">Market prices information goes here.</div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="sales-history" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sales History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-muted-foreground">Sales history details go here.</div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="custom-table" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Custom Table</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-muted-foreground">Custom table content goes here.</div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="original-request" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Original Request</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-muted-foreground">Original request details go here.</div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="history" className="m-0">

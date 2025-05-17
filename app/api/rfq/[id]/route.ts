@@ -58,7 +58,7 @@ interface AuditLogEntry {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     // Get RFQ with related data
     const rfqData = await db

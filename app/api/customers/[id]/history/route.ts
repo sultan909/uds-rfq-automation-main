@@ -35,9 +35,10 @@ interface HistoryItem {
  * GET /api/customers/:id/history
  * Get RFQ history for a specific customer
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: Promise<RouteParams>) {
   try {
-    const { id } = params;
+    const { params } = await context;
+    const { id } = await params;
     const searchParams = request.nextUrl.searchParams;
     
     // Extract filter parameters

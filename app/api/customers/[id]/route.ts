@@ -15,9 +15,10 @@ interface RouteParams {
  * GET /api/customers/:id
  * Get a specific customer by ID
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: Promise<RouteParams>) {
   try {
-    const { id } = params;
+    const { params } = await context;
+    const { id } = await params;
     // Get customer
     const customer = await db
       .select()
@@ -39,8 +40,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PATCH /api/customers/:id
  * Update a specific customer
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, context: Promise<RouteParams>) {
   try {
+    const { params } = await context;
     const { id } = params;
     const body = await request.json();
     // Check if customer exists
@@ -69,8 +71,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/customers/:id
  * Delete a customer
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, context: Promise<RouteParams>) {
   try {
+    const { params } = await context;
     const { id } = params;
     // Check if customer exists
     const existingCustomer = await db

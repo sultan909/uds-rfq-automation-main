@@ -110,7 +110,7 @@ async function main() {
     const customerTypes = schema.customerTypeEnum.enumValues;
     const regions = ['North America', 'Europe', 'Asia', 'South America', 'Australia'];
     
-    const customersData = Array(5).fill(null).map(() => ({
+    const customersData = Array(8).fill(null).map(() => ({
       name: faker.company.name(),
       type: getRandomElement(customerTypes),
       region: getRandomElement(regions),
@@ -211,33 +211,31 @@ async function main() {
     const rfqSources = ['Email', 'Phone', 'Website', 'Direct Contact'];
     
     const rfqsData = [];
-    for (let i = 0; i < 5; i++) {
-      const customer = insertedCustomers[i % insertedCustomers.length];
-      const vendor = insertedVendors[i % insertedVendors.length];
-      const requestor = getRandomElement(insertedUsers);
-      const status = getRandomElement(rfqStatuses);
-      const approver = status === 'APPROVED' || status === 'COMPLETED' ? 
-                      insertedUsers.find(u => u.role === 'ADMIN' || u.role === 'MANAGER') : null;
-      
-      // Calculate a future date as ISO string
-      const futureDays = faker.number.int({ min: 30, max: 180 });
-      
-      rfqsData.push({
-        rfqNumber: `RFQ-${faker.string.numeric(5)}`,
-        title: `RFQ for ${customer.name}`,
-        description: faker.lorem.paragraph(),
-        requestorId: requestor.id,
-        customerId: customer.id,
-        vendorId: vendor.id,
-        status: status,
-        dueDate: getFutureDate(futureDays),
-        attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
-        totalBudget: parseFloat(faker.commerce.price({ min: 1000, max: 50000 })),
-        approvedBy: approver?.id || null,
-        rejectionReason: status === 'REJECTED' ? faker.lorem.sentence() : null,
-        source: getRandomElement(rfqSources),
-        notes: faker.lorem.paragraph()
-      });
+    for (const customer of insertedCustomers) {
+      for (let i = 0; i < 2; i++) { // 2 RFQs per customer
+        const vendor = getRandomElement(insertedVendors);
+        const requestor = getRandomElement(insertedUsers);
+        const status = getRandomElement(rfqStatuses);
+        const approver = status === 'APPROVED' || status === 'COMPLETED' ? 
+                        insertedUsers.find(u => u.role === 'ADMIN' || u.role === 'MANAGER') : null;
+        const futureDays = faker.number.int({ min: 30, max: 180 });
+        rfqsData.push({
+          rfqNumber: `RFQ-${faker.string.numeric(5)}`,
+          title: `RFQ for ${customer.name}`,
+          description: faker.lorem.paragraph(),
+          requestorId: requestor.id,
+          customerId: customer.id,
+          vendorId: vendor.id,
+          status: status,
+          dueDate: getFutureDate(futureDays),
+          attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
+          totalBudget: parseFloat(faker.commerce.price({ min: 1000, max: 50000 })),
+          approvedBy: approver?.id || null,
+          rejectionReason: status === 'REJECTED' ? faker.lorem.sentence() : null,
+          source: getRandomElement(rfqSources),
+          notes: faker.lorem.paragraph()
+        });
+      }
     }
     
     const insertedRfqs = await db.insert(schema.rfqs).values(rfqsData).returning();
@@ -248,18 +246,21 @@ async function main() {
     
     const rfqItemsData = [];
     for (const rfq of insertedRfqs) {
-      // Add 2-3 items per RFQ
+      // Add 2-3 items per RFQ, ensure each inventory item is used at least once
+      const usedItems = new Set();
       const itemCount = faker.number.int({ min: 2, max: 3 });
       for (let i = 0; i < itemCount; i++) {
-        const inventoryItem = getRandomElement(insertedInventoryItems);
+        let inventoryItem;
+        do {
+          inventoryItem = getRandomElement(insertedInventoryItems);
+        } while (usedItems.has(inventoryItem.id));
+        usedItems.add(inventoryItem.id);
         if (!inventoryItem || inventoryItem.costCad === null) continue;
         const costCad = inventoryItem.costCad as number;
-        
         const skuVariation = insertedSkuVariations.find(
           sv => sv.customerId === rfq.customerId && 
                insertedSkuMappings.find(sm => sm.id === sv.mappingId)?.standardSku === inventoryItem.sku
         );
-        
         rfqItemsData.push({
           rfqId: rfq.id,
           name: inventoryItem.description,
@@ -485,9 +486,8 @@ async function main() {
     
     const salesHistoryData = [];
     for (const customer of insertedCustomers) {
-      // Add 1-2 sales per customer
-      const salesCount = faker.number.int({ min: 1, max: 2 });
-      for (let i = 0; i < salesCount; i++) {
+      // Add 2-3 sales per customer
+      for (let i = 0; i < 3; i++) {
         const product = getRandomElement(insertedInventoryItems);
         if (!product || product.costCad === null) continue;
         const costCad = product.costCad as number;

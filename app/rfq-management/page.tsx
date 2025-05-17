@@ -9,6 +9,7 @@ import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 
 interface RfqTableRowProps {
+  rfqId: number
   id: string
   customer: string
   date: string
@@ -143,6 +144,7 @@ export default function RfqManagement() {
                           rfqs.map((rfq) => (
                             <RfqTableRow
                               key={rfq.id}
+                              rfqId={rfq.id}
                               id={rfq.rfqNumber}
                               customer={rfq.customer?.name || "Unknown"}
                               date={new Date(rfq.createdAt).toLocaleDateString()}
@@ -165,7 +167,7 @@ export default function RfqManagement() {
   )
 }
 
-function RfqTableRow({ id, customer, date, source, items, status }: RfqTableRowProps) {
+function RfqTableRow({ rfqId, id, customer, date, source, items, status }: RfqTableRowProps) {
   const statusClasses = {
     pending: "status-new",
     in_review: "status-draft",
@@ -197,7 +199,7 @@ function RfqTableRow({ id, customer, date, source, items, status }: RfqTableRowP
       <td className="py-3">
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" asChild>
-            <a href={`/rfq-management/${id}`}>View</a>
+            <a href={`/rfq-management/${rfqId}`}>View</a>
           </Button>
           <Button variant="ghost" size="sm">
             Quote

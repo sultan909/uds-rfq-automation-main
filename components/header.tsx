@@ -45,6 +45,11 @@ export function Header({ title, subtitle, showDateFilter, showNewCustomer, showN
               <a href="/inventory/new">New Item</a>
             </Button>
           )}
+          {showNewRfq && (
+            <Button asChild>
+              <a href="/rfq-management/new">New RFQ</a>
+            </Button>
+          )}
           <Link href="/settings" className="p-2 hover:bg-muted rounded-full" title="Settings">
             <SettingsIcon className="h-5 w-5" />
           </Link>
