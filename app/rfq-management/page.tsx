@@ -112,7 +112,7 @@ console.log("rfqs",rfqs);
                     />
                     <Button onClick={handleSearch}>Search</Button>
                     <Button asChild>
-                      <a href="/rfq-management/new">Add New RFQ</a>
+                      <a href="/rfq-management/new">New RFQ</a>
                     </Button>
                   </div>
                 </div>
