@@ -65,7 +65,7 @@ export default function SkuMapping() {
 
   // Fetch inventory SKUs and filter out mapped SKUs when modal opens
   useEffect(() => {
-    if (isAddDialogOpen) {
+    if (isAddDialogOpen || isEditDialogOpen) {
       const fetchData = async () => {
         const invRes = await fetch("/api/inventory/list?page=1&pageSize=1000")
         const invData = await invRes.json()
@@ -103,7 +103,7 @@ export default function SkuMapping() {
       }
       fetchData()
     }
-  }, [isAddDialogOpen])
+  }, [isAddDialogOpen, isEditDialogOpen])
 
   // Filter mappings based on search term
   const filteredMappings = mappings.filter(
@@ -279,6 +279,18 @@ export default function SkuMapping() {
     setCustomerDropdownOpen(null);
   };
 
+  // Handle customer selection in the dialog
+  const handleCustomerOptionSelectUpdate = (vIdx: number, customer: any) => {
+    const updatedVariations = [...editMapping.variations];
+    updatedVariations[vIdx] = {
+      ...updatedVariations[vIdx],
+      customerName: customer.name,
+      customerId: customer.id,
+      source: customer.name,
+    };
+    setEditMapping({ ...editMapping, variations: updatedVariations });
+  };
+
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -324,7 +336,7 @@ export default function SkuMapping() {
                                   {skuOptions.length > 0 ? (
                                     skuOptions.map((item: any) => (
                                       <div
-                                        key={item.sku}
+                                        key={item?.sku}
                                         className="px-3 py-2 cursor-pointer hover:bg-muted"
                                         onMouseDown={() => handleSkuOptionSelect(item.sku, item.description)}
                                       >
@@ -358,7 +370,7 @@ export default function SkuMapping() {
                               <div key={index} className="flex gap-2">
                                 <div className="relative w-2/5">
                                   <Input
-                                    value={variation.sku}
+                                    value={variation?.sku}
                                   onChange={(e) => {
                                     const updatedVariations = [...newMapping.variations]
                                     updatedVariations[index].sku = e.target.value
@@ -371,7 +383,7 @@ export default function SkuMapping() {
 
                                 <div className="relative w-3/5">
                                   <Input
-                                    value={variation.source}
+                                    value={variation?.source}
                                     onChange={(e) => handleCustomerSourceChange(index, e.target.value)}
                                     onFocus={() => {
                                       const filtered = customers.filter((c: any) =>
@@ -491,6 +503,8 @@ export default function SkuMapping() {
                       addVariationToEdit={addVariationToEdit}
                       setMappings={setMappings}
                       handleDeleteMapping={handleDeleteMapping}
+                      handleCustomerOptionSelectUpdate={handleCustomerOptionSelectUpdate}
+                      // handleUpdateMapping={handleUpdateMapping}
                     />
                   </TabsContent>
 
@@ -515,6 +529,8 @@ export default function SkuMapping() {
                       addVariationToEdit={addVariationToEdit}
                       setMappings={setMappings}
                       handleDeleteMapping={handleDeleteMapping}
+                      handleCustomerOptionSelectUpdate={handleCustomerOptionSelectUpdate}
+                      // handleUpdateMapping={handleUpdateMapping}
                     />
                   </TabsContent>
 

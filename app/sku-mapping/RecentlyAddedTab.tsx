@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Edit, Trash2, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import UpdateSkuMappingDialog from "./UpdateSkuMappingDialog";
 
 export default function RecentlyAddedTab(props: any) {
   const {
@@ -27,8 +28,67 @@ export default function RecentlyAddedTab(props: any) {
     removeVariationFromEdit,
     addVariationToEdit,
     setMappings,
-    handleDeleteMapping,
+    handleCustomerOptionSelectUpdate,
   } = props;
+
+  // Helper for updating mapping
+  const handleUpdateMapping = async () => {
+    if (!editMapping) return;
+    try {
+      await fetch(`/api/sku-mapping/${editMapping.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          standardSku: editMapping.standardSku,
+          standardDescription: editMapping.standardDescription,
+          variations: editMapping.variations.map((v: any) => ({
+            ...(v.id ? { id: v.id } : {}),
+            variationSku: v.variationSku || v.sku,
+            source: v.source,
+            customerId: v.customerId || 1,
+            ...(v.id ? {} : { isNew: true })
+          })),
+          replacementMode: true
+        }),
+      });
+      // Refresh mappings from backend
+      const fetchRes = await fetch("/api/sku-mapping");
+      const data = await fetchRes.json();
+      setMappings(data.data || []);
+      setIsEditDialogOpen(false);
+      setEditMapping(null);
+    } catch (err) {
+      alert("Failed to update SKU mapping");
+    }
+  };
+
+  // Helper for deleting mapping
+  const handleDeleteMapping = async () => {
+    if (mappingToDelete === null) return;
+    try {
+      await fetch(`/api/sku-mapping/${mappingToDelete}`, { method: "DELETE" });
+      // Refresh mappings from backend
+      const fetchRes = await fetch("/api/sku-mapping");
+      const data = await fetchRes.json();
+      setMappings(data.data || []);
+      setIsDeleteDialogOpen(false);
+      setMappingToDelete(null);
+    } catch (err) {
+      alert("Failed to delete SKU mapping");
+    }
+  };
+
+  // Handle customer selection in the dialog
+  // const handleCustomerOptionSelect = (vIdx: number, customer: any) => {
+  //   const updatedVariations = [...editMapping.variations];
+  //   updatedVariations[vIdx] = {
+  //     ...updatedVariations[vIdx],
+  //     customerName: customer.name,
+  //     customerId: customer.id,
+  //     source: customer.name,
+  //   };
+  //   setEditMapping({ ...editMapping, variations: updatedVariations });
+  // };
 
   let recentMappings = [...mappings];
   if (recentMappings.length > 0) {
@@ -82,7 +142,23 @@ export default function RecentlyAddedTab(props: any) {
                         <Edit className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    {/* You may want to move the full edit dialog content here, or keep it in the main page and pass as a prop */}
+                    <UpdateSkuMappingDialog
+                      open={isEditDialogOpen && editMapping?.id === mapping.id}
+                      onOpenChange={setIsEditDialogOpen}
+                      editMapping={editMapping}
+                      setEditMapping={setEditMapping}
+                      customers={customers}
+                      customerOptions={customerOptions}
+                      customerDropdownOpen={customerDropdownOpen}
+                      setCustomerOptions={setCustomerOptions}
+                      setCustomerDropdownOpen={setCustomerDropdownOpen}
+                      removeVariationFromEdit={removeVariationFromEdit}
+                      addVariationToEdit={addVariationToEdit}
+                      handleCustomerSourceChange={handleCustomerSourceChange}
+                      handleCustomerOptionSelectUpdate={handleCustomerOptionSelectUpdate}
+                      onUpdate={handleUpdateMapping}
+                      loading={false}
+                    />
                   </Dialog>
                   <Dialog
                     open={isDeleteDialogOpen && mappingToDelete === mapping.id}

@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     
     // Check if mapping exists
@@ -224,6 +224,103 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         createSuccessResponse({ message: `SKU mapping ${id} deleted successfully` })
       );
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * PUT /api/sku-mapping/:id
+ * Replace a specific SKU mapping and all its variations
+ */
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    // Check if mapping exists
+    const existingMapping = await db
+      .select()
+      .from(skuMappings)
+      .where(eq(skuMappings.id, parseInt(id)))
+      .then(results => results[0]);
+
+    if (!existingMapping) {
+      throw new ApiError(`SKU mapping with ID ${id} not found`, 404);
+    }
+
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // Update the mapping
+      const updateData: Record<string, any> = {};
+      if (body.standardSku !== undefined) updateData.standardSku = body.standardSku;
+      if (body.standardDescription !== undefined) updateData.standardDescription = body.standardDescription;
+
+      let updatedMapping = existingMapping;
+
+      // Only perform update if there are fields to update
+      if (Object.keys(updateData).length > 0) {
+        // Set the updated timestamp
+        updateData.updatedAt = new Date();
+
+        // Update the mapping
+        const [updated] = await tx
+          .update(skuMappings)
+          .set(updateData)
+          .where(eq(skuMappings.id, parseInt(id)))
+          .returning();
+
+        updatedMapping = updated;
+      }
+
+      // Always replace all variations with the new array
+      await tx
+        .delete(skuVariations)
+        .where(eq(skuVariations.mappingId, parseInt(id)));
+
+      if (body.variations && Array.isArray(body.variations)) {
+        for (const variation of body.variations) {
+          // Validate required fields
+          if (!variation.variationSku) throw new ApiError('variationSku is required');
+          if (!variation.customerId) throw new ApiError('customerId is required');
+          if (!variation.source) throw new ApiError('source is required');
+
+          await tx
+            .insert(skuVariations)
+            .values({
+              mappingId: parseInt(id),
+              customerId: variation.customerId,
+              variationSku: variation.variationSku,
+              source: variation.source
+            });
+        }
+      }
+
+      // Get updated variations
+      const updatedVariations = await tx
+        .select({
+          id: skuVariations.id,
+          mappingId: skuVariations.mappingId,
+          customerId: skuVariations.customerId,
+          customerName: customers.name,
+          variationSku: skuVariations.variationSku,
+          source: skuVariations.source,
+          createdAt: skuVariations.createdAt,
+          updatedAt: skuVariations.updatedAt
+        })
+        .from(skuVariations)
+        .leftJoin(customers, eq(skuVariations.customerId, customers.id))
+        .where(eq(skuVariations.mappingId, parseInt(id)));
+
+      // Prepare the complete response
+      const completeMapping = {
+        ...updatedMapping,
+        variations: updatedVariations
+      };
+
+      // Return response
+      return NextResponse.json(createSuccessResponse(completeMapping));
     });
   } catch (error) {
     return handleApiError(error);
