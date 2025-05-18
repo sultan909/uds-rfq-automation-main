@@ -136,6 +136,8 @@ export const inventoryApi = {
     apiFetch(`/api/inventory/${id}`, {
       method: "DELETE",
     }),
+  getHistory: (id: string, params?: { period?: string; fromDate?: string; toDate?: string }) =>
+    apiFetch(`/api/inventory/${id}/history`, { params }),
 };
 
 // Dashboard API endpoints
@@ -165,5 +167,24 @@ export const currencyApi = {
     apiFetch("/api/currency/convert", {
       method: "POST",
       body: JSON.stringify({ amount, fromCurrency: from, toCurrency: to }),
+    }),
+};
+
+// Vendor API endpoints
+export const vendorApi = {
+  list: () => apiFetch("/api/vendors/list"),
+  create: (data: any) =>
+    apiFetch("/api/vendors/create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: any) =>
+    apiFetch(`/api/vendors/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    apiFetch(`/api/vendors/${id}`, {
+      method: "DELETE",
     }),
 };

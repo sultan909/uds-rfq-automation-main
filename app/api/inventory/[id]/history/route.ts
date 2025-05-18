@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../../lib/api-response';
 import { handleApiError, ApiError } from '../../../lib/error-handler';
 import { db } from '../../../../../db';
-import { inventoryItems, auditLog, poItems, salesHistory, purchaseOrders } from '../../../../../db/schema';
+import { inventoryItems, auditLog, poItems, salesHistory, purchaseOrders, vendors, customers } from '../../../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 
@@ -64,10 +64,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         documentNumber: purchaseOrders.poNumber,
         price: poItems.unitCost,
         totalAmount: poItems.extendedCost,
-        createdAt: poItems.createdAt
+        createdAt: poItems.createdAt,
+        vendorName: vendors.name,
+        vendorId: vendors.id
       })
       .from(poItems)
       .innerJoin(purchaseOrders, eq(poItems.poId, purchaseOrders.id))
+      .innerJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
       .where(eq(poItems.productId, parseInt(id)))
       .orderBy(desc(poItems.createdAt))
       .limit(limit);
@@ -82,9 +85,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         documentNumber: salesHistory.invoiceNumber,
         price: salesHistory.unitPrice,
         totalAmount: salesHistory.extendedPrice,
-        createdAt: salesHistory.createdAt
+        createdAt: salesHistory.createdAt,
+        customerName: customers.name,
+        customerId: customers.id
       })
       .from(salesHistory)
+      .innerJoin(customers, eq(salesHistory.customerId, customers.id))
       .where(eq(salesHistory.productId, parseInt(id)))
       .orderBy(desc(salesHistory.createdAt))
       .limit(limit);
