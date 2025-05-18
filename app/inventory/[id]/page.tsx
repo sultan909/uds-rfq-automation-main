@@ -40,11 +40,22 @@ interface InventoryItem {
   updatedAt: string
 }
 
+interface Transaction {
+  id: number
+  type: 'purchase' | 'sale'
+  date: string
+  documentNumber: string
+  vendorName?: string
+  customerName?: string
+  quantity: number
+  price: number
+  totalAmount: number
+}
+
 interface HistoryFilters {
   period?: string
   fromDate?: string
   toDate?: string
-  type?: 'all' | 'purchase' | 'sale'
 }
 
 export default function InventoryItemView({
@@ -56,12 +67,11 @@ export default function InventoryItemView({
   const [item, setItem] = useState<InventoryItem | null>(null)
   const [loading, setLoading] = useState(true)
   const resolvedParams = use(params)
-  const [history, setHistory] = useState<any>(null)
+  const [history, setHistory] = useState<{ transactions: Transaction[] } | null>(null)
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [filters, setFilters] = useState<HistoryFilters>({
     period: '3months',
-    type: 'all'
   })
 
   useEffect(() => {
@@ -91,7 +101,7 @@ export default function InventoryItemView({
       setHistoryError(null)
       const response = await inventoryApi.getHistory(resolvedParams.id, filters)
       if (response.success && response.data) {
-        setHistory(response.data)
+        setHistory(response.data as { transactions: Transaction[] })
       } else {
         setHistoryError("Failed to load item history")
       }
@@ -310,35 +320,20 @@ export default function InventoryItemView({
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold">SKU Item History</h3>
-              <div className="flex items-center gap-4">
-                <Select
-                  value={filters.period}
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3months">Last 3 Months</SelectItem>
-                    <SelectItem value="6months">Last 6 Months</SelectItem>
-                    <SelectItem value="12months">Last 12 Months</SelectItem>
-                    <SelectItem value="all">All Time</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.type}
-                  onValueChange={(value: 'all' | 'purchase' | 'sale') => setFilters(prev => ({ ...prev, type: value }))}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Transactions</SelectItem>
-                    <SelectItem value="purchase">Purchases Only</SelectItem>
-                    <SelectItem value="sale">Sales Only</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select
+                value={filters.period}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3months">Last 3 Months</SelectItem>
+                  <SelectItem value="6months">Last 6 Months</SelectItem>
+                  <SelectItem value="12months">Last 12 Months</SelectItem>
+                  <SelectItem value="all">All Time</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {historyStats && (
@@ -399,48 +394,136 @@ export default function InventoryItemView({
               </div>
             )}
 
-            {historyLoading ? (
-              <div>Loading history...</div>
-            ) : historyError ? (
-              <div className="text-red-500">{historyError}</div>
-            ) : history &&
-              history.transactions &&
-              history.transactions.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Document #</TableHead>
-                    <TableHead>Vendor/Customer</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit Price</TableHead>
-                    <TableHead>Total Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.transactions.map((tx: any) => (
-                    <TableRow key={tx.id + tx.type + tx.date}>
-                      <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell>{tx.documentNumber || '-'}</TableCell>
-                      <TableCell>
-                        {tx.type === 'purchase' ? (
-                          <span className="text-blue-600">{tx.vendorName}</span>
-                        ) : tx.type === 'sale' ? (
-                          <span className="text-green-600">{tx.customerName}</span>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>{tx.quantity}</TableCell>
-                      <TableCell>{tx.price !== undefined && tx.price !== null ? `$${tx.price.toFixed(2)}` : '-'}</TableCell>
-                      <TableCell>{tx.totalAmount !== undefined && tx.totalAmount !== null ? `$${tx.totalAmount.toFixed(2)}` : '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div>No history found for this item.</div>
-            )}
+            <Tabs defaultValue="all">
+              <TabsList className="mb-4">
+                <TabsTrigger value="all">All Transactions</TabsTrigger>
+                <TabsTrigger value="purchase">Purchases</TabsTrigger>
+                <TabsTrigger value="sale">Sales</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="all" className="mt-0">
+                {historyLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Spinner size={24} />
+                  </div>
+                ) : historyError ? (
+                  <div className="text-red-500 py-4">{historyError}</div>
+                ) : history?.transactions?.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Document #</TableHead>
+                        <TableHead>Vendor/Customer</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Unit Price</TableHead>
+                        <TableHead>Total Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {history.transactions.map((tx: Transaction) => (
+                        <TableRow key={tx.id + tx.type + tx.date}>
+                          <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="capitalize">{tx.type}</TableCell>
+                          <TableCell>{tx.documentNumber || '-'}</TableCell>
+                          <TableCell>
+                            {tx.type === 'purchase' ? (
+                              <span className="text-blue-600">{tx.vendorName}</span>
+                            ) : tx.type === 'sale' ? (
+                              <span className="text-green-600">{tx.customerName}</span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>{tx.quantity}</TableCell>
+                          <TableCell>${tx.price.toFixed(2)}</TableCell>
+                          <TableCell>${tx.totalAmount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">No transactions found.</div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="purchase" className="mt-0">
+                {historyLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Spinner size={24} />
+                  </div>
+                ) : historyError ? (
+                  <div className="text-red-500 py-4">{historyError}</div>
+                ) : history?.transactions?.some(tx => tx.type === 'purchase') ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Document #</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Unit Price</TableHead>
+                        <TableHead>Total Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {history.transactions
+                        .filter((tx: Transaction) => tx.type === 'purchase')
+                        .map((tx: Transaction) => (
+                          <TableRow key={tx.id + tx.type + tx.date}>
+                            <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
+                            <TableCell>{tx.documentNumber || '-'}</TableCell>
+                            <TableCell className="text-blue-600">{tx.vendorName}</TableCell>
+                            <TableCell>{tx.quantity}</TableCell>
+                            <TableCell>${tx.price.toFixed(2)}</TableCell>
+                            <TableCell>${tx.totalAmount.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">No purchase transactions found.</div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="sale" className="mt-0">
+                {historyLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Spinner size={24} />
+                  </div>
+                ) : historyError ? (
+                  <div className="text-red-500 py-4">{historyError}</div>
+                ) : history?.transactions?.some(tx => tx.type === 'sale') ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Document #</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Unit Price</TableHead>
+                        <TableHead>Total Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {history.transactions
+                        .filter((tx: Transaction) => tx.type === 'sale')
+                        .map((tx: Transaction) => (
+                          <TableRow key={tx.id + tx.type + tx.date}>
+                            <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
+                            <TableCell>{tx.documentNumber || '-'}</TableCell>
+                            <TableCell className="text-green-600">{tx.customerName}</TableCell>
+                            <TableCell>{tx.quantity}</TableCell>
+                            <TableCell>${tx.price.toFixed(2)}</TableCell>
+                            <TableCell>${tx.totalAmount.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">No sale transactions found.</div>
+                )}
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
       </div>
