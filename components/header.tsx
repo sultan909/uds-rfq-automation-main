@@ -53,11 +53,6 @@ export function Header({
           >
             <SettingsIcon className="h-5 w-5" />
           </Link>
-          {showNewRfq && (
-            <Button asChild>
-              <Link href="/rfq-management/new">New RFQ</Link>
-            </Button>
-          )}
         </div>
       </div>
     </header>
