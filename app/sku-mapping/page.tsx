@@ -332,20 +332,20 @@ export default function SkuMapping() {
                                 autoComplete="off"
                               />
                               {skuDropdownOpen && (
-                                <div className="absolute z-10 bg-white border rounded shadow w-full max-h-48 overflow-auto" style={{overflow: 'auto'}}>
+                                <div className="absolute z-10 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow w-full max-h-48 overflow-auto" style={{overflow: 'auto'}}>
                                   {skuOptions.length > 0 ? (
                                     skuOptions.map((item: any) => (
                                       <div
                                         key={item?.sku}
-                                        className="px-3 py-2 cursor-pointer hover:bg-muted"
+                                        className="px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-gray-700"
                                         onMouseDown={() => handleSkuOptionSelect(item.sku, item.description)}
                                       >
-                                        <div className="font-medium">{item.sku}</div>
-                                        <div className="text-xs text-muted-foreground">{item.description}</div>
+                                        <div className="font-medium dark:text-white">{item.sku}</div>
+                                        <div className="text-xs text-muted-foreground dark:text-gray-400">{item.description}</div>
                                       </div>
                                     ))
                                   ) : newMapping.standardSku ? (
-                                    <div className="px-3 py-2 text-muted-foreground">No matches found</div>
+                                    <div className="px-3 py-2 text-muted-foreground dark:text-gray-400">No matches found</div>
                                   ) : null}
                                 </div>
                               )}
@@ -403,15 +403,15 @@ export default function SkuMapping() {
                                     autoComplete="off"
                                   />
                                   {customerDropdownOpen === index && customerOptions[index]?.length > 0 && (
-                                    <div className="absolute left-0 top-full z-10 bg-white border rounded shadow w-full max-h-48 overflow-auto" style={{overflow: 'auto', width: '100%'}}>
+                                    <div className="absolute left-0 top-full z-10 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow w-full max-h-48 overflow-auto" style={{overflow: 'auto', width: '100%'}}>
                                       {customerOptions[index].map((c: any) => (
                                         <div
                                           key={c.id}
-                                          className="px-3 py-2 cursor-pointer hover:bg-muted"
+                                          className="px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-gray-700"
                                           onMouseDown={() => handleCustomerOptionSelect(index, c)}
                                         >
-                                          <div className="font-medium">{c.name}</div>
-                                          <div className="text-xs text-muted-foreground">{c.email}</div>
+                                          <div className="font-medium dark:text-white">{c.name}</div>
+                                          <div className="text-xs text-muted-foreground dark:text-gray-400">{c.email}</div>
                                         </div>
                                       ))}
                                     </div>
