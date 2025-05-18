@@ -17,6 +17,10 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import { Spinner } from "@/components/spinner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DatePicker } from "@/components/date-picker"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 
 interface InventoryItem {
   id: number
@@ -36,6 +40,13 @@ interface InventoryItem {
   updatedAt: string
 }
 
+interface HistoryFilters {
+  period?: string
+  fromDate?: string
+  toDate?: string
+  type?: 'all' | 'purchase' | 'sale'
+}
+
 export default function InventoryItemView({
   params,
 }: {
@@ -48,11 +59,15 @@ export default function InventoryItemView({
   const [history, setHistory] = useState<any>(null)
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [filters, setFilters] = useState<HistoryFilters>({
+    period: '3months',
+    type: 'all'
+  })
 
   useEffect(() => {
     fetchItem()
     fetchHistory()
-  }, [resolvedParams.id])
+  }, [resolvedParams.id, filters])
 
   const fetchItem = async () => {
     try {
@@ -74,7 +89,7 @@ export default function InventoryItemView({
     try {
       setHistoryLoading(true)
       setHistoryError(null)
-      const response = await inventoryApi.getHistory(resolvedParams.id)
+      const response = await inventoryApi.getHistory(resolvedParams.id, filters)
       if (response.success && response.data) {
         setHistory(response.data)
       } else {
@@ -90,6 +105,33 @@ export default function InventoryItemView({
   const handleEdit = () => {
     router.push(`/inventory/${resolvedParams.id}/edit`)
   }
+
+  const calculateHistoryStats = () => {
+    if (!history?.transactions) return null
+
+    const stats = {
+      totalPurchases: 0,
+      totalSales: 0,
+      purchaseQuantity: 0,
+      saleQuantity: 0,
+      averagePurchasePrice: 0,
+      averageSalePrice: 0
+    }
+
+    const purchases = history.transactions.filter((tx: any) => tx.type === 'purchase')
+    const sales = history.transactions.filter((tx: any) => tx.type === 'sale')
+
+    stats.totalPurchases = purchases.length
+    stats.totalSales = sales.length
+    stats.purchaseQuantity = purchases.reduce((sum: number, tx: any) => sum + tx.quantity, 0)
+    stats.saleQuantity = sales.reduce((sum: number, tx: any) => sum + tx.quantity, 0)
+    stats.averagePurchasePrice = purchases.length ? purchases.reduce((sum: number, tx: any) => sum + tx.price, 0) / purchases.length : 0
+    stats.averageSalePrice = sales.length ? sales.reduce((sum: number, tx: any) => sum + tx.price, 0) / sales.length : 0
+
+    return stats
+  }
+
+  const historyStats = calculateHistoryStats()
 
   if (loading) {
     return (
@@ -266,7 +308,97 @@ export default function InventoryItemView({
 
           {/* SKU Item History Section */}
           <Card className="p-6">
-            <h3 className="text-xl font-semibold mb-4">SKU Item History</h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold">SKU Item History</h3>
+              <div className="flex items-center gap-4">
+                <Select
+                  value={filters.period}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3months">Last 3 Months</SelectItem>
+                    <SelectItem value="6months">Last 6 Months</SelectItem>
+                    <SelectItem value="12months">Last 12 Months</SelectItem>
+                    <SelectItem value="all">All Time</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={filters.type}
+                  onValueChange={(value: 'all' | 'purchase' | 'sale') => setFilters(prev => ({ ...prev, type: value }))}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Transactions</SelectItem>
+                    <SelectItem value="purchase">Purchases Only</SelectItem>
+                    <SelectItem value="sale">Sales Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {historyStats && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Purchases</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Total Orders:</span>
+                      <Badge variant="secondary">{historyStats.totalPurchases}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Quantity:</span>
+                      <Badge variant="secondary">{historyStats.purchaseQuantity}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Avg. Price:</span>
+                      <Badge variant="secondary">${historyStats.averagePurchasePrice.toFixed(2)}</Badge>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Sales</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Total Orders:</span>
+                      <Badge variant="secondary">{historyStats.totalSales}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Quantity:</span>
+                      <Badge variant="secondary">{historyStats.saleQuantity}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Avg. Price:</span>
+                      <Badge variant="secondary">${historyStats.averageSalePrice.toFixed(2)}</Badge>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Stock Changes</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Net Change:</span>
+                      <Badge variant={historyStats.purchaseQuantity - historyStats.saleQuantity >= 0 ? "default" : "destructive"}>
+                        {historyStats.purchaseQuantity - historyStats.saleQuantity}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Current Stock:</span>
+                      <Badge variant={item.quantityOnHand > item.lowStockThreshold ? "default" : "secondary"}>
+                        {item.quantityOnHand}
+                      </Badge>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+
             {historyLoading ? (
               <div>Loading history...</div>
             ) : historyError ? (
@@ -280,6 +412,7 @@ export default function InventoryItemView({
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Document #</TableHead>
+                    <TableHead>Vendor/Customer</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead>Unit Price</TableHead>
                     <TableHead>Total Amount</TableHead>
@@ -288,22 +421,19 @@ export default function InventoryItemView({
                 <TableBody>
                   {history.transactions.map((tx: any) => (
                     <TableRow key={tx.id + tx.type + tx.date}>
-                      <TableCell>
-                        {tx.date ? new Date(tx.date).toLocaleDateString() : "-"}
-                      </TableCell>
+                      <TableCell>{tx.date ? new Date(tx.date).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell>{tx.documentNumber || "-"}</TableCell>
+                      <TableCell>{tx.documentNumber || '-'}</TableCell>
+                      <TableCell>
+                        {tx.type === 'purchase' ? (
+                          <span className="text-blue-600">{tx.vendorName}</span>
+                        ) : tx.type === 'sale' ? (
+                          <span className="text-green-600">{tx.customerName}</span>
+                        ) : '-'}
+                      </TableCell>
                       <TableCell>{tx.quantity}</TableCell>
-                      <TableCell>
-                        {tx.price !== undefined && tx.price !== null
-                          ? `$${tx.price.toFixed(2)}`
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {tx.totalAmount !== undefined && tx.totalAmount !== null
-                          ? `$${tx.totalAmount.toFixed(2)}`
-                          : "-"}
-                      </TableCell>
+                      <TableCell>{tx.price !== undefined && tx.price !== null ? `$${tx.price.toFixed(2)}` : '-'}</TableCell>
+                      <TableCell>{tx.totalAmount !== undefined && tx.totalAmount !== null ? `$${tx.totalAmount.toFixed(2)}` : '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

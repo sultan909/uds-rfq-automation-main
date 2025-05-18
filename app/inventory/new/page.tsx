@@ -9,13 +9,25 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { inventoryApi } from "@/lib/api-client"
+import { useState, useEffect } from "react"
+import { inventoryApi, vendorApi } from "@/lib/api-client"
 import { toast } from "sonner"
+
+interface Vendor {
+  id: number
+  name: string
+  email: string | null
+  phone: string | null
+  contactPerson: string | null
+  isActive: boolean
+}
 
 export default function NewInventory() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [vendorsLoading, setVendorsLoading] = useState(false)
+  const [vendorsError, setVendorsError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     sku: "",
     mpn: "",
@@ -27,13 +39,47 @@ export default function NewInventory() {
     costUsd: "",
     warehouseLocation: "",
     lowStockThreshold: "5",
+    vendorId: "",
+    poNumber: ""  // Purchase Order number
   })
+
+  const fetchVendors = async () => {
+    if (vendors.length > 0) {
+      console.log("Using cached vendors:", vendors);
+      return;
+    }
+    
+    console.log("Starting to fetch vendors...");
+    setVendorsLoading(true)
+    setVendorsError(null)
+    try {
+      const response = await vendorApi.list()
+      console.log("Vendor API response:", response);
+      
+      if (response?.success && Array.isArray(response?.data)) {
+        console.log("Setting vendors with data:", response.data);
+        setVendors(response.data)
+        if (response.data.length === 0) {
+          setVendorsError('No vendors found. Please add vendors first.')
+        }
+      } else {
+        console.log("Invalid vendor response format:", response);
+        setVendorsError(response?.message || 'Failed to fetch vendors')
+      }
+    } catch (error) {
+      console.error('Failed to fetch vendors:', error)
+      setVendorsError('Failed to fetch vendors. Please try again.')
+    } finally {
+      setVendorsLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // First create the inventory item
       const response = await inventoryApi.create({
         ...formData,
         quantityOnHand: parseInt(formData.quantityOnHand),
@@ -43,6 +89,30 @@ export default function NewInventory() {
       })
 
       if (response.success) {
+        // If vendor and PO number are provided, create a purchase record
+        if (formData.vendorId && formData.poNumber && response.data && typeof response.data === 'object' && 'id' in response.data) {
+          const purchaseResponse = await fetch('/api/purchase-orders/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              vendorId: parseInt(formData.vendorId),
+              poNumber: formData.poNumber,
+              items: [{
+                productId: response.data.id,
+                quantity: parseInt(formData.quantityOnHand),
+                unitCost: formData.costCad ? parseFloat(formData.costCad) : 0,
+                extendedCost: formData.costCad ? parseFloat(formData.costCad) * parseInt(formData.quantityOnHand) : 0
+              }]
+            })
+          })
+
+          if (!purchaseResponse.ok) {
+            toast.error("Item created but failed to record purchase information")
+          }
+        }
+
         toast.success("Inventory item created successfully")
         router.push("/inventory")
       } else {
@@ -63,6 +133,14 @@ export default function NewInventory() {
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
+
+  const handleOpenChange = (open: boolean) => {
+    console.log("Dropdown open state changed:", open);
+    if (open) {
+      console.log("Triggering vendor fetch...");
+      fetchVendors();
+    }
+  };
 
   return (
     <div className="flex h-screen">
@@ -95,6 +173,44 @@ export default function NewInventory() {
                     required
                     placeholder="Enter Manufacturer Part Number"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vendorId">Vendor</Label>
+                  <Select
+                    value={formData.vendorId}
+                    onValueChange={(value) => handleSelectChange("vendorId", value)}
+                    disabled={vendorsLoading}
+                    onOpenChange={handleOpenChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vendor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendorsLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Loading vendors...
+                        </SelectItem>
+                      ) : vendorsError ? (
+                        <SelectItem value="error" disabled>
+                          {vendorsError}
+                        </SelectItem>
+                      ) : vendors.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No vendors available. Please add vendors first.
+                        </SelectItem>
+                      ) : (
+                        vendors.map((vendor) => (
+                          <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                            {vendor.name} {vendor.contactPerson ? `(${vendor.contactPerson})` : ''}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {vendorsError && (
+                    <p className="text-sm text-red-500 mt-1">{vendorsError}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -204,6 +320,17 @@ export default function NewInventory() {
                     value={formData.lowStockThreshold}
                     onChange={handleChange}
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="poNumber">Purchase Order Number</Label>
+                  <Input
+                    id="poNumber"
+                    name="poNumber"
+                    value={formData.poNumber}
+                    onChange={handleChange}
+                    placeholder="Enter PO number"
                   />
                 </div>
 
