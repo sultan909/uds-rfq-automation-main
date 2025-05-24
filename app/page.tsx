@@ -108,7 +108,7 @@ export default function Dashboard() {
           title="Dashboard"
           subtitle="Overview of your quotes, inventory, and sales"
           showNewRfq
-          showDateFilter
+          // showDateFilter
         />
         <div className="flex-1 overflow-auto p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

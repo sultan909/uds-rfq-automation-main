@@ -51,8 +51,8 @@ export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean
           <>
             <span className="text-xs text-muted-foreground">
               {currency === 'CAD' 
-                ? `1 CAD = ${fxRate.toFixed(4)} USD`
-                : `1 USD = ${fxRate.toFixed(4)} CAD`}
+                ? `1 USD = ${fxRate.toFixed(2)} CAD`
+                : `1 CAD = ${fxRate.toFixed(2)} USD`}
               {isManualRate && " (Manual)"}
             </span>
             <button
