@@ -64,6 +64,35 @@ interface ApiResponse<T> {
   error: string | null;
 }
 
+interface HistoryItem {
+  sku: string;
+  lastTransaction: string;
+  customer: string;
+  lastPrice: number;
+  lastQuantity: number;
+  totalQuantity: number;
+  avgPrice: number;
+  trend: string;
+}
+
+interface HistoryState {
+  history: HistoryItem[];
+}
+
+interface SalesHistoryResponse {
+  success: boolean;
+  data: {
+    history: Array<{
+      type: string;
+      date: string;
+      customerName: string;
+      unitPrice: number;
+      quantity: number;
+      priceTrend?: string;
+    }>;
+  };
+}
+
 // Add these column definitions at the top of the file
 const ITEMS_COLUMNS = [
   { id: 'sku', label: 'SKU' },
@@ -94,9 +123,8 @@ const INVENTORY_COLUMNS = [
 
 const HISTORY_COLUMNS = [
   { id: 'sku', label: 'SKU' },
-  { id: 'type', label: 'Type' },
   { id: 'lastTransaction', label: 'Last Transaction' },
-  { id: 'customerVendor', label: 'Customer/Vendor' },
+  { id: 'customer', label: 'Customer' },
   { id: 'lastPrice', label: 'Last Price' },
   { id: 'lastQuantity', label: 'Last Quantity' },
   { id: 'totalQuantity', label: 'Total Quantity' },
@@ -136,7 +164,16 @@ export default function RfqDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ period: '3months', type: 'all' });
-  const [history, setHistory] = useState<any>(null);
+  const [history, setHistory] = useState<{ history: Array<{
+    sku: string;
+    lastTransaction: string;
+    customer: string;
+    lastPrice: number;
+    lastQuantity: number;
+    totalQuantity: number;
+    avgPrice: number;
+    trend: string;
+  }> }>({ history: [] });
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyStats, setHistoryStats] = useState<any>(null);
@@ -156,6 +193,10 @@ export default function RfqDetail({
     market: MARKET_COLUMNS.map(col => col.id),
     settings: SETTINGS_COLUMNS.map(col => col.id)
   });
+
+  // Ensure we have the correct data structure
+  const rfq = rfqData?.data || rfqData;
+  const items = rfq?.items || [];
 
   // Calculate pagination
   useEffect(() => {
@@ -256,17 +297,53 @@ export default function RfqDetail({
     const fetchHistory = async () => {
       try {
         setHistoryLoading(true);
-        console.log('Fetching history for customer:', rfqData.customer.id);
-        const response = await customerApi.getHistory(rfqData.customer.id, filters.period);
-        console.log('History response:', response);
-        if (response.success && response.data) {
-          setHistory(response.data);
-          // @ts-ignore
-          setHistoryStats(response.data.stats);
-        } else {
-          setHistoryError("Failed to load history data");
-          toast.error("Failed to load history data");
-        }
+        // Fetch sales history for each item in the RFQ
+        const salesPromises = items.map(async (item: any) => {
+          const itemSku = item.customerSku || item.inventory?.sku;
+          if (!itemSku) return null;
+
+          const response = await customerApi.getHistory(rfqData.customer.id, filters.period) as SalesHistoryResponse;
+          if (response.success && response.data) {
+            console.log("API Response:", response.data);
+            console.log("First sale item:", response.data.history?.[0]);
+            
+            // Filter sales history for this specific SKU
+            const itemHistory = response.data.history?.filter((h) => {
+              return h.type === 'sale';
+            }) || [];
+
+            console.log("Filtered History:", itemHistory);
+
+            // Transform the history data to match our table structure
+            const transformedHistory = itemHistory.map((sale) => ({
+              sku: itemSku,
+              lastTransaction: sale.date,
+              // @ts-ignore
+              customer: response.data?.customerName || 'Unknown Customer',
+              lastPrice: sale.unitPrice,
+              lastQuantity: sale.quantity,
+              totalQuantity: sale.quantity,
+              avgPrice: sale.unitPrice,
+              trend: sale.priceTrend || 'neutral'
+            }));
+
+            return {
+              itemId: item.id,
+              sku: itemSku,
+              history: transformedHistory
+            };
+          }
+          return null;
+        });
+
+        const results = await Promise.all(salesPromises);
+        console.log("results", results);
+        
+        const validResults = results.filter(result => result !== null);
+        
+        setHistory({
+          history: validResults.flatMap(result => result?.history || [])
+        });
       } catch (err) {
         console.error('Error fetching history:', err);
         setHistoryError("An error occurred while loading history data");
@@ -297,16 +374,17 @@ export default function RfqDetail({
       }
     };
 
-    if (rfqData?.customer?.id) {
+    if (rfqData?.customer?.id && items.length > 0) {
       fetchHistory();
       // Fetch inventory history for each item
-      rfqData.items?.forEach((item: any) => {
+      items.forEach((item: any) => {
         if (item.inventory?.id) {
           fetchInventoryHistory(item);
         }
       });
     }
-  }, [rfqData?.customer?.id, rfqData?.items, filters.period]);
+    // @ts-ignore
+  }, [rfqData?.customer?.id, items, filters.period]);
 
   useEffect(() => {
     const fetchInventoryData = async () => {
@@ -460,21 +538,32 @@ export default function RfqDetail({
         'Sales History': [
           ['SKU', 'Date', 'Customer', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
           ...rfqData.items?.flatMap((item: any) => {
-            const salesHistory = history?.history?.filter((h: any) => {
-              const itemSku = item.customerSku || item.inventory?.sku;
-              const historySku = h.sku || h.customerSku;
-              return historySku === itemSku && h.type === 'sale';
-            }) || [];
+            const itemSku = item.customerSku || item.inventory?.sku;
+            console.log("itemsku", itemSku);
+            console.log("history", history);
+            
+            const salesHistory = history.history.filter((h) => h.sku === itemSku);
+            console.log("filtered history", salesHistory);
 
-            return salesHistory.map((sale: any) => [
-              item.customerSku || item.inventory?.sku || 'N/A',
-              sale.date ? new Date(sale.date).toLocaleDateString() : 'N/A',
-              sale.customerName || 'N/A',
-              sale.quantity || 'N/A',
-              formatCurrency(sale.unitPrice || 0),
-              formatCurrency(sale.totalAmount || 0),
-              sale.status || 'N/A'
-            ]);
+            if (salesHistory.length === 0) {
+              return [];
+            }
+
+            const lastSale = salesHistory[0];
+            const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
+            const avgSalePrice = salesHistory.length > 0 
+              ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
+              : 0;
+
+            return [
+              itemSku,
+              lastSale?.lastTransaction ? new Date(lastSale.lastTransaction).toLocaleDateString() : 'N/A',
+              lastSale?.customer || 'N/A',
+              lastSale?.lastQuantity || 'N/A',
+              formatCurrency(lastSale?.lastPrice || 0),
+              formatCurrency(lastSale?.lastPrice * lastSale?.lastQuantity || 0),
+              lastSale?.trend === 'up' ? '↑' : lastSale?.trend === 'down' ? '↓' : 'neutral'
+            ];
           }) || [],
         ],
         'Purchase History': [
@@ -628,12 +717,10 @@ export default function RfqDetail({
     }
   };
 
-  // Ensure we have the correct data structure
-  const rfq = rfqData?.data || rfqData;
   console.log('Rendering with RFQ:', {
     rfqData,
     rfq,
-    items: rfq?.items,
+    items,
     skuDetails
   });
 
@@ -680,10 +767,6 @@ export default function RfqDetail({
       </div>
     );
   }
-
-  // Update the table body to use the correct data structure
-  const items = rfq?.items || [];
-  console.log('Items to render:', items);
 
   return (
     <div className="flex h-screen">
@@ -1007,7 +1090,7 @@ export default function RfqDetail({
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <CardTitle>SKU History</CardTitle>
+                    <CardTitle>Sales History</CardTitle>
                     <TableCustomizer
                       columns={HISTORY_COLUMNS}
                       visibleColumns={visibleColumns.history}
@@ -1016,136 +1099,84 @@ export default function RfqDetail({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {HISTORY_COLUMNS.map(column => 
-                          visibleColumns.history.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => {
-                        const salesHistory = history?.history?.filter((h: any) => {
+                  {historyLoading ? (
+                    <div className="flex justify-center items-center py-4">
+                      <Spinner size={32} />
+                    </div>
+                  ) : historyError ? (
+                    <div className="text-red-500 text-center py-4">{historyError}</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {HISTORY_COLUMNS.map(column => 
+                            visibleColumns.history.includes(column.id) && (
+                              <TableHead key={column.id}>{column.label}</TableHead>
+                            )
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((item: any) => {
                           const itemSku = item.customerSku || item.inventory?.sku;
-                          const historySku = h.sku || h.customerSku;
-                          return historySku === itemSku && h.type === 'sale';
-                        }) || [];
-                        
-                        const purchaseHistory = inventoryHistory[item.id]?.transactions?.filter((t: any) => 
-                          t.type === 'purchase'
-                        ) || [];
+                          console.log("itemsku", itemSku);
+                          console.log("history", history);
+                          
+                          const salesHistory = history.history.filter((h) => h.sku === itemSku);
+                          console.log("filtered history", salesHistory);
 
-                        if (salesHistory.length === 0 && purchaseHistory.length === 0) {
-                          return null;
-                        }
+                          if (salesHistory.length === 0) {
+                            return null;
+                          }
 
-                        const lastSale = salesHistory[0];
-                        const lastPurchase = purchaseHistory[0];
-                        const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
-                        const totalPurchases = purchaseHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
-                        const avgSalePrice = salesHistory.length > 0 
-                          ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
-                          : 0;
-                        const avgPurchasePrice = purchaseHistory.length > 0
-                          ? purchaseHistory.reduce((sum: number, h: any) => sum + (h.price || 0), 0) / purchaseHistory.length
-                          : 0;
+                          const lastSale = salesHistory[0];
+                          const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
+                          const avgSalePrice = salesHistory.length > 0 
+                            ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
+                            : 0;
 
-                        return (
-                          <React.Fragment key={item.id}>
-                            {salesHistory.length > 0 && (
-                              <TableRow>
-                                {visibleColumns.history.includes('sku') && (
-                                  <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('type') && (
-                                  <TableCell>
-                                    <Badge variant="default">Sales</Badge>
-                                  </TableCell>
-                                )}
-                                {visibleColumns.history.includes('lastTransaction') && (
-                                  <TableCell>
-                                    {lastSale?.date 
-                                      ? new Date(lastSale.date).toLocaleDateString()
-                                      : 'N/A'}
-                                  </TableCell>
-                                )}
-                                {visibleColumns.history.includes('customerVendor') && (
-                                  <TableCell className="text-green-600">
-                                    {lastSale?.customerName || 'N/A'}
-                                  </TableCell>
-                                )}
-                                {visibleColumns.history.includes('lastPrice') && (
-                                  <TableCell>{formatCurrency(lastSale?.unitPrice || 0)}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('lastQuantity') && (
-                                  <TableCell>{lastSale?.quantity || 'N/A'}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('totalQuantity') && (
-                                  <TableCell>{totalSales}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('avgPrice') && (
-                                  <TableCell>{formatCurrency(avgSalePrice)}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('trend') && (
-                                  <TableCell>
-                                    <Badge variant={lastSale?.priceTrend === 'up' ? 'default' : 'destructive'}>
-                                      {lastSale?.priceTrend === 'up' ? '↑' : '↓'}
-                                    </Badge>
-                                  </TableCell>
-                                )}
-                              </TableRow>
-                            )}
-                            {purchaseHistory.length > 0 && (
-                              <TableRow>
-                                {visibleColumns.history.includes('sku') && (
-                                  <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('type') && (
-                                  <TableCell>
-                                    <Badge variant="secondary">Purchases</Badge>
-                                  </TableCell>
-                                )}
-                                {visibleColumns.history.includes('lastTransaction') && (
-                                  <TableCell>
-                                    {lastPurchase?.date 
-                                      ? new Date(lastPurchase.date).toLocaleDateString()
-                                      : 'N/A'}
-                                  </TableCell>
-                                )}
-                                {visibleColumns.history.includes('customerVendor') && (
-                                  <TableCell className="text-blue-600">
-                                    {lastPurchase?.vendorName || 'N/A'}
-                                  </TableCell>
-                                )}
-                                {visibleColumns.history.includes('lastPrice') && (
-                                  <TableCell>{formatCurrency(lastPurchase?.price || 0)}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('lastQuantity') && (
-                                  <TableCell>{lastPurchase?.quantity || 'N/A'}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('totalQuantity') && (
-                                  <TableCell>{totalPurchases}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('avgPrice') && (
-                                  <TableCell>{formatCurrency(avgPurchasePrice)}</TableCell>
-                                )}
-                                {visibleColumns.history.includes('trend') && (
-                                  <TableCell>
-                                    <Badge variant={lastPurchase?.priceTrend === 'up' ? 'default' : 'destructive'}>
-                                      {lastPurchase?.priceTrend === 'up' ? '↑' : '↓'}
-                                    </Badge>
-                                  </TableCell>
-                                )}
-                              </TableRow>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                          return (
+                            <TableRow key={item.id}>
+                              {visibleColumns.history.includes('sku') && (
+                                <TableCell>{itemSku}</TableCell>
+                              )}
+                              {visibleColumns.history.includes('lastTransaction') && (
+                                <TableCell>
+                                  {lastSale?.lastTransaction 
+                                    ? new Date(lastSale.lastTransaction).toLocaleDateString()
+                                    : 'N/A'}
+                                </TableCell>
+                              )}
+                              {visibleColumns.history.includes('customer') && (
+                                <TableCell className="text-green-600">
+                                  {lastSale?.customer || 'N/A'}
+                                </TableCell>
+                              )}
+                              {visibleColumns.history.includes('lastPrice') && (
+                                <TableCell>{formatCurrency(lastSale?.lastPrice || 0)}</TableCell>
+                              )}
+                              {visibleColumns.history.includes('lastQuantity') && (
+                                <TableCell>{lastSale?.lastQuantity || 'N/A'}</TableCell>
+                              )}
+                              {visibleColumns.history.includes('totalQuantity') && (
+                                <TableCell>{totalSales}</TableCell>
+                              )}
+                              {visibleColumns.history.includes('avgPrice') && (
+                                <TableCell>{formatCurrency(avgSalePrice)}</TableCell>
+                              )}
+                              {visibleColumns.history.includes('trend') && (
+                                <TableCell>
+                                  <Badge variant={lastSale?.trend === 'up' ? 'default' : 'destructive'}>
+                                    {lastSale?.trend === 'up' ? '↑' : '↓'}
+                                  </Badge>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
                   {renderPagination()}
                 </CardContent>
               </Card>

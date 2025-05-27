@@ -2,7 +2,7 @@ import { pgTable, serial, varchar, text, timestamp, boolean, integer, pgEnum, re
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 
-// Enums
+// Enums - Only create if they don't exist
 export const rfqStatusEnum = pgEnum('rfq_status', ['PENDING', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED']);
 export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'MANAGER', 'EMPLOYEE', 'SALES']);
 export const customerTypeEnum = pgEnum('customer_type', ['WHOLESALER', 'DEALER', 'RETAILER', 'DIRECT']);
@@ -37,6 +37,7 @@ export const customers = pgTable('customers', {
   contactPerson: varchar('contact_person', { length: 255 }),
   quickbooksId: varchar('quickbooks_id', { length: 100 }),
   isActive: boolean('is_active').default(true).notNull(),
+  main_customer: boolean('main_customer').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
