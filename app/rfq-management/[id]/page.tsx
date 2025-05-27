@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
+import { TableCustomizer } from "@/components/table-customizer";
 
 // Add these type definitions at the top of the file, after the imports
 interface InventoryData {
@@ -63,6 +64,67 @@ interface ApiResponse<T> {
   error: string | null;
 }
 
+// Add these column definitions at the top of the file
+const ITEMS_COLUMNS = [
+  { id: 'sku', label: 'SKU' },
+  { id: 'description', label: 'Description' },
+  { id: 'quantity', label: 'Quantity' },
+  { id: 'unitPrice', label: 'Unit Price' },
+  { id: 'total', label: 'Total' },
+  { id: 'status', label: 'Status' }
+];
+
+const PRICING_COLUMNS = [
+  { id: 'sku', label: 'SKU' },
+  { id: 'requestedPrice', label: 'Requested Price' },
+  { id: 'suggestedPrice', label: 'Suggested Price' },
+  { id: 'marketPrice', label: 'Market Price' },
+  { id: 'cost', label: 'Cost' },
+  { id: 'margin', label: 'Margin' }
+];
+
+const INVENTORY_COLUMNS = [
+  { id: 'sku', label: 'SKU' },
+  { id: 'onHand', label: 'On Hand' },
+  { id: 'reserved', label: 'Reserved' },
+  { id: 'available', label: 'Available' },
+  { id: 'location', label: 'Location' },
+  { id: 'status', label: 'Status' }
+];
+
+const HISTORY_COLUMNS = [
+  { id: 'sku', label: 'SKU' },
+  { id: 'type', label: 'Type' },
+  { id: 'lastTransaction', label: 'Last Transaction' },
+  { id: 'customerVendor', label: 'Customer/Vendor' },
+  { id: 'lastPrice', label: 'Last Price' },
+  { id: 'lastQuantity', label: 'Last Quantity' },
+  { id: 'totalQuantity', label: 'Total Quantity' },
+  { id: 'avgPrice', label: 'Avg. Price' },
+  { id: 'trend', label: 'Trend' }
+];
+
+const MARKET_COLUMNS = [
+  { id: 'sku', label: 'SKU' },
+  { id: 'marketPrice', label: 'Market Price' },
+  { id: 'source', label: 'Source' },
+  { id: 'lastUpdated', label: 'Last Updated' },
+  { id: 'competitorPrice', label: 'Competitor Price' },
+  { id: 'priceTrend', label: 'Price Trend' }
+];
+
+const SETTINGS_COLUMNS = [
+  { id: 'sku', label: 'SKU' },
+  { id: 'status', label: 'Status' },
+  { id: 'currency', label: 'Currency' },
+  { id: 'unit', label: 'Unit' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'actions', label: 'Actions' }
+];
+
+// Add type for tab names
+type TabName = 'items' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings';
+
 export default function RfqDetail({
   params,
 }: {
@@ -86,6 +148,14 @@ export default function RfqDetail({
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [visibleColumns, setVisibleColumns] = useState({
+    items: ITEMS_COLUMNS.map(col => col.id),
+    pricing: PRICING_COLUMNS.map(col => col.id),
+    inventory: INVENTORY_COLUMNS.map(col => col.id),
+    history: HISTORY_COLUMNS.map(col => col.id),
+    market: MARKET_COLUMNS.map(col => col.id),
+    settings: SETTINGS_COLUMNS.map(col => col.id)
+  });
 
   // Calculate pagination
   useEffect(() => {
@@ -567,6 +637,15 @@ export default function RfqDetail({
     skuDetails
   });
 
+  const handleColumnToggle = (tab: TabName, columnId: string) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [tab]: prev[tab].includes(columnId)
+        ? prev[tab].filter(id => id !== columnId)
+        : [...prev[tab], columnId]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen">
@@ -745,33 +824,51 @@ export default function RfqDetail({
             <TabsContent value="items" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>SKU Items</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>SKU Items</CardTitle>
+                    <TableCustomizer
+                      columns={ITEMS_COLUMNS}
+                      visibleColumns={visibleColumns.items}
+                      onColumnToggle={(columnId) => handleColumnToggle('items', columnId)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Unit Price</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Status</TableHead>
+                        {ITEMS_COLUMNS.map(column => 
+                          visibleColumns.items.includes(column.id) && (
+                            <TableHead key={column.id}>{column.label}</TableHead>
+                          )
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {items.map((item: any) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          <TableCell>{item.description || item.inventory?.description}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>{formatCurrency(item.finalPrice || item.suggestedPrice || 0)}</TableCell>
-                          <TableCell>{formatCurrency((item.finalPrice || item.suggestedPrice || 0) * item.quantity)}</TableCell>
-                          <TableCell>
-                            <Badge variant={item.status === 'APPROVED' ? 'default' : 'destructive'}>
-                              {item.status}
-                            </Badge>
-                          </TableCell>
+                          {visibleColumns.items.includes('sku') && (
+                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          )}
+                          {visibleColumns.items.includes('description') && (
+                            <TableCell>{item.description || item.inventory?.description}</TableCell>
+                          )}
+                          {visibleColumns.items.includes('quantity') && (
+                            <TableCell>{item.quantity}</TableCell>
+                          )}
+                          {visibleColumns.items.includes('unitPrice') && (
+                            <TableCell>{formatCurrency(item.finalPrice || item.suggestedPrice || 0)}</TableCell>
+                          )}
+                          {visibleColumns.items.includes('total') && (
+                            <TableCell>{formatCurrency((item.finalPrice || item.suggestedPrice || 0) * item.quantity)}</TableCell>
+                          )}
+                          {visibleColumns.items.includes('status') && (
+                            <TableCell>
+                              <Badge variant={item.status === 'APPROVED' ? 'default' : 'destructive'}>
+                                {item.status}
+                              </Badge>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -784,33 +881,51 @@ export default function RfqDetail({
             <TabsContent value="pricing" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pricing Analysis</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Pricing Analysis</CardTitle>
+                    <TableCustomizer
+                      columns={PRICING_COLUMNS}
+                      visibleColumns={visibleColumns.pricing}
+                      onColumnToggle={(columnId) => handleColumnToggle('pricing', columnId)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Requested Price</TableHead>
-                        <TableHead>Suggested Price</TableHead>
-                        <TableHead>Market Price</TableHead>
-                        <TableHead>Cost</TableHead>
-                        <TableHead>Margin</TableHead>
+                        {PRICING_COLUMNS.map(column => 
+                          visibleColumns.pricing.includes(column.id) && (
+                            <TableHead key={column.id}>{column.label}</TableHead>
+                          )
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rfq.items?.map((item: any) => (
+                      {items.map((item: any) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          <TableCell>{formatCurrency(item.estimatedPrice || 0)}</TableCell>
-                          <TableCell>{formatCurrency(item.suggestedPrice || 0)}</TableCell>
-                          <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
-                          <TableCell>{formatCurrency(item.inventory?.costCad || 0)}</TableCell>
-                          <TableCell>
-                            {item.suggestedPrice && item.inventory?.costCad
-                              ? `${((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)}%`
-                              : 'N/A'}
-                          </TableCell>
+                          {visibleColumns.pricing.includes('sku') && (
+                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          )}
+                          {visibleColumns.pricing.includes('requestedPrice') && (
+                            <TableCell>{formatCurrency(item.estimatedPrice || 0)}</TableCell>
+                          )}
+                          {visibleColumns.pricing.includes('suggestedPrice') && (
+                            <TableCell>{formatCurrency(item.suggestedPrice || 0)}</TableCell>
+                          )}
+                          {visibleColumns.pricing.includes('marketPrice') && (
+                            <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
+                          )}
+                          {visibleColumns.pricing.includes('cost') && (
+                            <TableCell>{formatCurrency(item.inventory?.costCad || 0)}</TableCell>
+                          )}
+                          {visibleColumns.pricing.includes('margin') && (
+                            <TableCell>
+                              {item.suggestedPrice && item.inventory?.costCad
+                                ? `${((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)}%`
+                                : 'N/A'}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -823,84 +938,61 @@ export default function RfqDetail({
             <TabsContent value="inventory" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>Inventory Status</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Inventory Status</CardTitle>
+                    <TableCustomizer
+                      columns={INVENTORY_COLUMNS}
+                      visibleColumns={visibleColumns.inventory}
+                      onColumnToggle={(columnId) => handleColumnToggle('inventory', columnId)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>On Hand</TableHead>
-                        <TableHead>Reserved</TableHead>
-                        <TableHead>Available</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Status</TableHead>
+                        {INVENTORY_COLUMNS.map(column => 
+                          visibleColumns.inventory.includes(column.id) && (
+                            <TableHead key={column.id}>{column.label}</TableHead>
+                          )
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rfq?.items?.map((item: any) => {
-                        console.log('Processing inventory item:', {
-                          item,
-                          itemId: item.id,
-                          inventoryId: item.inventory?.id,
-                          skuDetails: skuDetails[item.id]
-                        });
-                        
+                      {items.map((item: any) => {
                         const inventoryData = skuDetails[item.id];
-                        console.log('Inventory data for item:', {
-                          itemId: item.id,
-                          inventoryData
-                        });
-                        
-                        if (!inventoryData) {
-                          console.log('No inventory data found for item:', item.id);
-                          return (
-                            <TableRow key={item.id}>
-                              <TableCell>{item.customerSku || item.inventory?.sku || 'N/A'}</TableCell>
-                              <TableCell>N/A</TableCell>
-                              <TableCell>N/A</TableCell>
-                              <TableCell>N/A</TableCell>
-                              <TableCell>N/A</TableCell>
-                              <TableCell>
-                                <Badge variant="destructive">No Data</Badge>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        }
-
-                        const quantityOnHand = inventoryData.quantityOnHand || 0;
-                        const quantityReserved = inventoryData.quantityReserved || 0;
-                        const available = quantityOnHand - quantityReserved;
-                        const isLowStock = quantityOnHand <= (inventoryData.lowStockThreshold || 5);
-                        const isOutOfStock = quantityOnHand === 0;
-
-                        console.log('Calculated inventory values:', {
-                          itemId: item.id,
-                          quantityOnHand,
-                          quantityReserved,
-                          available,
-                          isLowStock,
-                          isOutOfStock
-                        });
-
                         return (
                           <TableRow key={item.id}>
-                            <TableCell>{item.customerSku || item.inventory?.sku || inventoryData.sku}</TableCell>
-                            <TableCell>{quantityOnHand}</TableCell>
-                            <TableCell>{quantityReserved}</TableCell>
-                            <TableCell>{available}</TableCell>
-                            <TableCell>{inventoryData.warehouseLocation || 'N/A'}</TableCell>
-                            <TableCell>
-                              <Badge variant={
-                                isOutOfStock ? 'destructive' :
-                                isLowStock ? 'secondary' :
-                                'default'
-                              }>
-                                {isOutOfStock ? 'Out of Stock' :
-                                 isLowStock ? 'Low Stock' :
-                                 'In Stock'}
-                              </Badge>
-                            </TableCell>
+                            {visibleColumns.inventory.includes('sku') && (
+                              <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                            )}
+                            {visibleColumns.inventory.includes('onHand') && (
+                              <TableCell>{inventoryData?.quantityOnHand || 0}</TableCell>
+                            )}
+                            {visibleColumns.inventory.includes('reserved') && (
+                              <TableCell>{inventoryData?.quantityReserved || 0}</TableCell>
+                            )}
+                            {visibleColumns.inventory.includes('available') && (
+                              <TableCell>
+                                {(inventoryData?.quantityOnHand || 0) - (inventoryData?.quantityReserved || 0)}
+                              </TableCell>
+                            )}
+                            {visibleColumns.inventory.includes('location') && (
+                              <TableCell>{inventoryData?.warehouseLocation || 'N/A'}</TableCell>
+                            )}
+                            {visibleColumns.inventory.includes('status') && (
+                              <TableCell>
+                                <Badge variant={
+                                  (inventoryData?.quantityOnHand || 0) > (inventoryData?.lowStockThreshold || 0)
+                                    ? 'default'
+                                    : 'destructive'
+                                }>
+                                  {(inventoryData?.quantityOnHand || 0) > (inventoryData?.lowStockThreshold || 0)
+                                    ? 'In Stock'
+                                    : 'Low Stock'}
+                                </Badge>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
@@ -914,25 +1006,28 @@ export default function RfqDetail({
             <TabsContent value="history" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>SKU History</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>SKU History</CardTitle>
+                    <TableCustomizer
+                      columns={HISTORY_COLUMNS}
+                      visibleColumns={visibleColumns.history}
+                      onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Last Transaction</TableHead>
-                        <TableHead>Customer/Vendor</TableHead>
-                        <TableHead>Last Price</TableHead>
-                        <TableHead>Last Quantity</TableHead>
-                        <TableHead>Total Quantity</TableHead>
-                        <TableHead>Avg. Price</TableHead>
-                        <TableHead>Trend</TableHead>
+                        {HISTORY_COLUMNS.map(column => 
+                          visibleColumns.history.includes(column.id) && (
+                            <TableHead key={column.id}>{column.label}</TableHead>
+                          )
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rfq.items?.map((item: any) => {
+                      {items.map((item: any) => {
                         const salesHistory = history?.history?.filter((h: any) => {
                           const itemSku = item.customerSku || item.inventory?.sku;
                           const historySku = h.sku || h.customerSku;
@@ -962,52 +1057,88 @@ export default function RfqDetail({
                           <React.Fragment key={item.id}>
                             {salesHistory.length > 0 && (
                               <TableRow>
-                                <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                                <TableCell>
-                                  <Badge variant="default">Sales</Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {lastSale?.date 
-                                    ? new Date(lastSale.date).toLocaleDateString()
-                                    : 'N/A'}
-                                </TableCell>
-                                <TableCell className="text-green-600">
-                                  {lastSale?.customerName || 'N/A'}
-                                </TableCell>
-                                <TableCell>{formatCurrency(lastSale?.unitPrice || 0)}</TableCell>
-                                <TableCell>{lastSale?.quantity || 'N/A'}</TableCell>
-                                <TableCell>{totalSales}</TableCell>
-                                <TableCell>{formatCurrency(avgSalePrice)}</TableCell>
-                                <TableCell>
-                                  <Badge variant={lastSale?.priceTrend === 'up' ? 'default' : 'destructive'}>
-                                    {lastSale?.priceTrend === 'up' ? '↑' : '↓'}
-                                  </Badge>
-                                </TableCell>
+                                {visibleColumns.history.includes('sku') && (
+                                  <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('type') && (
+                                  <TableCell>
+                                    <Badge variant="default">Sales</Badge>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.history.includes('lastTransaction') && (
+                                  <TableCell>
+                                    {lastSale?.date 
+                                      ? new Date(lastSale.date).toLocaleDateString()
+                                      : 'N/A'}
+                                  </TableCell>
+                                )}
+                                {visibleColumns.history.includes('customerVendor') && (
+                                  <TableCell className="text-green-600">
+                                    {lastSale?.customerName || 'N/A'}
+                                  </TableCell>
+                                )}
+                                {visibleColumns.history.includes('lastPrice') && (
+                                  <TableCell>{formatCurrency(lastSale?.unitPrice || 0)}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('lastQuantity') && (
+                                  <TableCell>{lastSale?.quantity || 'N/A'}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('totalQuantity') && (
+                                  <TableCell>{totalSales}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('avgPrice') && (
+                                  <TableCell>{formatCurrency(avgSalePrice)}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('trend') && (
+                                  <TableCell>
+                                    <Badge variant={lastSale?.priceTrend === 'up' ? 'default' : 'destructive'}>
+                                      {lastSale?.priceTrend === 'up' ? '↑' : '↓'}
+                                    </Badge>
+                                  </TableCell>
+                                )}
                               </TableRow>
                             )}
                             {purchaseHistory.length > 0 && (
                               <TableRow>
-                                <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                                <TableCell>
-                                  <Badge variant="secondary">Purchases</Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {lastPurchase?.date 
-                                    ? new Date(lastPurchase.date).toLocaleDateString()
-                                    : 'N/A'}
-                                </TableCell>
-                                <TableCell className="text-blue-600">
-                                  {lastPurchase?.vendorName || 'N/A'}
-                                </TableCell>
-                                <TableCell>{formatCurrency(lastPurchase?.price || 0)}</TableCell>
-                                <TableCell>{lastPurchase?.quantity || 'N/A'}</TableCell>
-                                <TableCell>{totalPurchases}</TableCell>
-                                <TableCell>{formatCurrency(avgPurchasePrice)}</TableCell>
-                                <TableCell>
-                                  <Badge variant={lastPurchase?.priceTrend === 'up' ? 'default' : 'destructive'}>
-                                    {lastPurchase?.priceTrend === 'up' ? '↑' : '↓'}
-                                  </Badge>
-                                </TableCell>
+                                {visibleColumns.history.includes('sku') && (
+                                  <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('type') && (
+                                  <TableCell>
+                                    <Badge variant="secondary">Purchases</Badge>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.history.includes('lastTransaction') && (
+                                  <TableCell>
+                                    {lastPurchase?.date 
+                                      ? new Date(lastPurchase.date).toLocaleDateString()
+                                      : 'N/A'}
+                                  </TableCell>
+                                )}
+                                {visibleColumns.history.includes('customerVendor') && (
+                                  <TableCell className="text-blue-600">
+                                    {lastPurchase?.vendorName || 'N/A'}
+                                  </TableCell>
+                                )}
+                                {visibleColumns.history.includes('lastPrice') && (
+                                  <TableCell>{formatCurrency(lastPurchase?.price || 0)}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('lastQuantity') && (
+                                  <TableCell>{lastPurchase?.quantity || 'N/A'}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('totalQuantity') && (
+                                  <TableCell>{totalPurchases}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('avgPrice') && (
+                                  <TableCell>{formatCurrency(avgPurchasePrice)}</TableCell>
+                                )}
+                                {visibleColumns.history.includes('trend') && (
+                                  <TableCell>
+                                    <Badge variant={lastPurchase?.priceTrend === 'up' ? 'default' : 'destructive'}>
+                                      {lastPurchase?.priceTrend === 'up' ? '↑' : '↓'}
+                                    </Badge>
+                                  </TableCell>
+                                )}
                               </TableRow>
                             )}
                           </React.Fragment>
@@ -1023,37 +1154,55 @@ export default function RfqDetail({
             <TabsContent value="market" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>Market Data</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Market Data</CardTitle>
+                    <TableCustomizer
+                      columns={MARKET_COLUMNS}
+                      visibleColumns={visibleColumns.market}
+                      onColumnToggle={(columnId) => handleColumnToggle('market', columnId)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Market Price</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>Last Updated</TableHead>
-                        <TableHead>Competitor Price</TableHead>
-                        <TableHead>Price Trend</TableHead>
+                        {MARKET_COLUMNS.map(column => 
+                          visibleColumns.market.includes(column.id) && (
+                            <TableHead key={column.id}>{column.label}</TableHead>
+                          )
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rfq.items?.map((item: any) => (
+                      {items.map((item: any) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
-                          <TableCell>{item.inventory?.marketSource || 'N/A'}</TableCell>
-                          <TableCell>
-                            {item.inventory?.marketLastUpdated
-                              ? new Date(item.inventory.marketLastUpdated).toLocaleDateString()
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>{formatCurrency(item.inventory?.competitorPrice || 0)}</TableCell>
-                          <TableCell>
-                            <Badge variant={item.inventory?.marketTrend === 'up' ? 'default' : 'destructive'}>
-                              {item.inventory?.marketTrend === 'up' ? '↑' : '↓'}
-                            </Badge>
-                          </TableCell>
+                          {visibleColumns.market.includes('sku') && (
+                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          )}
+                          {visibleColumns.market.includes('marketPrice') && (
+                            <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
+                          )}
+                          {visibleColumns.market.includes('source') && (
+                            <TableCell>{item.inventory?.marketSource || 'N/A'}</TableCell>
+                          )}
+                          {visibleColumns.market.includes('lastUpdated') && (
+                            <TableCell>
+                              {item.inventory?.marketLastUpdated
+                                ? new Date(item.inventory.marketLastUpdated).toLocaleDateString()
+                                : 'N/A'}
+                            </TableCell>
+                          )}
+                          {visibleColumns.market.includes('competitorPrice') && (
+                            <TableCell>{formatCurrency(item.inventory?.competitorPrice || 0)}</TableCell>
+                          )}
+                          {visibleColumns.market.includes('priceTrend') && (
+                            <TableCell>
+                              <Badge variant={item.inventory?.marketTrend === 'up' ? 'default' : 'destructive'}>
+                                {item.inventory?.marketTrend === 'up' ? '↑' : '↓'}
+                              </Badge>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1066,47 +1215,65 @@ export default function RfqDetail({
             <TabsContent value="settings" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>SKU Settings</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>SKU Settings</CardTitle>
+                    <TableCustomizer
+                      columns={SETTINGS_COLUMNS}
+                      visibleColumns={visibleColumns.settings}
+                      onColumnToggle={(columnId) => handleColumnToggle('settings', columnId)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Currency</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead>Actions</TableHead>
+                        {SETTINGS_COLUMNS.map(column => 
+                          visibleColumns.settings.includes(column.id) && (
+                            <TableHead key={column.id}>{column.label}</TableHead>
+                          )
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rfq.items?.map((item: any) => (
+                      {items.map((item: any) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          <TableCell>
-                            <Select
-                              value={item.status}
-                              onValueChange={(value) => handleStatusChange(item.id, value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="APPROVED">Approved</SelectItem>
-                                <SelectItem value="REJECTED">Rejected</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>{item.currency}</TableCell>
-                          <TableCell>{item.unit}</TableCell>
-                          <TableCell>{item.notes || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => handleEditItem(item.id)}>
-                              Edit
-                            </Button>
-                          </TableCell>
+                          {visibleColumns.settings.includes('sku') && (
+                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          )}
+                          {visibleColumns.settings.includes('status') && (
+                            <TableCell>
+                              <Select
+                                value={item.status}
+                                onValueChange={(value) => handleStatusChange(item.id, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="PENDING">Pending</SelectItem>
+                                  <SelectItem value="APPROVED">Approved</SelectItem>
+                                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          )}
+                          {visibleColumns.settings.includes('currency') && (
+                            <TableCell>{item.currency}</TableCell>
+                          )}
+                          {visibleColumns.settings.includes('unit') && (
+                            <TableCell>{item.unit}</TableCell>
+                          )}
+                          {visibleColumns.settings.includes('notes') && (
+                            <TableCell>{item.notes || 'N/A'}</TableCell>
+                          )}
+                          {visibleColumns.settings.includes('actions') && (
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleEditItem(item.id)}>
+                                Edit
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
