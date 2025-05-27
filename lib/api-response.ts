@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 
 export interface ApiResponse<T> {
   success: boolean
-  data: T
-  error?: string
+  data: T | null
+  error: string | null
   meta?: {
     pagination?: {
       page: number
@@ -18,6 +18,7 @@ export function createSuccessResponse<T>(data: T): ApiResponse<T> {
   return {
     success: true,
     data,
+    error: null
   }
 }
 
@@ -53,7 +54,7 @@ export function createErrorResponse(error: string): ApiResponse<null> {
   return {
     success: false,
     data: null,
-    error,
+    error
   }
 }
 
@@ -71,6 +72,7 @@ export function createPaginatedResponse<T>({
   return {
     success: true,
     data,
+    error: null,
     meta: {
       pagination: {
         page,

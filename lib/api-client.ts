@@ -128,7 +128,7 @@ export const customerApi = {
 // Inventory API endpoints
 export const inventoryApi = {
   list: (params?: Record<string, string | undefined>) =>
-    apiFetch("/api/inventory/list", { params }),
+    apiFetch("/api/inventory/", { params }),
   search: (query: string, params?: Record<string, string | undefined>) =>
     apiFetch("/api/inventory/search", {
       params: { query, ...params },

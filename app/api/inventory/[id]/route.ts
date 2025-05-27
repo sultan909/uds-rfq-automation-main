@@ -51,16 +51,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     console.log('Successfully found inventory item');
-    const response = {
+    return NextResponse.json({
       success: true,
       data: item,
       error: null
-    };
-    console.log('Sending response:', response);
-    return NextResponse.json(response);
+    });
   } catch (error) {
     console.error('Error in GET /api/inventory/[id]:', error);
-    return handleApiError(error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        data: null,
+        error: error instanceof Error ? error.message : 'An unexpected error occurred'
+      },
+      { status: 500 }
+    );
   }
 }
 

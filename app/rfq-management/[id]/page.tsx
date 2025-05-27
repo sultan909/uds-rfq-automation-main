@@ -59,8 +59,8 @@ interface InventoryData {
 
 interface ApiResponse<T> {
   success: boolean;
-  data: T;
-  error?: string;
+  data: T | null;
+  error: string | null;
 }
 
 export default function RfqDetail({
@@ -103,10 +103,19 @@ export default function RfqDetail({
           page: currentPage,
           pageSize: itemsPerPage
         });
-        console.log('RFQ API Response:', response);
+        console.log('Raw RFQ API Response:', response);
+        
         if (response.success && response.data) {
-          console.log('RFQ Data:', response.data);
-          setRfqData(response.data);
+          console.log('RFQ Data before setting:', response.data);
+          // Ensure we're setting the correct data structure
+          const rfqData = {
+            ...response.data,
+            // @ts-ignore
+            items: response.data.items || []
+          };
+          console.log('Processed RFQ Data:', rfqData);
+          setRfqData(rfqData);
+          
           // Update pagination state from response metadata
           if (response.meta?.pagination) {
             console.log('Setting pagination state:', response.meta.pagination);
@@ -116,7 +125,7 @@ export default function RfqDetail({
             console.log('No pagination metadata in response');
           }
         } else {
-          console.log('Failed to load RFQ data:', response);
+          console.error('Failed to load RFQ data:', response);
           setError("Failed to load RFQ data");
           toast.error("Failed to load RFQ data");
         }
@@ -232,10 +241,23 @@ export default function RfqDetail({
   useEffect(() => {
     const fetchInventoryData = async () => {
       try {
-        console.log('Fetching inventory data for items:', rfqData?.items);
+        console.log('Starting fetchInventoryData');
+        console.log('Current rfqData:', rfqData);
+        console.log('Items to process:', rfqData?.items);
+        
+        if (!rfqData?.items?.length) {
+          console.log('No items to process');
+          return;
+        }
+
         // Fetch inventory data for each item
-        const inventoryPromises = rfqData?.items?.map(async (item: any) => {
-          console.log('Processing item:', item);
+        const inventoryPromises = rfqData.items.map(async (item: any) => {
+          console.log('Processing item:', {
+            id: item.id,
+            inventoryId: item.inventory?.id,
+            sku: item.customerSku || item.inventory?.sku
+          });
+
           if (!item.inventory?.id) {
             console.log('Item has no inventory ID:', item);
             return null;
@@ -243,16 +265,11 @@ export default function RfqDetail({
 
           try {
             console.log('Fetching inventory for ID:', item.inventory.id);
-            const response = await inventoryApi.get(item.inventory.id) as ApiResponse<Partial<InventoryData>>;
+            const response = await inventoryApi.get(item.inventory.id) as ApiResponse<InventoryData>;
             console.log('Raw inventory API response:', response);
             
-            if (!response.success) {
+            if (!response.success || !response.data) {
               console.error('Failed to fetch inventory:', response.error);
-              return null;
-            }
-
-            if (!response.data) {
-              console.error('No data in inventory response');
               return null;
             }
 
@@ -286,8 +303,9 @@ export default function RfqDetail({
             console.error('Error fetching inventory for item:', item.id, err);
             return null;
           }
-        }) || [];
+        });
 
+        console.log('Waiting for all inventory promises to resolve...');
         const inventoryResults = await Promise.all(inventoryPromises);
         console.log('Inventory results:', inventoryResults);
         
@@ -307,6 +325,7 @@ export default function RfqDetail({
     };
 
     if (rfqData?.items) {
+      console.log('Triggering fetchInventoryData');
       fetchInventoryData();
     }
   }, [rfqData?.items]);
@@ -541,8 +560,12 @@ export default function RfqDetail({
 
   // Ensure we have the correct data structure
   const rfq = rfqData?.data || rfqData;
-  console.log('Rendering with RFQ:', rfq);
-  console.log('Pagination state:', { totalItems, totalPages, currentPage });
+  console.log('Rendering with RFQ:', {
+    rfqData,
+    rfq,
+    items: rfq?.items,
+    skuDetails
+  });
 
   if (loading) {
     return (
@@ -815,23 +838,58 @@ export default function RfqDetail({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rfq.items?.map((item: any) => {
-                        console.log('Rendering item:', item);
+                      {rfq?.items?.map((item: any) => {
+                        console.log('Processing inventory item:', {
+                          item,
+                          itemId: item.id,
+                          inventoryId: item.inventory?.id,
+                          skuDetails: skuDetails[item.id]
+                        });
+                        
                         const inventoryData = skuDetails[item.id];
-                        console.log('Found inventory data:', inventoryData);
-                        const quantityOnHand = inventoryData?.quantityOnHand || 0;
-                        const quantityReserved = inventoryData?.quantityReserved || 0;
+                        console.log('Inventory data for item:', {
+                          itemId: item.id,
+                          inventoryData
+                        });
+                        
+                        if (!inventoryData) {
+                          console.log('No inventory data found for item:', item.id);
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.customerSku || item.inventory?.sku || 'N/A'}</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>
+                                <Badge variant="destructive">No Data</Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+
+                        const quantityOnHand = inventoryData.quantityOnHand || 0;
+                        const quantityReserved = inventoryData.quantityReserved || 0;
                         const available = quantityOnHand - quantityReserved;
-                        const isLowStock = quantityOnHand <= (inventoryData?.lowStockThreshold || 5);
+                        const isLowStock = quantityOnHand <= (inventoryData.lowStockThreshold || 5);
                         const isOutOfStock = quantityOnHand === 0;
+
+                        console.log('Calculated inventory values:', {
+                          itemId: item.id,
+                          quantityOnHand,
+                          quantityReserved,
+                          available,
+                          isLowStock,
+                          isOutOfStock
+                        });
 
                         return (
                           <TableRow key={item.id}>
-                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                            <TableCell>{item.customerSku || item.inventory?.sku || inventoryData.sku}</TableCell>
                             <TableCell>{quantityOnHand}</TableCell>
                             <TableCell>{quantityReserved}</TableCell>
                             <TableCell>{available}</TableCell>
-                            <TableCell>{inventoryData?.warehouseLocation || 'N/A'}</TableCell>
+                            <TableCell>{inventoryData.warehouseLocation || 'N/A'}</TableCell>
                             <TableCell>
                               <Badge variant={
                                 isOutOfStock ? 'destructive' :
