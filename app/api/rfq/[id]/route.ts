@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSuccessResponse } from '../../lib/api-response';
+import { createSuccessResponse, createPaginatedResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
 import { db } from '../../../../db';
 import { rfqs, customers, users, rfqItems, inventoryItems, auditLog } from '../../../../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 interface RouteParams {
   params: {
@@ -58,12 +58,26 @@ interface AuditLogEntry {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const offset = (page - 1) * pageSize;
+
     // Get RFQ with related data
     const rfqData = await db
       .select({
-        rfq: rfqs,
+        rfq: {
+          id: rfqs.id,
+          rfqNumber: rfqs.rfqNumber,
+          status: rfqs.status,
+          source: rfqs.source,
+          dueDate: rfqs.dueDate,
+          totalBudget: rfqs.totalBudget,
+          createdAt: rfqs.createdAt,
+          updatedAt: rfqs.updatedAt,
+          customerId: rfqs.customerId,
+          requestorId: rfqs.requestorId
+        },
         customer: {
           id: customers.id,
           name: customers.name,
@@ -83,15 +97,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(rfqs)
       .leftJoin(customers, eq(rfqs.customerId, customers.id))
       .leftJoin(users, eq(rfqs.requestorId, users.id))
-      .where(eq(rfqs.id, parseInt(id)))
-      // @ts-ignore
-      .then((result: RfqData[]) => result[0]);
+      .where(eq(rfqs.id, parseInt(params.id)))
+      .then((result: any[]) => result[0]);
 
     if (!rfqData) {
-      throw new ApiError(`RFQ with ID ${id} not found`, 404);
+      throw new ApiError(`RFQ with ID ${params.id} not found`, 404);
     }
 
-    // Get RFQ items with inventory data
+    // Get total count of items
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(rfqItems)
+      .where(eq(rfqItems.rfqId, parseInt(params.id)));
+
+    // Get paginated RFQ items with inventory data
     const items = await db
       .select({
         item: rfqItems,
@@ -106,8 +125,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })
       .from(rfqItems)
       .leftJoin(inventoryItems, eq(rfqItems.internalProductId, inventoryItems.id))
-      .where(eq(rfqItems.rfqId, parseInt(id)))
-      .then((result: RfqItem[]) => result);
+      .where(eq(rfqItems.rfqId, parseInt(params.id)))
+      .limit(pageSize)
+      .offset(offset);
 
     // Get audit log entries for this RFQ
     const auditLogEntries = await db
@@ -116,31 +136,40 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(auditLog.entityType, 'rfq'),
-          eq(auditLog.entityId, parseInt(id))
+          eq(auditLog.entityId, parseInt(params.id))
         )
       )
-      .orderBy(desc(auditLog.timestamp))
-        // @ts-ignore
-      .then((result: AuditLogEntry[]) => result);
+      .orderBy(desc(auditLog.timestamp));
 
-    // Combine all data
-    const responseData = {
-      ...rfqData.rfq,
-      customer: rfqData.customer,
-      requestor: rfqData.requestor,
-      items: items.map((item: RfqItem) => ({
-        ...item.item,
-        inventory: item.inventory
-      })),
-      changeHistory: auditLogEntries.map((log: AuditLogEntry) => ({
-        timestamp: log.timestamp,
-        // @ts-ignore
-        user: log.userId ? users.find((u: typeof users.$inferSelect) => u.id === log.userId)?.name : 'System',
-        action: log.action
-      }))
+    // Create paginated response
+    const response = {
+      success: true,
+      data: {
+        ...rfqData.rfq,
+        customer: rfqData.customer,
+        requestor: rfqData.requestor,
+        items: items.map((item: any) => ({
+          ...item.item,
+          inventory: item.inventory
+        })),
+        changeHistory: auditLogEntries.map((log: any) => ({
+          timestamp: log.timestamp,
+          user: log.userId ? 'User ' + log.userId : 'System',
+          action: log.action
+        }))
+      },
+      meta: {
+        pagination: {
+          page,
+          pageSize,
+          totalItems: count,
+          totalPages: Math.ceil(count / pageSize)
+        }
+      }
     };
 
-    return NextResponse.json(createSuccessResponse(responseData));
+    console.log('Sending API response:', response);
+    return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error);
   }

@@ -5,12 +5,11 @@ import { createErrorResponse } from './api-response';
  * Custom API error class with status code
  */
 export class ApiError extends Error {
-  statusCode: number;
-  
-  constructor(message: string, statusCode: number = 400) {
+  status: number;
+
+  constructor(message: string, status = 500) {
     super(message);
-    this.name = 'ApiError';
-    this.statusCode = statusCode;
+    this.status = status;
   }
 }
 
@@ -22,19 +21,15 @@ export function handleApiError(error: unknown): NextResponse {
   console.error('API Error:', error);
   
   if (error instanceof ApiError) {
-    return NextResponse.json(
-      createErrorResponse(error.message),
-      { status: error.statusCode }
-    );
+    return NextResponse.json(createErrorResponse(error.message), { status: error.status });
   }
   
   // Handle validation errors or other specific error types
   // ...
   
   // Default error handler for unknown errors
-  const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
   return NextResponse.json(
-    createErrorResponse(errorMessage),
+    createErrorResponse('An unexpected error occurred'),
     { status: 500 }
   );
 }
