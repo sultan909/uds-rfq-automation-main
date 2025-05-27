@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useEffect, useState, use } from "react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
@@ -15,6 +16,8 @@ import {
   Settings,
   FileSpreadsheet,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,6 +37,32 @@ import {
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 
+// Add these type definitions at the top of the file, after the imports
+interface InventoryData {
+  id: number;
+  sku: string;
+  mpn: string;
+  brand: string;
+  description: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  warehouseLocation: string;
+  lowStockThreshold: number;
+  costCad?: number;
+  costUsd?: number;
+  marketPrice?: number;
+  marketSource?: string;
+  marketLastUpdated?: string;
+  competitorPrice?: number;
+  marketTrend?: string;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T | null;
+  error: string | null;
+}
+
 export default function RfqDetail({
   params,
 }: {
@@ -51,19 +80,57 @@ export default function RfqDetail({
   const [historyStats, setHistoryStats] = useState<any>(null);
   const [inventoryHistory, setInventoryHistory] = useState<Record<string, any>>({});
   const [inventoryHistoryLoading, setInventoryHistoryLoading] = useState<Record<string, boolean>>({});
+  const [selectedSkus, setSelectedSkus] = useState<string[]>([]);
+  const [skuDetails, setSkuDetails] = useState<Record<string, InventoryData>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Calculate pagination
+  useEffect(() => {
+    if (rfqData?.meta?.pagination) {
+      setTotalItems(rfqData.meta.pagination.totalItems);
+      setTotalPages(rfqData.meta.pagination.totalPages);
+    }
+  }, [rfqData?.meta?.pagination]);
 
   useEffect(() => {
     const fetchRfqData = async () => {
       try {
         setLoading(true);
-        const response = await rfqApi.getById(id);
+        const response = await rfqApi.getById(id, {
+          page: currentPage,
+          pageSize: itemsPerPage
+        });
+        console.log('Raw RFQ API Response:', response);
+        
         if (response.success && response.data) {
-          setRfqData(response.data);
+          console.log('RFQ Data before setting:', response.data);
+          // Ensure we're setting the correct data structure
+          const rfqData = {
+            ...response.data,
+            // @ts-ignore
+            items: response.data.items || []
+          };
+          console.log('Processed RFQ Data:', rfqData);
+          setRfqData(rfqData);
+          
+          // Update pagination state from response metadata
+          if (response.meta?.pagination) {
+            console.log('Setting pagination state:', response.meta.pagination);
+            setTotalItems(response.meta.pagination.totalItems);
+            setTotalPages(response.meta.pagination.totalPages);
+          } else {
+            console.log('No pagination metadata in response');
+          }
         } else {
+          console.error('Failed to load RFQ data:', response);
           setError("Failed to load RFQ data");
           toast.error("Failed to load RFQ data");
         }
       } catch (err) {
+        console.error('Error fetching RFQ:', err);
         setError("An error occurred while loading RFQ data");
         toast.error("An error occurred while loading RFQ data");
       } finally {
@@ -72,7 +139,12 @@ export default function RfqDetail({
     };
 
     fetchRfqData();
-  }, [id]);
+  }, [id, currentPage, itemsPerPage]);
+
+  // Add debug render
+  if (rfqData) {
+    console.log('Current RFQ Data State:', rfqData);
+  }
 
   const handleCreateQuote = async () => {
     try {
@@ -166,10 +238,106 @@ export default function RfqDetail({
     }
   }, [rfqData?.customer?.id, rfqData?.items, filters.period]);
 
+  useEffect(() => {
+    const fetchInventoryData = async () => {
+      try {
+        console.log('Starting fetchInventoryData');
+        console.log('Current rfqData:', rfqData);
+        console.log('Items to process:', rfqData?.items);
+        
+        if (!rfqData?.items?.length) {
+          console.log('No items to process');
+          return;
+        }
+
+        // Fetch inventory data for each item
+        const inventoryPromises = rfqData.items.map(async (item: any) => {
+          console.log('Processing item:', {
+            id: item.id,
+            inventoryId: item.inventory?.id,
+            sku: item.customerSku || item.inventory?.sku
+          });
+
+          if (!item.inventory?.id) {
+            console.log('Item has no inventory ID:', item);
+            return null;
+          }
+
+          try {
+            console.log('Fetching inventory for ID:', item.inventory.id);
+            const response = await inventoryApi.get(item.inventory.id) as ApiResponse<InventoryData>;
+            console.log('Raw inventory API response:', response);
+            
+            if (!response.success || !response.data) {
+              console.error('Failed to fetch inventory:', response.error);
+              return null;
+            }
+
+            // Ensure we have the required inventory data
+            const inventoryData: InventoryData = {
+              id: response.data.id || 0,
+              sku: response.data.sku || '',
+              mpn: response.data.mpn || '',
+              brand: response.data.brand || '',
+              description: response.data.description || '',
+              quantityOnHand: response.data.quantityOnHand || 0,
+              quantityReserved: response.data.quantityReserved || 0,
+              warehouseLocation: response.data.warehouseLocation || 'N/A',
+              lowStockThreshold: response.data.lowStockThreshold || 5,
+              costCad: response.data.costCad,
+              costUsd: response.data.costUsd,
+              marketPrice: response.data.marketPrice,
+              marketSource: response.data.marketSource,
+              marketLastUpdated: response.data.marketLastUpdated,
+              competitorPrice: response.data.competitorPrice,
+              marketTrend: response.data.marketTrend
+            };
+
+            console.log('Processed inventory data:', inventoryData);
+
+            return {
+              itemId: item.id,
+              inventoryData
+            };
+          } catch (err) {
+            console.error('Error fetching inventory for item:', item.id, err);
+            return null;
+          }
+        });
+
+        console.log('Waiting for all inventory promises to resolve...');
+        const inventoryResults = await Promise.all(inventoryPromises);
+        console.log('Inventory results:', inventoryResults);
+        
+        const inventoryDataMap = inventoryResults.reduce((acc: Record<string, InventoryData>, result) => {
+          if (result) {
+            acc[result.itemId] = result.inventoryData;
+          }
+          return acc;
+        }, {});
+        
+        console.log('Final inventory data map:', inventoryDataMap);
+        setSkuDetails(inventoryDataMap);
+      } catch (err) {
+        console.error('Error in fetchInventoryData:', err);
+        toast.error('Failed to fetch inventory data');
+      }
+    };
+
+    if (rfqData?.items) {
+      console.log('Triggering fetchInventoryData');
+      fetchInventoryData();
+    }
+  }, [rfqData?.items]);
+
+  useEffect(() => {
+    console.log('Current skuDetails:', skuDetails);
+  }, [skuDetails]);
+
   const exportToExcel = () => {
     try {
       // Prepare the data for export
-      const exportData: Record<string, any[][]> = {
+      const exportData = {
         'RFQ Summary': [
           ['RFQ Number', rfqData.rfqNumber],
           ['Date Received', new Date(rfqData.createdAt).toLocaleDateString()],
@@ -190,204 +358,87 @@ export default function RfqDetail({
           ['Address', rfqData.customer?.address || 'N/A'],
           ['Contact Person', rfqData.customer?.contactPerson || 'N/A'],
         ],
-        'Requestor Information': [
-          ['Name', rfqData.requestor?.name || 'N/A'],
-          ['Email', rfqData.requestor?.email || 'N/A'],
-          ['Role', rfqData.requestor?.role || 'N/A'],
+        'SKU Details': [
+          ['SKU', 'Description', 'Quantity', 'Unit', 'Requested Price', 'Suggested Price', 'Market Price', 'Cost', 'Margin', 'Status', 'On Hand', 'Reserved', 'Available', 'Location'],
+          ...rfqData.items?.map((item: any) => {
+            const inventoryData = skuDetails[item.id];
+            const quantityOnHand = inventoryData?.quantityOnHand || 0;
+            const quantityReserved = inventoryData?.quantityReserved || 0;
+            const available = quantityOnHand - quantityReserved;
+            const margin = item.suggestedPrice && item.inventory?.costCad
+              ? ((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)
+              : 'N/A';
+
+            return [
+              item.customerSku || item.inventory?.sku || 'N/A',
+              item.description || item.inventory?.description || 'N/A',
+              item.quantity || 'N/A',
+              item.unit || 'EA',
+              formatCurrency(item.estimatedPrice || 0),
+              formatCurrency(item.suggestedPrice || 0),
+              formatCurrency(item.inventory?.marketPrice || 0),
+              formatCurrency(item.inventory?.costCad || 0),
+              margin + '%',
+              item.status || 'N/A',
+              quantityOnHand,
+              quantityReserved,
+              available,
+              inventoryData?.warehouseLocation || 'N/A'
+            ];
+          }) || [],
         ],
-        'Requested Items': [
-          ['SKU', 'Description', 'Quantity', 'Unit', 'Estimated Price', 'Final Price', 'Total', 'Status'],
+        'Sales History': [
+          ['SKU', 'Date', 'Customer', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
+          ...rfqData.items?.flatMap((item: any) => {
+            const salesHistory = history?.history?.filter((h: any) => {
+              const itemSku = item.customerSku || item.inventory?.sku;
+              const historySku = h.sku || h.customerSku;
+              return historySku === itemSku && h.type === 'sale';
+            }) || [];
+
+            return salesHistory.map((sale: any) => [
+              item.customerSku || item.inventory?.sku || 'N/A',
+              sale.date ? new Date(sale.date).toLocaleDateString() : 'N/A',
+              sale.customerName || 'N/A',
+              sale.quantity || 'N/A',
+              formatCurrency(sale.unitPrice || 0),
+              formatCurrency(sale.totalAmount || 0),
+              sale.status || 'N/A'
+            ]);
+          }) || [],
+        ],
+        'Purchase History': [
+          ['SKU', 'Date', 'Vendor', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
+          ...rfqData.items?.flatMap((item: any) => {
+            const purchaseHistory = inventoryHistory[item.id]?.transactions?.filter((t: any) => 
+              t.type === 'purchase'
+            ) || [];
+
+            return purchaseHistory.map((purchase: any) => [
+              item.customerSku || item.inventory?.sku || 'N/A',
+              purchase.date ? new Date(purchase.date).toLocaleDateString() : 'N/A',
+              purchase.vendorName || 'N/A',
+              purchase.quantity || 'N/A',
+              formatCurrency(purchase.price || 0),
+              formatCurrency(purchase.totalAmount || 0),
+              purchase.status || 'N/A'
+            ]);
+          }) || [],
+        ],
+        'Market Data': [
+          ['SKU', 'Market Price', 'Source', 'Last Updated', 'Competitor Price', 'Price Trend'],
           ...rfqData.items?.map((item: any) => [
             item.customerSku || item.inventory?.sku || 'N/A',
-            item.description || item.inventory?.description || 'N/A',
-            item.quantity,
-            item.unit || 'EA',
-            formatCurrency(
-              currency === "CAD"
-                ? item.estimatedPrice || 0
-                : convertCurrency(item.estimatedPrice || 0, "CAD")
-            ),
-            formatCurrency(
-              currency === "CAD"
-                ? item.finalPrice || item.suggestedPrice || 0
-                : convertCurrency(item.finalPrice || item.suggestedPrice || 0, "CAD")
-            ),
-            formatCurrency(
-              currency === "CAD"
-                ? (item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0) * item.quantity
-                : convertCurrency(
-                    (item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0) * item.quantity,
-                    "CAD"
-                  )
-            ),
-            item.status?.toLowerCase() || 'pending',
+            formatCurrency(item.inventory?.marketPrice || 0),
+            item.inventory?.marketSource || 'N/A',
+            item.inventory?.marketLastUpdated
+              ? new Date(item.inventory.marketLastUpdated).toLocaleDateString()
+              : 'N/A',
+            formatCurrency(item.inventory?.competitorPrice || 0),
+            item.inventory?.marketTrend || 'N/A'
           ]) || [],
-        ],
+        ]
       };
-
-      // Add Customer History Summary if available
-      if (historyStats) {
-        exportData['Customer History Summary'] = [
-          ['Total RFQs', historyStats.totalRfqs],
-          ['Total Spent', formatCurrency(
-            currency === "CAD"
-              ? historyStats.totalSpentCAD
-              : convertCurrency(historyStats.totalSpentCAD, "CAD")
-          )],
-          ['Average Order Value', formatCurrency(
-            currency === "CAD"
-              ? historyStats.averageOrderValueCAD
-              : convertCurrency(historyStats.averageOrderValueCAD, "CAD")
-          )],
-          ['Acceptance Rate', `${historyStats.acceptanceRate}%`],
-        ];
-      }
-
-      // Add Customer Transaction History if available
-      if (history?.history && history.history.length > 0) {
-        exportData['Customer Transaction History'] = [
-          ['Date', 'Type', 'Document #', 'SKU', 'Description', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
-          ...history.history.map((item: any) => [
-            item.date ? new Date(item.date).toLocaleDateString() : 'N/A',
-            item.type || 'N/A',
-            item.documentNumber || 'N/A',
-            item.sku || 'N/A',
-            item.description || 'N/A',
-            item.quantity || 'N/A',
-            formatCurrency(
-              currency === "CAD"
-                ? item.unitPrice || 0
-                : convertCurrency(item.unitPrice || 0, "CAD")
-            ),
-            formatCurrency(
-              currency === "CAD"
-                ? item.totalAmount || 0
-                : convertCurrency(item.totalAmount || 0, "CAD")
-            ),
-            item.status?.toLowerCase() || 'N/A',
-          ]),
-        ];
-      }
-
-      // Add Inventory History for each item
-      if (rfqData.items) {
-        rfqData.items.forEach((item: any) => {
-          const itemHistory = inventoryHistory[item.id];
-          if (itemHistory?.transactions && itemHistory.transactions.length > 0) {
-            exportData[`Inventory History - ${item.customerSku || item.inventory?.sku || 'Unknown SKU'}`] = [
-              ['Date', 'Type', 'Source', 'Document #', 'Customer/Vendor', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
-              ...itemHistory.transactions.map((transaction: any) => [
-                transaction.date ? new Date(transaction.date).toLocaleDateString() : 'N/A',
-                transaction.type || 'N/A',
-                transaction.source || 'N/A',
-                transaction.documentNumber || 'N/A',
-                transaction.customerName || transaction.vendorName || 'N/A',
-                transaction.quantity || 'N/A',
-                formatCurrency(
-                  currency === "CAD"
-                    ? transaction.unitPrice || 0
-                    : convertCurrency(transaction.unitPrice || 0, "CAD")
-                ),
-                formatCurrency(
-                  currency === "CAD"
-                    ? transaction.totalAmount || 0
-                    : convertCurrency(transaction.totalAmount || 0, "CAD")
-                ),
-                transaction.status?.toLowerCase() || 'N/A',
-              ]),
-            ];
-          }
-        });
-      }
-
-      // Add Item-wise Sales Statistics
-      if (rfqData.items) {
-        rfqData.items.forEach((rfqItem: any) => {
-          const itemHistory = history?.history?.filter((item: any) => {
-            const itemSku = item.sku || item.customerSku;
-            const rfqItemSku = rfqItem.customerSku || rfqItem.inventory?.sku;
-            return itemSku === rfqItemSku;
-          }) || [];
-
-          const itemInventoryHistory = inventoryHistory[rfqItem.id]?.transactions || [];
-          const combinedHistory = [
-            ...itemHistory.map((item: any) => ({ ...item, source: 'customer' })),
-            ...itemInventoryHistory.map((item: any) => ({ ...item, source: 'inventory' }))
-          ];
-
-          if (combinedHistory.length > 0) {
-            exportData[`Item Statistics - ${rfqItem.customerSku || rfqItem.inventory?.sku || 'Unknown SKU'}`] = [
-              ['Metric', 'Value'],
-              ['Total Orders', combinedHistory.filter((item: any) => item.type === 'sale').length],
-              ['Total Quantity Sold', combinedHistory
-                .filter((item: any) => item.type === 'sale')
-                .reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)],
-              ['Average Sale Price', formatCurrency(
-                currency === "CAD"
-                  ? combinedHistory
-                      .filter((item: any) => item.type === 'sale')
-                      .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                      (combinedHistory.filter((item: any) => item.type === 'sale').length || 1)
-                  : convertCurrency(
-                      combinedHistory
-                        .filter((item: any) => item.type === 'sale')
-                        .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                        (combinedHistory.filter((item: any) => item.type === 'sale').length || 1),
-                      "CAD"
-                    )
-              )],
-              ['Total RFQs', combinedHistory.filter((item: any) => item.type === 'rfq').length],
-              ['Total RFQ Quantity', combinedHistory
-                .filter((item: any) => item.type === 'rfq')
-                .reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)],
-              ['Average RFQ Price', formatCurrency(
-                currency === "CAD"
-                  ? combinedHistory
-                      .filter((item: any) => item.type === 'rfq')
-                      .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                      (combinedHistory.filter((item: any) => item.type === 'rfq').length || 1)
-                  : convertCurrency(
-                      combinedHistory
-                        .filter((item: any) => item.type === 'rfq')
-                        .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                        (combinedHistory.filter((item: any) => item.type === 'rfq').length || 1),
-                      "CAD"
-                    )
-              )],
-              ['Total Revenue', formatCurrency(
-                currency === "CAD"
-                  ? combinedHistory
-                      .filter((item: any) => item.type === 'sale')
-                      .reduce((sum: number, item: any) => sum + (item.totalAmount || 0), 0)
-                  : convertCurrency(
-                      combinedHistory
-                        .filter((item: any) => item.type === 'sale')
-                        .reduce((sum: number, item: any) => sum + (item.totalAmount || 0), 0),
-                      "CAD"
-                    )
-              )],
-              ['Conversion Rate', `${Math.round(
-                (combinedHistory.filter((item: any) => item.type === 'sale').length /
-                  combinedHistory.filter((item: any) => item.type === 'rfq').length) * 100 || 0
-              )}%`],
-              ['Last Sale', combinedHistory
-                .filter((item: any) => item.type === 'sale')
-                .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.date
-                ? new Date(
-                    combinedHistory
-                      .filter((item: any) => item.type === 'sale')
-                      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date
-                  ).toLocaleDateString()
-                : "No sales"],
-            ];
-          }
-        });
-      }
-
-      // Add Additional Notes if available
-      if (rfqData.notes) {
-        exportData['Additional Notes'] = [[rfqData.notes]];
-      }
 
       // Create a new workbook
       const wb = XLSX.utils.book_new();
@@ -397,6 +448,7 @@ export default function RfqDetail({
         const ws = XLSX.utils.aoa_to_sheet(data);
         
         // Auto-fit column widths
+        // @ts-ignore
         const colWidths = data[0].map((_, index) => {
           const maxLength = Math.max(
             ...data.map(row => {
@@ -432,6 +484,89 @@ export default function RfqDetail({
     }
   };
 
+  const handleStatusChange = async (itemId: number, newStatus: string) => {
+    try {
+      const response = await rfqApi.update(id, {
+        items: rfqData.items.map((item: any) => 
+          item.id === itemId ? { ...item, status: newStatus } : item
+        )
+      });
+      if (response.success) {
+        toast.success("Item status updated successfully");
+        // Refresh RFQ data
+        const updatedRfq = await rfqApi.getById(id);
+        if (updatedRfq.success && updatedRfq.data) {
+          setRfqData(updatedRfq.data);
+        }
+      }
+    } catch (err) {
+      toast.error("Failed to update item status");
+    }
+  };
+
+  const handleEditItem = (itemId: number) => {
+    // Implement edit functionality
+    console.log("Edit item:", itemId);
+  };
+
+  // Update the pagination display in the UI
+  const renderPagination = () => {
+    console.log('Rendering pagination with state:', { totalItems, totalPages, currentPage });
+    if (!totalItems || totalItems <= 0) {
+      console.log('No items to paginate');
+      return null;
+    }
+
+    const startItem = ((currentPage - 1) * itemsPerPage) + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+    return (
+      <div className="flex items-center justify-between mt-4 border-t pt-4">
+        <div className="text-sm text-muted-foreground">
+          Showing {startItem} to {endItem} of {totalItems} items
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="text-sm">
+            Page {currentPage} of {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // Update the pagination controls to use backend pagination
+  const handlePageChange = (newPage: number) => {
+    console.log('Handling page change:', { newPage, totalPages });
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  // Ensure we have the correct data structure
+  const rfq = rfqData?.data || rfqData;
+  console.log('Rendering with RFQ:', {
+    rfqData,
+    rfq,
+    items: rfq?.items,
+    skuDetails
+  });
+
   if (loading) {
     return (
       <div className="flex h-screen">
@@ -451,6 +586,7 @@ export default function RfqDetail({
   }
 
   if (error || !rfqData) {
+    console.log('Error or no data:', { error, rfqData });
     return (
       <div className="flex h-screen">
         <Sidebar />
@@ -466,12 +602,16 @@ export default function RfqDetail({
     );
   }
 
+  // Update the table body to use the correct data structure
+  const items = rfq?.items || [];
+  console.log('Items to render:', items);
+
   return (
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
-          title={`RFQ Details: ${rfqData.rfqNumber}`}
+          title={`RFQ Details: ${rfq.rfqNumber}`}
           subtitle="View and manage request for quote"
         />
         <div className="flex-1 overflow-auto p-4">
@@ -486,7 +626,7 @@ export default function RfqDetail({
                     <User className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="font-medium">
-                        {rfqData.customer?.name || "Unknown"}
+                        {rfq.customer?.name || "Unknown"}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Customer
@@ -497,7 +637,7 @@ export default function RfqDetail({
                     <Building className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="font-medium">
-                        {rfqData.customer?.type || "Unknown"}
+                        {rfq.customer?.type || "Unknown"}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Customer Type
@@ -508,7 +648,7 @@ export default function RfqDetail({
                     <Calendar className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="font-medium">
-                        {new Date(rfqData.createdAt).toLocaleDateString()}
+                        {new Date(rfq.createdAt).toLocaleDateString()}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Date Received
@@ -528,22 +668,22 @@ export default function RfqDetail({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>
                     <span className="font-medium capitalize">
-                      {rfqData.status.toLowerCase()}
+                      {rfq.status?.toLowerCase() || 'Unknown'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Source:</span>
-                    <span className="font-medium">{rfqData.source}</span>
+                    <span className="font-medium">{rfq.source || 'N/A'}</span>
                   </div>
-                  {rfqData.dueDate && (
+                  {rfq.dueDate && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Due Date:</span>
                       <span className="font-medium">
-                        {new Date(rfqData.dueDate).toLocaleDateString()}
+                        {new Date(rfq.dueDate).toLocaleDateString()}
                       </span>
                     </div>
                   )}
-                  {rfqData.totalBudget && (
+                  {rfq.totalBudget && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
                         Total Budget:
@@ -551,8 +691,8 @@ export default function RfqDetail({
                       <span className="font-medium">
                         {formatCurrency(
                           currency === "CAD"
-                            ? rfqData.totalBudget
-                            : convertCurrency(rfqData.totalBudget, "CAD")
+                            ? rfq.totalBudget
+                            : convertCurrency(rfq.totalBudget, "CAD")
                         )}
                       </span>
                     </div>
@@ -570,1141 +710,203 @@ export default function RfqDetail({
             </Card>
           </div>
 
-          <Tabs defaultValue="all">
-            <TabsList>
+          <Tabs defaultValue="items" className="w-full">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="items">
-                <FileText className="h-4 w-4 mr-2" />
+                <FileText className="mr-2 h-4 w-4" />
                 Items
               </TabsTrigger>
-              <TabsTrigger value="customer-history">
-                <User className="h-4 w-4 mr-2" />
-                Customer History
+              <TabsTrigger value="pricing">
+                <Tag className="mr-2 h-4 w-4" />
+                Pricing
               </TabsTrigger>
-              <TabsTrigger value="market-prices">
-                <Tag className="h-4 w-4 mr-2" />
-                Market Prices
-              </TabsTrigger>
-              <TabsTrigger value="sales-history">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Sales History
-              </TabsTrigger>
-              <TabsTrigger value="custom-table">
-                <Building className="h-4 w-4 mr-2" />
-                Custom Table
-              </TabsTrigger>
-              <TabsTrigger value="original-request">
-                <FileText className="h-4 w-4 mr-2" />
-                Original Request
+              <TabsTrigger value="inventory">
+                <Building className="mr-2 h-4 w-4" />
+                Inventory
               </TabsTrigger>
               <TabsTrigger value="history">
-                <History className="h-4 w-4 mr-2" />
+                <History className="mr-2 h-4 w-4" />
                 History
               </TabsTrigger>
+              <TabsTrigger value="market">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Market Data
+              </TabsTrigger>
               <TabsTrigger value="settings">
-                <Settings className="h-4 w-4 mr-2" />
+                <Settings className="mr-2 h-4 w-4" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="all">
-                <FileText className="h-4 w-4 mr-2" />
-                All
+              <TabsTrigger value="export">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="all" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Complete RFQ Information</CardTitle>
-                    <Button onClick={() => exportToExcel()}>
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Export to Excel
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-8">
-                    {/* RFQ Summary Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">RFQ Summary</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">RFQ Number</div>
-                          <div className="font-medium">{rfqData.rfqNumber}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Date Received</div>
-                          <div className="font-medium">{new Date(rfqData.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Source</div>
-                          <div className="font-medium">{rfqData.source}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Status</div>
-                          <div className="font-medium capitalize">{rfqData.status.toLowerCase()}</div>
-                        </div>
-                        {rfqData.dueDate && (
-                          <div>
-                            <div className="text-sm text-muted-foreground">Due Date</div>
-                            <div className="font-medium">{new Date(rfqData.dueDate).toLocaleDateString()}</div>
-                          </div>
-                        )}
-                        {rfqData.totalBudget && (
-                          <div>
-                            <div className="text-sm text-muted-foreground">Total Budget</div>
-                            <div className="font-medium">
-                              {formatCurrency(
-                                currency === "CAD"
-                                  ? rfqData.totalBudget
-                                  : convertCurrency(rfqData.totalBudget, "CAD")
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Customer Information Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Customer Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Name</div>
-                          <div className="font-medium">{rfqData.customer?.name || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Type</div>
-                          <div className="font-medium">{rfqData.customer?.type || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Email</div>
-                          <div className="font-medium">{rfqData.customer?.email || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Phone</div>
-                          <div className="font-medium">{rfqData.customer?.phone || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Address</div>
-                          <div className="font-medium">{rfqData.customer?.address || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Contact Person</div>
-                          <div className="font-medium">{rfqData.customer?.contactPerson || "N/A"}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Requestor Information Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Requestor Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Name</div>
-                          <div className="font-medium">{rfqData.requestor?.name || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Email</div>
-                          <div className="font-medium">{rfqData.requestor?.email || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Role</div>
-                          <div className="font-medium">{rfqData.requestor?.role || "N/A"}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Items Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Requested Items</h3>
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>SKU</TableHead>
-                              <TableHead>Description</TableHead>
-                              <TableHead>Quantity</TableHead>
-                              <TableHead>Unit</TableHead>
-                              <TableHead>Estimated Price</TableHead>
-                              <TableHead>Final Price</TableHead>
-                              <TableHead>Total</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {rfqData.items?.map((item: any) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.customerSku || item.inventory?.sku || "N/A"}</TableCell>
-                                <TableCell>{item.description || item.inventory?.description || "N/A"}</TableCell>
-                                <TableCell>{item.quantity}</TableCell>
-                                <TableCell>{item.unit || "EA"}</TableCell>
-                                <TableCell>
-                                  {formatCurrency(
-                                    currency === "CAD"
-                                      ? item.estimatedPrice || 0
-                                      : convertCurrency(item.estimatedPrice || 0, "CAD")
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {formatCurrency(
-                                    currency === "CAD"
-                                      ? item.finalPrice || item.suggestedPrice || 0
-                                      : convertCurrency(item.finalPrice || item.suggestedPrice || 0, "CAD")
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {formatCurrency(
-                                    currency === "CAD"
-                                      ? (item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0) * item.quantity
-                                      : convertCurrency(
-                                          (item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0) * item.quantity,
-                                          "CAD"
-                                        )
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge 
-                                    variant={
-                                      item.status === 'COMPLETED' ? 'default' :
-                                      item.status === 'PENDING' ? 'secondary' :
-                                      'destructive'
-                                    }
-                                    className="capitalize"
-                                  >
-                                    {item.status?.toLowerCase() || "pending"}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-
-                    {/* Customer History Summary */}
-                    {historyStats && (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Customer History Summary</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <Card>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-sm font-medium">Total RFQs</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="text-2xl font-bold">{historyStats.totalRfqs}</div>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="text-2xl font-bold">
-                                {formatCurrency(
-                                  currency === "CAD"
-                                    ? historyStats.totalSpentCAD
-                                    : convertCurrency(historyStats.totalSpentCAD, "CAD")
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-sm font-medium">Average Order Value</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="text-2xl font-bold">
-                                {formatCurrency(
-                                  currency === "CAD"
-                                    ? historyStats.averageOrderValueCAD
-                                    : convertCurrency(historyStats.averageOrderValueCAD, "CAD")
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-sm font-medium">Acceptance Rate</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="text-2xl font-bold">{historyStats.acceptanceRate}%</div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Additional Notes */}
-                    {rfqData.notes && (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Additional Notes</h3>
-                        <div className="bg-muted p-4 rounded-lg">
-                          <p className="whitespace-pre-wrap">{rfqData.notes}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             <TabsContent value="items" className="m-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium">SKU</th>
-                      <th className="pb-2 font-medium">Description</th>
-                      <th className="pb-2 font-medium">Quantity</th>
-                      <th className="pb-2 font-medium">Unit Price</th>
-                      <th className="pb-2 font-medium">Total</th>
-                      <th className="pb-2 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rfqData.items?.map((item: any) => (
-                      <tr key={item.id} className="border-b">
-                        <td className="py-3">
-                          {item.customerSku || item.inventory?.sku || "N/A"}
-                        </td>
-                        <td className="py-3">
-                          {item.description ||
-                            item.inventory?.description ||
-                            "N/A"}
-                        </td>
-                        <td className="py-3">
-                          {item.quantity} {item.unit}
-                        </td>
-                        <td className="py-3">
-                          {formatCurrency(
-                            currency === "CAD"
-                              ? item.finalPrice ||
-                                  item.suggestedPrice ||
-                                  item.estimatedPrice ||
-                                  0
-                              : convertCurrency(
-                                  item.finalPrice ||
-                                    item.suggestedPrice ||
-                                    item.estimatedPrice ||
-                                    0,
-                                  "CAD"
-                                )
-                          )}
-                        </td>
-                        <td className="py-3">
-                          {formatCurrency(
-                            currency === "CAD"
-                              ? (item.finalPrice ||
-                                  item.suggestedPrice ||
-                                  item.estimatedPrice ||
-                                  0) * item.quantity
-                              : convertCurrency(
-                                  (item.finalPrice ||
-                                    item.suggestedPrice ||
-                                    item.estimatedPrice ||
-                                    0) * item.quantity,
-                                  "CAD"
-                                )
-                          )}
-                        </td>
-                        <td className="py-3">
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm">
-                              Edit
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              Remove
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="customer-history" className="m-0">
               <Card>
                 <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Customer History</CardTitle>
-                    <div className="flex items-center gap-4">
-                      <Select
-                        value={filters.period}
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select period" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="3months">Last 3 Months</SelectItem>
-                          <SelectItem value="6months">Last 6 Months</SelectItem>
-                          <SelectItem value="12months">Last 12 Months</SelectItem>
-                          <SelectItem value="all">All Time</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={filters.type}
-                        onValueChange={(value: 'all' | 'rfq' | 'sale') => setFilters(prev => ({ ...prev, type: value }))}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Types</SelectItem>
-                          <SelectItem value="rfq">RFQs</SelectItem>
-                          <SelectItem value="sale">Sales</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <CardTitle>SKU Items</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {historyLoading ? (
-                    <div className="flex justify-center items-center py-4">
-                      <Spinner size={32} />
-                    </div>
-                  ) : historyError ? (
-                    <div className="text-red-500">{historyError}</div>
-                  ) : history?.history && history.history.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Document #</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Unit Price</TableHead>
-                          <TableHead>Total Amount</TableHead>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Unit Price</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          <TableCell>{item.description || item.inventory?.description}</TableCell>
+                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>{formatCurrency(item.finalPrice || item.suggestedPrice || 0)}</TableCell>
+                          <TableCell>{formatCurrency((item.finalPrice || item.suggestedPrice || 0) * item.quantity)}</TableCell>
+                          <TableCell>
+                            <Badge variant={item.status === 'APPROVED' ? 'default' : 'destructive'}>
+                              {item.status}
+                            </Badge>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {history.history
-                          .filter((item: any) => 
-                            filters.type === 'all' || 
-                            (filters.type === 'rfq' && item.type === 'rfq') ||
-                            (filters.type === 'sale' && item.type === 'sale')
-                          )
-                          .map((item: any) => (
-                            <TableRow key={item.id + item.type + item.date}>
-                              <TableCell>
-                                {item.date ? new Date(item.date).toLocaleDateString() : "-"}
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={item.type === 'rfq' ? 'default' : 'secondary'}
-                                  className="capitalize"
-                                >
-                                  {item.type}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{item.documentNumber || "-"}</TableCell>
-                              <TableCell>{item.sku || "-"}</TableCell>
-                              <TableCell>{item.description || "-"}</TableCell>
-                              <TableCell>{item.quantity || "-"}</TableCell>
-                              <TableCell>
-                                {item.unitPrice ? formatCurrency(
-                                  currency === "CAD"
-                                    ? item.unitPrice
-                                    : convertCurrency(item.unitPrice, "CAD")
-                                ) : "-"}
-                              </TableCell>
-                              <TableCell>
-                                {item.totalAmount ? formatCurrency(
-                                  currency === "CAD"
-                                    ? item.totalAmount
-                                    : convertCurrency(item.totalAmount, "CAD")
-                                ) : "-"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="text-center py-4">No transaction history found.</div>
-                  )}
-
-                  {/* Customer Statistics */}
-                  {historyStats && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Total RFQs</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">{historyStats.totalRfqs}</div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
-                            {formatCurrency(
-                              currency === "CAD"
-                                ? historyStats.totalSpentCAD
-                                : convertCurrency(historyStats.totalSpentCAD, "CAD")
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Average Order Value</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
-                            {formatCurrency(
-                              currency === "CAD"
-                                ? historyStats.averageOrderValueCAD
-                                : convertCurrency(historyStats.averageOrderValueCAD, "CAD")
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Acceptance Rate</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">{historyStats.acceptanceRate}%</div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {renderPagination()}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="market-prices" className="m-0">
+            <TabsContent value="pricing" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>Market Prices</CardTitle>
+                  <CardTitle>Pricing Analysis</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-muted-foreground">Market prices information goes here.</div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Requested Price</TableHead>
+                        <TableHead>Suggested Price</TableHead>
+                        <TableHead>Market Price</TableHead>
+                        <TableHead>Cost</TableHead>
+                        <TableHead>Margin</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rfq.items?.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          <TableCell>{formatCurrency(item.estimatedPrice || 0)}</TableCell>
+                          <TableCell>{formatCurrency(item.suggestedPrice || 0)}</TableCell>
+                          <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
+                          <TableCell>{formatCurrency(item.inventory?.costCad || 0)}</TableCell>
+                          <TableCell>
+                            {item.suggestedPrice && item.inventory?.costCad
+                              ? `${((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)}%`
+                              : 'N/A'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {renderPagination()}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="sales-history" className="m-0">
+            <TabsContent value="inventory" className="m-0">
               <Card>
                 <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Sales History</CardTitle>
-                    <div className="flex items-center gap-4">
-                      <Select
-                        value={filters.period}
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select period" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="3months">Last 3 Months</SelectItem>
-                          <SelectItem value="6months">Last 6 Months</SelectItem>
-                          <SelectItem value="12months">Last 12 Months</SelectItem>
-                          <SelectItem value="all">All Time</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <CardTitle>Inventory Status</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {historyLoading ? (
-                    <div className="flex justify-center items-center py-4">
-                      <Spinner size={32} />
-                    </div>
-                  ) : historyError ? (
-                    <div className="text-red-500">{historyError}</div>
-                  ) : !rfqData?.items || rfqData.items.length === 0 ? (
-                    <div className="text-center py-4">No items in this RFQ.</div>
-                  ) : !history?.history || history.history.length === 0 ? (
-                    <div className="text-center py-4">No sales history found for any items in this RFQ.</div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Item-wise Sales History */}
-                      {rfqData.items?.map((rfqItem: any) => {
-                        console.log('Processing RFQ item:', rfqItem);
-                        const itemHistory = history.history.filter((item: any) => {
-                          const itemSku = item.sku || item.customerSku;
-                          const rfqItemSku = rfqItem.customerSku || rfqItem.inventory?.sku;
-                          console.log('Comparing SKUs:', { itemSku, rfqItemSku });
-                          return itemSku === rfqItemSku;
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>On Hand</TableHead>
+                        <TableHead>Reserved</TableHead>
+                        <TableHead>Available</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rfq?.items?.map((item: any) => {
+                        console.log('Processing inventory item:', {
+                          item,
+                          itemId: item.id,
+                          inventoryId: item.inventory?.id,
+                          skuDetails: skuDetails[item.id]
                         });
                         
-                        // Get inventory history for this item
-                        const itemInventoryHistory = inventoryHistory[rfqItem.id]?.transactions || [];
-                        const isInventoryHistoryLoading = inventoryHistoryLoading[rfqItem.id];
+                        const inventoryData = skuDetails[item.id];
+                        console.log('Inventory data for item:', {
+                          itemId: item.id,
+                          inventoryData
+                        });
                         
-                        // Combine both histories
-                        const combinedHistory = [
-                          ...itemHistory.map((item: any) => ({ ...item, source: 'customer' })),
-                          ...itemInventoryHistory.map((item: any) => ({ ...item, source: 'inventory' }))
-                        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                        
-                        console.log('Combined history for item:', combinedHistory);
-                        
-                        if (combinedHistory.length === 0 && !isInventoryHistoryLoading) {
+                        if (!inventoryData) {
+                          console.log('No inventory data found for item:', item.id);
                           return (
-                            <div key={rfqItem.id} className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h3 className="text-lg font-medium">{rfqItem.customerSku || rfqItem.inventory?.sku || "N/A"}</h3>
-                                  <p className="text-sm text-muted-foreground">{rfqItem.description || rfqItem.inventory?.description || "N/A"}</p>
-                                </div>
-                                <div className="text-right">
-                                  <div className="font-medium">Current RFQ Quantity: {rfqItem.quantity}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {formatCurrency(
-                                      currency === "CAD"
-                                        ? rfqItem.finalPrice || rfqItem.suggestedPrice || rfqItem.estimatedPrice || 0
-                                        : convertCurrency(
-                                            rfqItem.finalPrice || rfqItem.suggestedPrice || rfqItem.estimatedPrice || 0,
-                                            "CAD"
-                                          )
-                                    )} per unit
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-center py-4 text-muted-foreground">
-                                No history found for this item.
-                              </div>
-                            </div>
+                            <TableRow key={item.id}>
+                              <TableCell>{item.customerSku || item.inventory?.sku || 'N/A'}</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>N/A</TableCell>
+                              <TableCell>
+                                <Badge variant="destructive">No Data</Badge>
+                              </TableCell>
+                            </TableRow>
                           );
                         }
 
+                        const quantityOnHand = inventoryData.quantityOnHand || 0;
+                        const quantityReserved = inventoryData.quantityReserved || 0;
+                        const available = quantityOnHand - quantityReserved;
+                        const isLowStock = quantityOnHand <= (inventoryData.lowStockThreshold || 5);
+                        const isOutOfStock = quantityOnHand === 0;
+
+                        console.log('Calculated inventory values:', {
+                          itemId: item.id,
+                          quantityOnHand,
+                          quantityReserved,
+                          available,
+                          isLowStock,
+                          isOutOfStock
+                        });
+
                         return (
-                          <div key={rfqItem.id} className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h3 className="text-lg font-medium">{rfqItem.customerSku || rfqItem.inventory?.sku || "N/A"}</h3>
-                                <p className="text-sm text-muted-foreground">{rfqItem.description || rfqItem.inventory?.description || "N/A"}</p>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-medium">Current RFQ Quantity: {rfqItem.quantity}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {formatCurrency(
-                                    currency === "CAD"
-                                      ? rfqItem.finalPrice || rfqItem.suggestedPrice || rfqItem.estimatedPrice || 0
-                                      : convertCurrency(
-                                          rfqItem.finalPrice || rfqItem.suggestedPrice || rfqItem.estimatedPrice || 0,
-                                          "CAD"
-                                        )
-                                  )} per unit
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Item Statistics */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <Card className="p-4">
-                                <h4 className="text-sm font-medium text-muted-foreground mb-2">Sales Overview</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between">
-                                    <span>Total Orders:</span>
-                                    <Badge variant="secondary">
-                                      {combinedHistory.filter((item: any) => item.type === 'sale').length}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Total Quantity Sold:</span>
-                                    <Badge variant="secondary">
-                                      {combinedHistory
-                                        .filter((item: any) => item.type === 'sale')
-                                        .reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Avg. Sale Price:</span>
-                                    <Badge variant="secondary">
-                                      {formatCurrency(
-                                        currency === "CAD"
-                                          ? combinedHistory
-                                              .filter((item: any) => item.type === 'sale')
-                                              .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                                              (combinedHistory.filter((item: any) => item.type === 'sale').length || 1)
-                                          : convertCurrency(
-                                              combinedHistory
-                                                .filter((item: any) => item.type === 'sale')
-                                                .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                                                (combinedHistory.filter((item: any) => item.type === 'sale').length || 1),
-                                              "CAD"
-                                            )
-                                      )}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </Card>
-
-                              <Card className="p-4">
-                                <h4 className="text-sm font-medium text-muted-foreground mb-2">RFQ History</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between">
-                                    <span>Total RFQs:</span>
-                                    <Badge variant="secondary">
-                                      {combinedHistory.filter((item: any) => item.type === 'rfq').length}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Total RFQ Quantity:</span>
-                                    <Badge variant="secondary">
-                                      {combinedHistory
-                                        .filter((item: any) => item.type === 'rfq')
-                                        .reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Avg. RFQ Price:</span>
-                                    <Badge variant="secondary">
-                                      {formatCurrency(
-                                        currency === "CAD"
-                                          ? combinedHistory
-                                              .filter((item: any) => item.type === 'rfq')
-                                              .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                                              (combinedHistory.filter((item: any) => item.type === 'rfq').length || 1)
-                                          : convertCurrency(
-                                              combinedHistory
-                                                .filter((item: any) => item.type === 'rfq')
-                                                .reduce((sum: number, item: any) => sum + (item.unitPrice || 0), 0) / 
-                                                (combinedHistory.filter((item: any) => item.type === 'rfq').length || 1),
-                                              "CAD"
-                                            )
-                                      )}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </Card>
-
-                              <Card className="p-4">
-                                <h4 className="text-sm font-medium text-muted-foreground mb-2">Performance</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between">
-                                    <span>Total Revenue:</span>
-                                    <Badge variant="secondary">
-                                      {formatCurrency(
-                                        currency === "CAD"
-                                          ? combinedHistory
-                                              .filter((item: any) => item.type === 'sale')
-                                              .reduce((sum: number, item: any) => sum + (item.totalAmount || 0), 0)
-                                          : convertCurrency(
-                                              combinedHistory
-                                                .filter((item: any) => item.type === 'sale')
-                                                .reduce((sum: number, item: any) => sum + (item.totalAmount || 0), 0),
-                                              "CAD"
-                                            )
-                                      )}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Conversion Rate:</span>
-                                    <Badge variant="secondary">
-                                      {Math.round(
-                                        (combinedHistory.filter((item: any) => item.type === 'sale').length /
-                                          combinedHistory.filter((item: any) => item.type === 'rfq').length) * 100 || 0
-                                      )}%
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Last Sale:</span>
-                                    <Badge variant="secondary">
-                                      {combinedHistory
-                                        .filter((item: any) => item.type === 'sale')
-                                        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.date
-                                        ? new Date(
-                                            combinedHistory
-                                              .filter((item: any) => item.type === 'sale')
-                                              .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date
-                                          ).toLocaleDateString()
-                                        : "No sales"}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </Card>
-                            </div>
-
-                            {/* Transaction History */}
-                            <Tabs defaultValue="all" className="mt-6">
-                              <TabsList>
-                                <TabsTrigger value="all">All Transactions</TabsTrigger>
-                                <TabsTrigger value="rfq">RFQs</TabsTrigger>
-                                <TabsTrigger value="sale">Sales</TabsTrigger>
-                              </TabsList>
-
-                              <TabsContent value="all" className="mt-0">
-                                {isInventoryHistoryLoading ? (
-                                  <div className="flex justify-center py-4">
-                                    <Spinner size={24} />
-                                  </div>
-                                ) : (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Source</TableHead>
-                                        <TableHead>Document #</TableHead>
-                                        <TableHead>Customer/Vendor</TableHead>
-                                        <TableHead>Quantity</TableHead>
-                                        <TableHead>Unit Price</TableHead>
-                                        <TableHead>Total Amount</TableHead>
-                                        <TableHead>Status</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {combinedHistory.map((item: any) => (
-                                        <TableRow key={item.id + item.type + item.date}>
-                                          <TableCell>
-                                            {item.date ? new Date(item.date).toLocaleDateString() : "-"}
-                                          </TableCell>
-                                          <TableCell>
-                                            <Badge 
-                                              variant={item.type === 'rfq' ? 'default' : 'secondary'}
-                                              className="capitalize"
-                                            >
-                                              {item.type}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell>
-                                            <Badge variant="outline" className="capitalize">
-                                              {item.source}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell>{item.documentNumber || "-"}</TableCell>
-                                          <TableCell className="text-blue-600">
-                                            {item.customerName || item.vendorName || "-"}
-                                          </TableCell>
-                                          <TableCell>{item.quantity || "-"}</TableCell>
-                                          <TableCell>
-                                            {item.unitPrice ? formatCurrency(
-                                              currency === "CAD"
-                                                ? item.unitPrice
-                                                : convertCurrency(item.unitPrice, "CAD")
-                                            ) : "-"}
-                                          </TableCell>
-                                          <TableCell>
-                                            {item.totalAmount ? formatCurrency(
-                                              currency === "CAD"
-                                                ? item.totalAmount
-                                                : convertCurrency(item.totalAmount, "CAD")
-                                            ) : "-"}
-                                          </TableCell>
-                                          <TableCell>
-                                            <Badge 
-                                              variant={
-                                                item.status === 'COMPLETED' ? 'default' :
-                                                item.status === 'PENDING' ? 'secondary' :
-                                                'destructive'
-                                              }
-                                              className="capitalize"
-                                            >
-                                              {item.status?.toLowerCase() || "-"}
-                                            </Badge>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </TabsContent>
-
-                              <TabsContent value="rfq" className="mt-0">
-                                {isInventoryHistoryLoading ? (
-                                  <div className="flex justify-center py-4">
-                                    <Spinner size={24} />
-                                  </div>
-                                ) : (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Source</TableHead>
-                                        <TableHead>Document #</TableHead>
-                                        <TableHead>Customer/Vendor</TableHead>
-                                        <TableHead>Quantity</TableHead>
-                                        <TableHead>Unit Price</TableHead>
-                                        <TableHead>Total Amount</TableHead>
-                                        <TableHead>Status</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {combinedHistory
-                                        .filter((item: any) => item.type === 'rfq')
-                                        .map((item: any) => (
-                                          <TableRow key={item.id + item.type + item.date}>
-                                            <TableCell>
-                                              {item.date ? new Date(item.date).toLocaleDateString() : "-"}
-                                            </TableCell>
-                                            <TableCell>
-                                              <Badge variant="outline" className="capitalize">
-                                                {item.source}
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell>{item.documentNumber || "-"}</TableCell>
-                                            <TableCell className="text-blue-600">
-                                              {item.customerName || item.vendorName || "-"}
-                                            </TableCell>
-                                            <TableCell>{item.quantity || "-"}</TableCell>
-                                            <TableCell>
-                                              {item.unitPrice ? formatCurrency(
-                                                currency === "CAD"
-                                                  ? item.unitPrice
-                                                  : convertCurrency(item.unitPrice, "CAD")
-                                              ) : "-"}
-                                            </TableCell>
-                                            <TableCell>
-                                              {item.totalAmount ? formatCurrency(
-                                                currency === "CAD"
-                                                  ? item.totalAmount
-                                                  : convertCurrency(item.totalAmount, "CAD")
-                                              ) : "-"}
-                                            </TableCell>
-                                            <TableCell>
-                                              <Badge 
-                                                variant={
-                                                  item.status === 'COMPLETED' ? 'default' :
-                                                  item.status === 'PENDING' ? 'secondary' :
-                                                  'destructive'
-                                                }
-                                                className="capitalize"
-                                              >
-                                                {item.status?.toLowerCase() || "-"}
-                                              </Badge>
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </TabsContent>
-
-                              <TabsContent value="sale" className="mt-0">
-                                {isInventoryHistoryLoading ? (
-                                  <div className="flex justify-center py-4">
-                                    <Spinner size={24} />
-                                  </div>
-                                ) : (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Source</TableHead>
-                                        <TableHead>Document #</TableHead>
-                                        <TableHead>Customer/Vendor</TableHead>
-                                        <TableHead>Quantity</TableHead>
-                                        <TableHead>Unit Price</TableHead>
-                                        <TableHead>Total Amount</TableHead>
-                                        <TableHead>Status</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {combinedHistory
-                                        .filter((item: any) => item.type === 'sale')
-                                        .map((item: any) => (
-                                          <TableRow key={item.id + item.type + item.date}>
-                                            <TableCell>
-                                              {item.date ? new Date(item.date).toLocaleDateString() : "-"}
-                                            </TableCell>
-                                            <TableCell>
-                                              <Badge variant="outline" className="capitalize">
-                                                {item.source}
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell>{item.documentNumber || "-"}</TableCell>
-                                            <TableCell className="text-blue-600">
-                                              {item.customerName || item.vendorName || "-"}
-                                            </TableCell>
-                                            <TableCell>{item.quantity || "-"}</TableCell>
-                                            <TableCell>
-                                              {item.unitPrice ? formatCurrency(
-                                                currency === "CAD"
-                                                  ? item.unitPrice
-                                                  : convertCurrency(item.unitPrice, "CAD")
-                                              ) : "-"}
-                                            </TableCell>
-                                            <TableCell>
-                                              {item.totalAmount ? formatCurrency(
-                                                currency === "CAD"
-                                                  ? item.totalAmount
-                                                  : convertCurrency(item.totalAmount, "CAD")
-                                              ) : "-"}
-                                            </TableCell>
-                                            <TableCell>
-                                              <Badge 
-                                                variant={
-                                                  item.status === 'COMPLETED' ? 'default' :
-                                                  item.status === 'PENDING' ? 'secondary' :
-                                                  'destructive'
-                                                }
-                                                className="capitalize"
-                                              >
-                                                {item.status?.toLowerCase() || "-"}
-                                              </Badge>
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </TabsContent>
-                            </Tabs>
-                          </div>
+                          <TableRow key={item.id}>
+                            <TableCell>{item.customerSku || item.inventory?.sku || inventoryData.sku}</TableCell>
+                            <TableCell>{quantityOnHand}</TableCell>
+                            <TableCell>{quantityReserved}</TableCell>
+                            <TableCell>{available}</TableCell>
+                            <TableCell>{inventoryData.warehouseLocation || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                isOutOfStock ? 'destructive' :
+                                isLowStock ? 'secondary' :
+                                'default'
+                              }>
+                                {isOutOfStock ? 'Out of Stock' :
+                                 isLowStock ? 'Low Stock' :
+                                 'In Stock'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="custom-table" className="m-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Custom Table</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-muted-foreground">Custom table content goes here.</div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="original-request" className="m-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Original Request Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Request Information */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Request Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">RFQ Number</div>
-                          <div className="font-medium">{rfqData.rfqNumber}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Date Received</div>
-                          <div className="font-medium">{new Date(rfqData.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Source</div>
-                          <div className="font-medium">{rfqData.source}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Status</div>
-                          <div className="font-medium capitalize">{rfqData.status.toLowerCase()}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Requestor Information */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Requestor Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Name</div>
-                          <div className="font-medium">{rfqData.requestor?.name || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Email</div>
-                          <div className="font-medium">{rfqData.requestor?.email || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Role</div>
-                          <div className="font-medium">{rfqData.requestor?.role || "N/A"}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Customer Information */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Customer Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Name</div>
-                          <div className="font-medium">{rfqData.customer?.name || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Type</div>
-                          <div className="font-medium">{rfqData.customer?.type || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Email</div>
-                          <div className="font-medium">{rfqData.customer?.email || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Phone</div>
-                          <div className="font-medium">{rfqData.customer?.phone || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Address</div>
-                          <div className="font-medium">{rfqData.customer?.address || "N/A"}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Contact Person</div>
-                          <div className="font-medium">{rfqData.customer?.contactPerson || "N/A"}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Original Items */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Original Items Requested</h3>
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>SKU</TableHead>
-                              <TableHead>Description</TableHead>
-                              <TableHead>Quantity</TableHead>
-                              <TableHead>Unit</TableHead>
-                              <TableHead>Estimated Price</TableHead>
-                              <TableHead>Total</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {rfqData.items?.map((item: any) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.customerSku || item.inventory?.sku || "N/A"}</TableCell>
-                                <TableCell>{item.description || item.inventory?.description || "N/A"}</TableCell>
-                                <TableCell>{item.quantity}</TableCell>
-                                <TableCell>{item.unit || "EA"}</TableCell>
-                                <TableCell>
-                                  {formatCurrency(
-                                    currency === "CAD"
-                                      ? item.estimatedPrice || 0
-                                      : convertCurrency(item.estimatedPrice || 0, "CAD")
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {formatCurrency(
-                                    currency === "CAD"
-                                      ? (item.estimatedPrice || 0) * item.quantity
-                                      : convertCurrency((item.estimatedPrice || 0) * item.quantity, "CAD")
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-
-                    {/* Additional Information */}
-                    {rfqData.notes && (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Additional Notes</h3>
-                        <div className="bg-muted p-4 rounded-lg">
-                          <p className="whitespace-pre-wrap">{rfqData.notes}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    </TableBody>
+                  </Table>
+                  {renderPagination()}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1712,31 +914,151 @@ export default function RfqDetail({
             <TabsContent value="history" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>RFQ History</CardTitle>
+                  <CardTitle>SKU History</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <div>
-                        <div className="font-medium">RFQ Created</div>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(rfqData.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                    {rfqData.updatedAt !== rfqData.createdAt && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        <div>
-                          <div className="font-medium">RFQ Updated</div>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(rfqData.updatedAt).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Last Transaction</TableHead>
+                        <TableHead>Customer/Vendor</TableHead>
+                        <TableHead>Last Price</TableHead>
+                        <TableHead>Last Quantity</TableHead>
+                        <TableHead>Total Quantity</TableHead>
+                        <TableHead>Avg. Price</TableHead>
+                        <TableHead>Trend</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rfq.items?.map((item: any) => {
+                        const salesHistory = history?.history?.filter((h: any) => {
+                          const itemSku = item.customerSku || item.inventory?.sku;
+                          const historySku = h.sku || h.customerSku;
+                          return historySku === itemSku && h.type === 'sale';
+                        }) || [];
+                        
+                        const purchaseHistory = inventoryHistory[item.id]?.transactions?.filter((t: any) => 
+                          t.type === 'purchase'
+                        ) || [];
+
+                        if (salesHistory.length === 0 && purchaseHistory.length === 0) {
+                          return null;
+                        }
+
+                        const lastSale = salesHistory[0];
+                        const lastPurchase = purchaseHistory[0];
+                        const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
+                        const totalPurchases = purchaseHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
+                        const avgSalePrice = salesHistory.length > 0 
+                          ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
+                          : 0;
+                        const avgPurchasePrice = purchaseHistory.length > 0
+                          ? purchaseHistory.reduce((sum: number, h: any) => sum + (h.price || 0), 0) / purchaseHistory.length
+                          : 0;
+
+                        return (
+                          <React.Fragment key={item.id}>
+                            {salesHistory.length > 0 && (
+                              <TableRow>
+                                <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                                <TableCell>
+                                  <Badge variant="default">Sales</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {lastSale?.date 
+                                    ? new Date(lastSale.date).toLocaleDateString()
+                                    : 'N/A'}
+                                </TableCell>
+                                <TableCell className="text-green-600">
+                                  {lastSale?.customerName || 'N/A'}
+                                </TableCell>
+                                <TableCell>{formatCurrency(lastSale?.unitPrice || 0)}</TableCell>
+                                <TableCell>{lastSale?.quantity || 'N/A'}</TableCell>
+                                <TableCell>{totalSales}</TableCell>
+                                <TableCell>{formatCurrency(avgSalePrice)}</TableCell>
+                                <TableCell>
+                                  <Badge variant={lastSale?.priceTrend === 'up' ? 'default' : 'destructive'}>
+                                    {lastSale?.priceTrend === 'up' ? '↑' : '↓'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                            {purchaseHistory.length > 0 && (
+                              <TableRow>
+                                <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">Purchases</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {lastPurchase?.date 
+                                    ? new Date(lastPurchase.date).toLocaleDateString()
+                                    : 'N/A'}
+                                </TableCell>
+                                <TableCell className="text-blue-600">
+                                  {lastPurchase?.vendorName || 'N/A'}
+                                </TableCell>
+                                <TableCell>{formatCurrency(lastPurchase?.price || 0)}</TableCell>
+                                <TableCell>{lastPurchase?.quantity || 'N/A'}</TableCell>
+                                <TableCell>{totalPurchases}</TableCell>
+                                <TableCell>{formatCurrency(avgPurchasePrice)}</TableCell>
+                                <TableCell>
+                                  <Badge variant={lastPurchase?.priceTrend === 'up' ? 'default' : 'destructive'}>
+                                    {lastPurchase?.priceTrend === 'up' ? '↑' : '↓'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  {renderPagination()}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="market" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Market Data</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Market Price</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Last Updated</TableHead>
+                        <TableHead>Competitor Price</TableHead>
+                        <TableHead>Price Trend</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rfq.items?.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
+                          <TableCell>{item.inventory?.marketSource || 'N/A'}</TableCell>
+                          <TableCell>
+                            {item.inventory?.marketLastUpdated
+                              ? new Date(item.inventory.marketLastUpdated).toLocaleDateString()
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>{formatCurrency(item.inventory?.competitorPrice || 0)}</TableCell>
+                          <TableCell>
+                            <Badge variant={item.inventory?.marketTrend === 'up' ? 'default' : 'destructive'}>
+                              {item.inventory?.marketTrend === 'up' ? '↑' : '↓'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {renderPagination()}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1744,29 +1066,65 @@ export default function RfqDetail({
             <TabsContent value="settings" className="m-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>RFQ Settings</CardTitle>
+                  <CardTitle>SKU Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="notifications" />
-                      <Label htmlFor="notifications">
-                        Enable email notifications
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="auto-pricing" />
-                      <Label htmlFor="auto-pricing">
-                        Enable automatic pricing
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="stock-check" />
-                      <Label htmlFor="stock-check">
-                        Check stock availability
-                      </Label>
-                    </div>
-                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Currency</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rfq.items?.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={item.status}
+                              onValueChange={(value) => handleStatusChange(item.id, value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="PENDING">Pending</SelectItem>
+                                <SelectItem value="APPROVED">Approved</SelectItem>
+                                <SelectItem value="REJECTED">Rejected</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>{item.currency}</TableCell>
+                          <TableCell>{item.unit}</TableCell>
+                          <TableCell>{item.notes || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" onClick={() => handleEditItem(item.id)}>
+                              Edit
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {renderPagination()}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="export" className="m-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Export RFQ</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" onClick={exportToExcel}>
+                    Export RFQ Data
+                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1776,4 +1134,5 @@ export default function RfqDetail({
     </div>
   );
 }
+
 

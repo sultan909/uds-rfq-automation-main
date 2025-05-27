@@ -46,10 +46,7 @@ interface CategoryCount {
   count: number
 }
 
-interface InventoryApiResponse {
-  items: InventoryItem[]
-  categories: CategoryCount[]
-}
+interface InventoryApiResponse extends Array<InventoryItem> {}
 
 export default function InventoryManagement() {
   const router = useRouter()
@@ -88,10 +85,13 @@ export default function InventoryManagement() {
       }
 
       const response = await inventoryApi.list(params)
+      console.log("response", response)
 
       if (response.success && response.data) {
-        const { items: inventoryData, categories } =
-          response.data as InventoryApiResponse
+        console.log("hello");
+        
+        const inventoryData = response.data as InventoryApiResponse
+        console.log("inventoryData", inventoryData);
         setItems(inventoryData)
 
         // Calculate statistics
