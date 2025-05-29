@@ -18,6 +18,7 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +38,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 import { TableCustomizer } from "@/components/table-customizer";
+import { VersionCreationModal } from "@/components/version-creation-modal";
+import { VersionStatusManager } from "@/components/version-status-manager";
+import { CustomerResponseModal } from "@/components/customer-response-modal";
 
 // Add these type definitions at the top of the file, after the imports
 interface InventoryData {
@@ -73,6 +77,16 @@ interface HistoryItem {
   totalQuantity: number;
   avgPrice: number;
   trend: string;
+  mainCustomerHistory?: {
+    [customerId: string]: {
+      lastTransaction: string;
+      lastPrice: number;
+      lastQuantity: number;
+      totalQuantity: number;
+      avgPrice: number;
+      trend: string;
+    }
+  }
 }
 
 interface HistoryState {
@@ -89,7 +103,9 @@ interface SalesHistoryResponse {
       unitPrice: number;
       quantity: number;
       priceTrend?: string;
+      sku: string;
     }>;
+    customerName?: string;
   };
 }
 
@@ -121,17 +137,6 @@ const INVENTORY_COLUMNS = [
   { id: 'status', label: 'Status' }
 ];
 
-const HISTORY_COLUMNS = [
-  { id: 'sku', label: 'SKU' },
-  { id: 'lastTransaction', label: 'Last Transaction' },
-  { id: 'customer', label: 'Customer' },
-  { id: 'lastPrice', label: 'Last Price' },
-  { id: 'lastQuantity', label: 'Last Quantity' },
-  { id: 'totalQuantity', label: 'Total Quantity' },
-  { id: 'avgPrice', label: 'Avg. Price' },
-  { id: 'trend', label: 'Trend' }
-];
-
 const MARKET_COLUMNS = [
   { id: 'sku', label: 'SKU' },
   { id: 'marketPrice', label: 'Market Price' },
@@ -150,8 +155,38 @@ const SETTINGS_COLUMNS = [
   { id: 'actions', label: 'Actions' }
 ];
 
+// Add new interface for quotation history
+interface QuotationVersion {
+  versionNumber: number;
+  status: 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+  estimatedPrice: number;
+  finalPrice: number;
+  changes: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  customerResponse?: {
+    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+    comments: string;
+    requestedChanges?: string;
+    respondedAt: string;
+  };
+}
+
+// Add new columns for quotation history
+const QUOTATION_HISTORY_COLUMNS = [
+  { id: 'version', label: 'Version' },
+  { id: 'status', label: 'Status' },
+  { id: 'estimatedPrice', label: 'Estimated Price' },
+  { id: 'finalPrice', label: 'Final Price' },
+  { id: 'changes', label: 'Changes' },
+  { id: 'createdBy', label: 'Created By' },
+  { id: 'createdAt', label: 'Created At' },
+  { id: 'customerResponse', label: 'Customer Response' }
+];
+
 // Add type for tab names
-type TabName = 'items' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings';
+type TabName = 'items' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings' | 'quotation-history';
 
 export default function RfqDetail({
   params,
@@ -164,16 +199,18 @@ export default function RfqDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ period: '3months', type: 'all' });
-  const [history, setHistory] = useState<{ history: Array<{
-    sku: string;
-    lastTransaction: string;
-    customer: string;
-    lastPrice: number;
-    lastQuantity: number;
-    totalQuantity: number;
-    avgPrice: number;
-    trend: string;
-  }> }>({ history: [] });
+  const [mainCustomers, setMainCustomers] = useState<Array<{ id: number; name: string }>>([]);
+  const [historyColumns, setHistoryColumns] = useState([
+    { id: 'sku', label: 'SKU' },
+    { id: 'lastTransaction', label: 'Last Transaction' },
+    { id: 'customer', label: 'Customer' },
+    { id: 'lastPrice', label: 'Last Price' },
+    { id: 'lastQuantity', label: 'Last Quantity' },
+    { id: 'totalQuantity', label: 'Total Quantity' },
+    { id: 'avgPrice', label: 'Average Price' },
+    { id: 'trend', label: 'Price Trend' }
+  ]);
+  const [history, setHistory] = useState<{ history: HistoryItem[] }>({ history: [] });
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyStats, setHistoryStats] = useState<any>(null);
@@ -189,10 +226,20 @@ export default function RfqDetail({
     items: ITEMS_COLUMNS.map(col => col.id),
     pricing: PRICING_COLUMNS.map(col => col.id),
     inventory: INVENTORY_COLUMNS.map(col => col.id),
-    history: HISTORY_COLUMNS.map(col => col.id),
+    history: historyColumns.map(col => col.id),
     market: MARKET_COLUMNS.map(col => col.id),
-    settings: SETTINGS_COLUMNS.map(col => col.id)
+    settings: SETTINGS_COLUMNS.map(col => col.id),
+    'quotation-history': QUOTATION_HISTORY_COLUMNS.map(col => col.id)
   });
+
+  // Add state for quotation history
+  const [quotationHistory, setQuotationHistory] = useState<QuotationVersion[]>([]);
+  const [quotationHistoryLoading, setQuotationHistoryLoading] = useState(true);
+
+  // Add state for modals
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
+  const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<QuotationVersion | null>(null);
 
   // Ensure we have the correct data structure
   const rfq = rfqData?.data || rfqData;
@@ -214,29 +261,15 @@ export default function RfqDetail({
           page: currentPage,
           pageSize: itemsPerPage
         });
-        console.log('Raw RFQ API Response:', response);
         
         if (response.success && response.data) {
-          console.log('RFQ Data before setting:', response.data);
-          // Ensure we're setting the correct data structure
-          const rfqData = {
-            ...response.data,
-            // @ts-ignore
-            items: response.data.items || []
-          };
-          console.log('Processed RFQ Data:', rfqData);
-          setRfqData(rfqData);
+          setRfqData(response.data);
           
-          // Update pagination state from response metadata
           if (response.meta?.pagination) {
-            console.log('Setting pagination state:', response.meta.pagination);
             setTotalItems(response.meta.pagination.totalItems);
             setTotalPages(response.meta.pagination.totalPages);
-          } else {
-            console.log('No pagination metadata in response');
           }
         } else {
-          console.error('Failed to load RFQ data:', response);
           setError("Failed to load RFQ data");
           toast.error("Failed to load RFQ data");
         }
@@ -249,7 +282,9 @@ export default function RfqDetail({
       }
     };
 
-    fetchRfqData();
+    if (id) {
+      fetchRfqData();
+    }
   }, [id, currentPage, itemsPerPage]);
 
   // Add debug render
@@ -294,37 +329,97 @@ export default function RfqDetail({
   };
 
   useEffect(() => {
+    const fetchMainCustomers = async () => {
+      try {
+        const response = await customerApi.list({ main_customer: 'true' });
+        if (response.success && response.data) {
+          const customers = response.data as Array<{ id: number; name: string }>;
+          setMainCustomers(customers);
+          const mainCustomerColumns = customers.map(customer => ({
+            id: `mainCustomer_${customer.id}`,
+            label: `${customer.name} History`
+          }));
+          setHistoryColumns(prev => [...prev, ...mainCustomerColumns]);
+          // Ensure main customer columns are always visible
+          setVisibleColumns(prev => ({
+            ...prev,
+            history: [...prev.history, ...mainCustomerColumns.map(col => col.id)]
+          }));
+        } else {
+          console.error('Failed to fetch main customers:', response.error);
+          toast.error('Failed to fetch main customers');
+        }
+      } catch (error) {
+        console.error('Error fetching main customers:', error);
+        toast.error('Failed to fetch main customers');
+      }
+    };
+    
+    fetchMainCustomers();
+  }, []);
+
+  useEffect(() => {
     const fetchHistory = async () => {
+      if (!rfqData?.customer?.id || !items?.length || !mainCustomers?.length) return;
+      
       try {
         setHistoryLoading(true);
-        // Fetch sales history for each item in the RFQ
         const salesPromises = items.map(async (item: any) => {
           const itemSku = item.customerSku || item.inventory?.sku;
           if (!itemSku) return null;
 
           const response = await customerApi.getHistory(rfqData.customer.id, filters.period) as SalesHistoryResponse;
+          
+          const mainCustomerHistoryPromises = mainCustomers.map(async (customer) => {
+            const customerHistory = await customerApi.getHistory(customer.id.toString(), filters.period) as SalesHistoryResponse;
+            if (customerHistory.success && customerHistory.data) {
+              const itemHistory = customerHistory.data.history?.filter((h) => {
+                return h.type === 'sale' && h.sku === itemSku;
+              }) || [];
+
+              if (itemHistory.length > 0) {
+                const lastSale = itemHistory[0];
+                const totalSales = itemHistory.reduce((sum, h) => sum + (h.quantity || 0), 0);
+                const avgSalePrice = itemHistory.reduce((sum, h) => sum + (h.unitPrice || 0), 0) / itemHistory.length;
+
+                return {
+                  [customer.id]: {
+                    lastTransaction: lastSale.date,
+                    lastPrice: lastSale.unitPrice,
+                    lastQuantity: lastSale.quantity,
+                    totalQuantity: totalSales,
+                    avgPrice: avgSalePrice,
+                    trend: lastSale.priceTrend || 'neutral'
+                  }
+                };
+              }
+            }
+            return null;
+          });
+
+          const mainCustomerHistoryResults = await Promise.all(mainCustomerHistoryPromises);
+          const mainCustomerHistory = mainCustomerHistoryResults.reduce((acc, curr) => {
+            if (curr) {
+              return { ...acc, ...curr };
+            }
+            return acc;
+          }, {});
+
           if (response.success && response.data) {
-            console.log("API Response:", response.data);
-            console.log("First sale item:", response.data.history?.[0]);
-            
-            // Filter sales history for this specific SKU
             const itemHistory = response.data.history?.filter((h) => {
-              return h.type === 'sale';
+              return h.type === 'sale' && h.sku === itemSku;
             }) || [];
 
-            console.log("Filtered History:", itemHistory);
-
-            // Transform the history data to match our table structure
             const transformedHistory = itemHistory.map((sale) => ({
               sku: itemSku,
               lastTransaction: sale.date,
-              // @ts-ignore
-              customer: response.data?.customerName || 'Unknown Customer',
+              customer: response.data.customerName || 'Unknown Customer',
               lastPrice: sale.unitPrice,
               lastQuantity: sale.quantity,
               totalQuantity: sale.quantity,
               avgPrice: sale.unitPrice,
-              trend: sale.priceTrend || 'neutral'
+              trend: sale.priceTrend || 'neutral',
+              mainCustomerHistory
             }));
 
             return {
@@ -337,8 +432,6 @@ export default function RfqDetail({
         });
 
         const results = await Promise.all(salesPromises);
-        console.log("results", results);
-        
         const validResults = results.filter(result => result !== null);
         
         setHistory({
@@ -353,75 +446,24 @@ export default function RfqDetail({
       }
     };
 
-    const fetchInventoryHistory = async (item: any) => {
-      if (!item.inventory?.id) return;
-      
-      try {
-        setInventoryHistoryLoading(prev => ({ ...prev, [item.id]: true }));
-        console.log('Fetching inventory history for item:', item.inventory.id);
-        const response = await inventoryApi.getHistory(item.inventory.id, filters);
-        console.log('Inventory history response:', response);
-        if (response.success && response.data) {
-          setInventoryHistory(prev => ({
-            ...prev,
-            [item.id]: response.data
-          }));
-        }
-      } catch (err) {
-        console.error('Error fetching inventory history:', err);
-      } finally {
-        setInventoryHistoryLoading(prev => ({ ...prev, [item.id]: false }));
-      }
-    };
-
-    if (rfqData?.customer?.id && items.length > 0) {
-      fetchHistory();
-      // Fetch inventory history for each item
-      items.forEach((item: any) => {
-        if (item.inventory?.id) {
-          fetchInventoryHistory(item);
-        }
-      });
-    }
-    // @ts-ignore
-  }, [rfqData?.customer?.id, items, filters.period]);
+    fetchHistory();
+  }, [rfqData?.customer?.id, items, filters.period, mainCustomers]);
 
   useEffect(() => {
     const fetchInventoryData = async () => {
+      if (!rfqData?.items?.length) return;
+      
       try {
-        console.log('Starting fetchInventoryData');
-        console.log('Current rfqData:', rfqData);
-        console.log('Items to process:', rfqData?.items);
-        
-        if (!rfqData?.items?.length) {
-          console.log('No items to process');
-          return;
-        }
-
-        // Fetch inventory data for each item
         const inventoryPromises = rfqData.items.map(async (item: any) => {
-          console.log('Processing item:', {
-            id: item.id,
-            inventoryId: item.inventory?.id,
-            sku: item.customerSku || item.inventory?.sku
-          });
-
-          if (!item.inventory?.id) {
-            console.log('Item has no inventory ID:', item);
-            return null;
-          }
+          if (!item.inventory?.id) return null;
 
           try {
-            console.log('Fetching inventory for ID:', item.inventory.id);
             const response = await inventoryApi.get(item.inventory.id) as ApiResponse<InventoryData>;
-            console.log('Raw inventory API response:', response);
             
             if (!response.success || !response.data) {
-              console.error('Failed to fetch inventory:', response.error);
               return null;
             }
 
-            // Ensure we have the required inventory data
             const inventoryData: InventoryData = {
               id: response.data.id || 0,
               sku: response.data.sku || '',
@@ -441,8 +483,6 @@ export default function RfqDetail({
               marketTrend: response.data.marketTrend
             };
 
-            console.log('Processed inventory data:', inventoryData);
-
             return {
               itemId: item.id,
               inventoryData
@@ -453,10 +493,7 @@ export default function RfqDetail({
           }
         });
 
-        console.log('Waiting for all inventory promises to resolve...');
         const inventoryResults = await Promise.all(inventoryPromises);
-        console.log('Inventory results:', inventoryResults);
-        
         const inventoryDataMap = inventoryResults.reduce((acc: Record<string, InventoryData>, result) => {
           if (result) {
             acc[result.itemId] = result.inventoryData;
@@ -464,7 +501,6 @@ export default function RfqDetail({
           return acc;
         }, {});
         
-        console.log('Final inventory data map:', inventoryDataMap);
         setSkuDetails(inventoryDataMap);
       } catch (err) {
         console.error('Error in fetchInventoryData:', err);
@@ -472,10 +508,7 @@ export default function RfqDetail({
       }
     };
 
-    if (rfqData?.items) {
-      console.log('Triggering fetchInventoryData');
-      fetchInventoryData();
-    }
+    fetchInventoryData();
   }, [rfqData?.items]);
 
   useEffect(() => {
@@ -542,14 +575,14 @@ export default function RfqDetail({
             console.log("itemsku", itemSku);
             console.log("history", history);
             
-            const salesHistory = history.history.filter((h) => h.sku === itemSku);
+            const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
             console.log("filtered history", salesHistory);
 
             if (salesHistory.length === 0) {
               return [];
             }
 
-            const lastSale = salesHistory[0];
+            const lastSale = salesHistory[0] as HistoryItem;
             const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
             const avgSalePrice = salesHistory.length > 0 
               ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
@@ -725,12 +758,92 @@ export default function RfqDetail({
   });
 
   const handleColumnToggle = (tab: TabName, columnId: string) => {
+    // Don't allow toggling off main customer columns in history tab
+    if (tab === 'history' && columnId.startsWith('mainCustomer_')) {
+      return;
+    }
+    
     setVisibleColumns(prev => ({
       ...prev,
       [tab]: prev[tab].includes(columnId)
         ? prev[tab].filter(id => id !== columnId)
         : [...prev[tab], columnId]
     }));
+  };
+
+  // Add useEffect to fetch quotation history
+  useEffect(() => {
+    const fetchQuotationHistory = async () => {
+      try {
+        setQuotationHistoryLoading(true);
+        // TODO: Replace with actual API call
+        const response = await rfqApi.getQuotationHistory(id);
+        if (response.success && response.data) {
+          setQuotationHistory(response.data);
+        }
+      } catch (err) {
+        console.error('Error fetching quotation history:', err);
+        toast.error('Failed to load quotation history');
+      } finally {
+        setQuotationHistoryLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchQuotationHistory();
+    }
+  }, [id]);
+
+  // Add handlers for version management
+  const handleCreateVersion = async (data: {
+    estimatedPrice: number;
+    finalPrice: number;
+    changes: string;
+  }) => {
+    try {
+      const response = await rfqApi.createVersion(id, data);
+      if (response.success) {
+        toast.success('Version created successfully');
+        // Refresh quotation history
+        const historyResponse = await rfqApi.getQuotationHistory(id);
+        if (historyResponse.success && historyResponse.data) {
+          setQuotationHistory(historyResponse.data);
+        }
+      } else {
+        toast.error(response.error || 'Failed to create version');
+      }
+    } catch (error) {
+      toast.error('Failed to create version');
+    } finally {
+      setIsVersionModalOpen(false);
+    }
+  };
+
+  const handleRecordResponse = async (data: {
+    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+    comments: string;
+    requestedChanges?: string;
+  }) => {
+    if (!selectedVersion) return;
+
+    try {
+      const response = await rfqApi.recordCustomerResponse(id, selectedVersion.versionNumber, data);
+      if (response.success) {
+        toast.success('Customer response recorded successfully');
+        // Refresh quotation history
+        const historyResponse = await rfqApi.getQuotationHistory(id);
+        if (historyResponse.success && historyResponse.data) {
+          setQuotationHistory(historyResponse.data);
+        }
+      } else {
+        toast.error(response.error || 'Failed to record customer response');
+      }
+    } catch (error) {
+      toast.error('Failed to record customer response');
+    } finally {
+      setIsResponseModalOpen(false);
+      setSelectedVersion(null);
+    }
   };
 
   if (loading) {
@@ -873,7 +986,7 @@ export default function RfqDetail({
           </div>
 
           <Tabs defaultValue="items" className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="items">
                 <FileText className="mr-2 h-4 w-4" />
                 Items
@@ -897,6 +1010,10 @@ export default function RfqDetail({
               <TabsTrigger value="settings">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
+              </TabsTrigger>
+              <TabsTrigger value="quotation-history">
+                <Clock className="mr-2 h-4 w-4" />
+                Quotation History
               </TabsTrigger>
               <TabsTrigger value="export">
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -1092,7 +1209,7 @@ export default function RfqDetail({
                   <div className="flex justify-between items-center">
                     <CardTitle>Sales History</CardTitle>
                     <TableCustomizer
-                      columns={HISTORY_COLUMNS}
+                      columns={historyColumns}
                       visibleColumns={visibleColumns.history}
                       onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
                     />
@@ -1109,7 +1226,7 @@ export default function RfqDetail({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {HISTORY_COLUMNS.map(column => 
+                          {historyColumns.map((column: { id: string; label: string }) => 
                             visibleColumns.history.includes(column.id) && (
                               <TableHead key={column.id}>{column.label}</TableHead>
                             )
@@ -1119,17 +1236,13 @@ export default function RfqDetail({
                       <TableBody>
                         {items.map((item: any) => {
                           const itemSku = item.customerSku || item.inventory?.sku;
-                          console.log("itemsku", itemSku);
-                          console.log("history", history);
-                          
-                          const salesHistory = history.history.filter((h) => h.sku === itemSku);
-                          console.log("filtered history", salesHistory);
+                          const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
 
                           if (salesHistory.length === 0) {
                             return null;
                           }
 
-                          const lastSale = salesHistory[0];
+                          const lastSale = salesHistory[0] as HistoryItem;
                           const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
                           const avgSalePrice = salesHistory.length > 0 
                             ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
@@ -1171,6 +1284,31 @@ export default function RfqDetail({
                                   </Badge>
                                 </TableCell>
                               )}
+                              {/* Render main customer history columns */}
+                              {mainCustomers.map(customer => {
+                                const columnId = `mainCustomer_${customer.id}`;
+                                if (!visibleColumns.history.includes(columnId)) return null;
+                                
+                                const customerHistory = lastSale?.mainCustomerHistory?.[customer.id];
+                                return (
+                                  <TableCell key={columnId}>
+                                    {customerHistory ? (
+                                      <div className="space-y-1">
+                                        <div>Last: {new Date(customerHistory.lastTransaction).toLocaleDateString()}</div>
+                                        <div>Price: {formatCurrency(customerHistory.lastPrice)}</div>
+                                        <div>Qty: {customerHistory.lastQuantity}</div>
+                                        <div>Total: {customerHistory.totalQuantity}</div>
+                                        <div>Avg: {formatCurrency(customerHistory.avgPrice)}</div>
+                                        <Badge variant={customerHistory.trend === 'up' ? 'default' : 'destructive'}>
+                                          {customerHistory.trend === 'up' ? '↑' : '↓'}
+                                        </Badge>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">No history</span>
+                                    )}
+                                  </TableCell>
+                                );
+                              })}
                             </TableRow>
                           );
                         })}
@@ -1312,6 +1450,136 @@ export default function RfqDetail({
                   {renderPagination()}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="quotation-history" className="m-0">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Quotation History</CardTitle>
+                    <div className="flex gap-2">
+                      <Button onClick={() => setIsVersionModalOpen(true)}>
+                        Create New Version
+                      </Button>
+                      <TableCustomizer
+                        columns={QUOTATION_HISTORY_COLUMNS}
+                        visibleColumns={visibleColumns['quotation-history']}
+                        onColumnToggle={(columnId) => handleColumnToggle('quotation-history', columnId)}
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {quotationHistoryLoading ? (
+                    <div className="flex justify-center items-center py-4">
+                      <Spinner size={32} />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {QUOTATION_HISTORY_COLUMNS.map(column => 
+                            visibleColumns['quotation-history'].includes(column.id) && (
+                              <TableHead key={column.id}>{column.label}</TableHead>
+                            )
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {quotationHistory.map((version) => (
+                          <TableRow key={version.versionNumber}>
+                            {visibleColumns['quotation-history'].includes('version') && (
+                              <TableCell>v{version.versionNumber}</TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('status') && (
+                              <TableCell>
+                                <VersionStatusManager
+                                  currentStatus={version.status}
+                                  versionId={version.versionNumber}
+                                  rfqId={id}
+                                  onStatusChange={(newStatus) => {
+                                    const updatedHistory = quotationHistory.map(v =>
+                                      v.versionNumber === version.versionNumber
+                                        ? { ...v, status: newStatus }
+                                        : v
+                                    );
+                                    // @ts-ignore
+                                    setQuotationHistory(updatedHistory);
+                                  }}
+                                />
+                              </TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('estimatedPrice') && (
+                              <TableCell>{formatCurrency(version.estimatedPrice)}</TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('finalPrice') && (
+                              <TableCell>{formatCurrency(version.finalPrice)}</TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('changes') && (
+                              <TableCell>{version.changes}</TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('createdBy') && (
+                              <TableCell>{version.createdBy}</TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('createdAt') && (
+                              <TableCell>
+                                {new Date(version.createdAt).toLocaleDateString()}
+                              </TableCell>
+                            )}
+                            {visibleColumns['quotation-history'].includes('customerResponse') && (
+                              <TableCell>
+                                {version.customerResponse ? (
+                                  <div className="space-y-1">
+                                    <Badge variant={
+                                      version.customerResponse.status === 'ACCEPTED' ? 'default' :
+                                      version.customerResponse.status === 'DECLINED' ? 'destructive' :
+                                      'secondary'
+                                    }>
+                                      {version.customerResponse.status}
+                                    </Badge>
+                                    {version.customerResponse.comments && (
+                                      <p className="text-sm text-muted-foreground">
+                                        {version.customerResponse.comments}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedVersion(version);
+                                      setIsResponseModalOpen(true);
+                                    }}
+                                  >
+                                    Record Response
+                                  </Button>
+                                )}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <VersionCreationModal
+                isOpen={isVersionModalOpen}
+                onClose={() => setIsVersionModalOpen(false)}
+                onSubmit={handleCreateVersion}
+                currentPrice={rfq?.totalBudget}
+              />
+
+              <CustomerResponseModal
+                isOpen={isResponseModalOpen}
+                onClose={() => {
+                  setIsResponseModalOpen(false);
+                  setSelectedVersion(null);
+                }}
+                onSubmit={handleRecordResponse}
+              />
             </TabsContent>
 
             <TabsContent value="export" className="m-0">

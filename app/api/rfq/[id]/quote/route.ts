@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../../lib/api-response';
 import { handleApiError, ApiError } from '../../../lib/error-handler';
 import { db } from '../../../../../db';
-import { quotations, rfqs, vendors } from '../../../../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { quotations, rfqs, vendors, quotationVersions } from '../../../../../db/schema';
+import { eq, and, desc } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 
 interface RouteParams {
   params: {
@@ -59,47 +60,69 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // Ensure params is properly awaited
+    const rfqId = parseInt(params.id);
+    if (isNaN(rfqId)) {
+      throw new Error('Invalid RFQ ID');
+    }
+
     const body = await request.json();
-    
-    // Validate required fields
-    if (!body.vendorId) {
-      throw new ApiError('Vendor ID is required');
-    }
+    const { amount, currency, validUntil, terms, notes, vendorId } = body;
 
-    // Check if RFQ exists
-    const rfq = await db
-      .select()
-      .from(rfqs)
-      .where(eq(rfqs.id, parseInt(id)))
-      .then(result => result[0]);
+    // Calculate total amount
+    const totalAmount = amount || 0;
 
-    if (!rfq) {
-      throw new ApiError(`RFQ with ID ${id} not found`, 404);
-    }
+    // Format the validUntil date properly
+    const validUntilDate = validUntil 
+      ? new Date(validUntil).toISOString()
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Create quote
-    const [newQuote] = await db
-      .insert(quotations)
-      // @ts-ignore
-      .values({
-        rfqId: parseInt(id),
-        vendorId: body.vendorId,
-        amount: body.amount,
-        currency: body.currency,
-        validUntil: body.validUntil ? new Date(body.validUntil).toISOString() : null,
-        terms: body.terms,
-        notes: body.notes,
-        status: body.status || 'PENDING'
-      })
-      .returning();
+    // Create the quotation
+    const [newQuote] = await db.insert(quotations).values({
+      quoteNumber: `Q-${nanoid(6)}`,
+      rfqId,
+      customerId: 1, // TODO: Get from RFQ
+      vendorId: vendorId || 1, // Default to vendor 1 if not provided
+      totalAmount,
+      deliveryTime: '2 weeks', // Default delivery time
+      validUntil: validUntilDate,
+      termsAndConditions: terms || '',
+      notes: notes || '',
+      status: 'PENDING',
+      createdBy: 1, // TODO: Get from session
+    }).returning();
 
-    return NextResponse.json(
-      createSuccessResponse(newQuote),
-      { status: 201 }
-    );
+    // Get the latest version number
+    const latestVersion = await db.query.quotationVersions.findFirst({
+      where: eq(quotationVersions.rfqId, rfqId),
+      orderBy: [desc(quotationVersions.versionNumber)],
+    });
+
+    // Create a new quotation version
+    const [newVersion] = await db.insert(quotationVersions).values({
+      rfqId,
+      versionNumber: (latestVersion?.versionNumber || 0) + 1,
+      status: 'NEW',
+      estimatedPrice: totalAmount,
+      finalPrice: totalAmount,
+      changes: 'Initial quote created',
+      createdBy: 'System', // TODO: Get from auth context
+    }).returning();
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: newQuote.id,
+        rfqId: newQuote.rfqId,
+        version: newVersion,
+      },
+    });
   } catch (error) {
-    return handleApiError(error);
+    console.error('Error creating quote:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create quote' },
+      { status: 500 }
+    );
   }
 }
 

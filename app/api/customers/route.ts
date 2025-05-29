@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     // Extract filter parameters
     const type = searchParams.get('type');
     const search = searchParams.get('search');
+    const main_customer = searchParams.get('main_customer');
     // Extract pagination parameters
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
     const allowedTypes = ['WHOLESALER', 'DEALER', 'RETAILER', 'DIRECT'] as const;
     if (type && allowedTypes.includes(type as any)) conditions.push(eq(customers.type, type as typeof allowedTypes[number]));
     if (search) conditions.push(like(customers.name, `%${search}%`));
+    if (main_customer === 'true') conditions.push(eq(customers.main_customer, true));
     // Get total count
     const totalCount = await db
       .select({ value: count() })

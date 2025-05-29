@@ -191,7 +191,7 @@ export default function RfqManagement() {
                                 rfq.createdAt
                               ).toLocaleDateString()}
                               source={rfq.source}
-                              items={rfq.items?.length || 0}
+                              items={rfq.itemCount || 0}
                               status={rfq.status.toLowerCase()}
                             />
                           ))

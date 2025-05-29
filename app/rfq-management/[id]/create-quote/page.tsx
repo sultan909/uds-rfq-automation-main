@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import React from 'react';
+import { use } from 'react';
+import { useRouter } from 'next/navigation';
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
@@ -10,17 +11,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-export default function CreateQuote({ params }: { params: { id: string } }) {
+interface CreateQuoteProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function CreateQuote({ params }: CreateQuoteProps) {
+  const { id } = use(params);
   const router = useRouter();
-  const { id } = params;
-  const [form, setForm] = useState({
+  const [form, setForm] = React.useState({
     amount: "",
     currency: "CAD",
     validUntil: "",
     terms: "",
     notes: ""
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = React.useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -29,6 +34,7 @@ export default function CreateQuote({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
       const res = await fetch(`/api/rfq/${id}/quote`, {
         method: "POST",
@@ -94,6 +100,7 @@ export default function CreateQuote({ params }: { params: { id: string } }) {
                     type="date"
                     value={form.validUntil}
                     onChange={handleChange}
+                    required
                   />
                 </div>
                 <div>

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
 import { db } from '../../../../db';
-import { emailParsingResults, emailSettings, skuMappings, skuVariations, customers } from '../../../../db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { emailParsingResults, emailSettings, skuMappings, skuVariations, customers, inventoryItems } from '../../../../db/schema';
+import { eq, inArray, like } from 'drizzle-orm';
 
 /**
  * POST /api/email/parse
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     // RFQ data from the email content
     
     // For now, we'll simulate extracting data
-    const extractedData = mockExtractDataFromEmail(body);
+    const extractedData = await mockExtractDataFromEmail(body);
     
     // Get the email settings to determine if we should auto-map SKUs
     const settings = await db
@@ -118,47 +118,122 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to mock extracting data from email
-function mockExtractDataFromEmail(email: any) {
-  // Simulate extracting customer information
+// Helper function to extract data from email
+async function mockExtractDataFromEmail(email: any) {
+  // Extract customer information from email
   const customerInfo = {
-    name: 'Tech Solutions Inc',
-    email: email.from || 'orders@techsolutions.com',
-    identifier: null, // This would be matched to a customer ID in a real implementation
-    confidence: 85 // Confidence score for the extraction
+    name: extractCustomerName(email),
+    email: email.from || '',
+    identifier: null,
+    confidence: calculateConfidence(email)
   };
   
-  // Simulate extracting items
-  const items = [
-    {
-      sku: 'HP26X',
-      description: '',
-      quantity: 5,
-      price: null,
-      originalText: 'HP26X x5'
-    },
-    {
-      sku: 'HP-55-X',
-      description: '',
-      quantity: 3,
-      price: null,
-      originalText: 'HP-55-X x3'
-    },
-    {
-      sku: 'CC-364-X',
-      description: '',
-      quantity: 2,
-      price: null,
-      originalText: 'CC-364-X x2'
-    }
-  ];
+  // Extract items from email content
+  const items = await extractItemsFromContent(email.content || '');
   
-  // Overall confidence score for the extraction
-  const confidence = 80;
+  // Calculate overall confidence score
+  const confidence = calculateConfidence(email);
   
   return {
     customerInfo,
     items,
     confidence
   };
+}
+
+// Helper function to extract customer name from email
+function extractCustomerName(email: any): string {
+  // Try to extract from subject first
+  if (email.subject) {
+    const subjectMatch = email.subject.match(/from\s+([^,]+)/i);
+    if (subjectMatch) return subjectMatch[1].trim();
+  }
+  
+  // Try to extract from sender email
+  if (email.from) {
+    const emailMatch = email.from.match(/^([^<]+)/);
+    if (emailMatch) return emailMatch[1].trim();
+  }
+  
+  return 'Unknown Customer';
+}
+
+// Helper function to extract items from email content
+async function extractItemsFromContent(content: string) {
+  const items = [];
+  const lines = content.split('\n');
+  
+  for (const line of lines) {
+    // Skip empty lines
+    if (!line.trim()) continue;
+    
+    // Try to match SKU patterns
+    const skuMatch = line.match(/([A-Z0-9]+(?:-[A-Z0-9]+)*X?)/i);
+    if (!skuMatch) continue;
+    
+    const sku = skuMatch[1].toUpperCase();
+    
+    // Try to extract quantity
+    const qtyMatch = line.match(/(?:qty|quantity|units?|pcs|pieces?)[:\s]*(\d+)/i) || 
+                    line.match(/(\d+)\s*(?:qty|quantity|units?|pcs|pieces?)/i) ||
+                    line.match(/x\s*(\d+)/i);
+    
+    const quantity = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+    
+    // Try to extract price if present
+    const priceMatch = line.match(/(?:price|cost|@)[:\s]*[$]?\s*(\d+(?:\.\d{2})?)/i);
+    const price = priceMatch ? parseFloat(priceMatch[1]) : null;
+
+    // Find matching inventory item
+    const [matchedItem] = await db
+      .select()
+      .from(inventoryItems)
+      .where(like(inventoryItems.sku, `%${sku}%`))
+      .limit(1);
+    
+    items.push({
+      sku,
+      description: matchedItem?.description || line.trim(),
+      quantity,
+      price,
+      originalText: line.trim(),
+      internalProductId: matchedItem?.id || null,
+      inventory: matchedItem ? {
+        id: matchedItem.id,
+        sku: matchedItem.sku,
+        description: matchedItem.description,
+        quantityOnHand: matchedItem.quantityOnHand,
+        quantityReserved: matchedItem.quantityReserved,
+        warehouseLocation: matchedItem.warehouseLocation,
+        lowStockThreshold: matchedItem.lowStockThreshold,
+        costCad: matchedItem.costCad,
+        costUsd: matchedItem.costUsd,
+        stock: matchedItem.stock
+      } : null
+    });
+  }
+  
+  return items;
+}
+
+// Helper function to calculate confidence score
+function calculateConfidence(email: any): number {
+  let score = 0;
+  
+  // Check if we have basic required fields
+  if (email.from) score += 20;
+  if (email.subject) score += 20;
+  if (email.content) score += 20;
+  
+  // Check content quality
+  if (email.content) {
+    const lines = email.content.split('\n');
+    const hasSkus = lines.some((line: string) => line.match(/[A-Z0-9]+(?:-[A-Z0-9]+)*X?/i));
+    const hasQuantities = lines.some((line: string) => line.match(/\d+\s*(?:qty|quantity|units?|pcs|pieces?)/i));
+    
+    if (hasSkus) score += 20;
+    if (hasQuantities) score += 20;
+  }
+  
+  return score;
 }

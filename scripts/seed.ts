@@ -597,6 +597,50 @@ async function main() {
     const insertedAuditLogs = await db.insert(schema.auditLog).values(auditLogData).returning();
     console.log(`Inserted ${insertedAuditLogs.length} audit log entries`);
 
+    // --- Seed Quotation Versions ---
+    console.log('Seeding quotation versions...');
+    
+    const quotationVersionsData = [];
+    for (const rfq of insertedRfqs) {
+      // Create 1-2 versions per RFQ
+      const numVersions = faker.number.int({ min: 1, max: 2 });
+      for (let i = 1; i <= numVersions; i++) {
+        const estimatedPrice = parseFloat(faker.commerce.price({ min: 1000, max: 5000 }));
+        const finalPrice = estimatedPrice * (1 + faker.number.float({ min: 0.1, max: 0.3 }));
+        quotationVersionsData.push({
+          rfqId: rfq.id,
+          versionNumber: i,
+          status: i === 1 ? 'NEW' : 'SENT',
+          estimatedPrice: Math.round(estimatedPrice),
+          finalPrice: Math.round(finalPrice),
+          changes: i === 1 ? 'Initial quote' : 'Updated pricing based on market conditions',
+          createdBy: 'System'
+        });
+      }
+    }
+    
+    const insertedQuotationVersions = await db.insert(schema.quotationVersions).values(quotationVersionsData).returning();
+    console.log(`Inserted ${insertedQuotationVersions.length} quotation versions`);
+
+    // --- Seed Customer Responses ---
+    console.log('Seeding customer responses...');
+    
+    const customerResponsesData = [];
+    for (const version of insertedQuotationVersions) {
+      // Add responses to some versions
+      if (faker.datatype.boolean(0.7)) { // 70% chance of having a response
+        customerResponsesData.push({
+          versionId: version.id,
+          status: faker.helpers.arrayElement(['ACCEPTED', 'DECLINED', 'NEGOTIATING']),
+          comments: faker.lorem.sentence(),
+          requestedChanges: faker.datatype.boolean() ? faker.lorem.paragraph() : null
+        });
+      }
+    }
+    
+    const insertedCustomerResponses = await db.insert(schema.customerResponses).values(customerResponsesData).returning();
+    console.log(`Inserted ${insertedCustomerResponses.length} customer responses`);
+
     console.log('Seeding completed successfully!');
 
   } catch (error) {

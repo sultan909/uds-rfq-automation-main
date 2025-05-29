@@ -1,7 +1,6 @@
 "use client";
 
-// Using the manual RFQ form code you provided
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,43 +11,88 @@ import { AlertCircle, FileText, Plus, Trash2, Upload } from "lucide-react";
 import { SkuMappingDetector } from "@/components/sku-mapping-detector";
 import { useCurrency } from "@/contexts/currency-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+
+interface Customer {
+  id: number;
+  name: string;
+  type: string;
+}
+
+interface InventoryItem {
+  id: number;
+  sku: string;
+  description: string;
+  brand: string;
+  mpn: string;
+}
+
+interface RfqItem {
+  id: number;
+  sku: string;
+  description: string;
+  quantity: number;
+  price: number | null;
+  originalSku?: string;
+}
 
 export default function ManualRfqPage() {
   const { currency: globalCurrency } = useCurrency();
   const [selectedCurrency, setSelectedCurrency] = useState<"CAD" | "USD">(globalCurrency);
-  const [rfqItems, setRfqItems] = useState([
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [selectedSource, setSelectedSource] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [rfqItems, setRfqItems] = useState<RfqItem[]>([
     {
       id: 1,
-      sku: "CF226X",
-      description: "HP 26X High Yield Black Toner Cartridge",
-      quantity: 5,
+      sku: "",
+      description: "",
+      quantity: 1,
       price: null,
     },
-    { id: 2, sku: "HP-55-X", description: "", quantity: 3, price: null },
-    { id: 3, sku: "HP26X", description: "", quantity: 2, price: null },
   ]);
 
-  const [nonStandardSkus, setNonStandardSkus] = useState(["HP-55-X", "HP26X"]);
+  const [nonStandardSkus, setNonStandardSkus] = useState<string[]>([]);
   const [mappedItems, setMappedItems] = useState<{ original: string; mapped: string }[]>([]);
+
+  useEffect(() => {
+    const fetchFormData = async () => {
+      try {
+        const response = await fetch('/api/rfq/new');
+        const data = await response.json();
+        
+        if (data.success) {
+          setCustomers(data.data.customers);
+          setInventory(data.data.inventory);
+        } else {
+          toast.error('Failed to load form data');
+        }
+      } catch (error) {
+        toast.error('Error loading form data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFormData();
+  }, []);
 
   const handleMapSkus = (mappings: { original: string; mapped: string }[]) => {
     setMappedItems(mappings);
 
-    // Update the RFQ items with the mapped SKUs
     if (mappings.length > 0) {
       const updatedItems = rfqItems.map((item) => {
         const mapping = mappings.find((m) => m.original === item.sku);
         if (mapping) {
+          const inventoryItem = inventory.find((inv) => inv.sku === mapping.mapped);
           return {
             ...item,
             originalSku: item.sku,
             sku: mapping.mapped,
-            description:
-              mapping.mapped === "CF226X"
-                ? "HP 26X High Yield Black Toner Cartridge"
-                : mapping.mapped === "CE255X"
-                  ? "HP 55X High Yield Black Toner Cartridge"
-                  : item.description,
+            description: inventoryItem?.description || item.description,
           };
         }
         return item;
@@ -61,7 +105,14 @@ export default function ManualRfqPage() {
 
   const addItem = () => {
     const newId = Math.max(...rfqItems.map((item) => item.id), 0) + 1;
-    setRfqItems([...rfqItems, { id: newId, sku: "", description: "", quantity: 1, price: null }]);
+    setRfqItems([...rfqItems, { 
+      id: newId, 
+      sku: "", 
+      description: "", 
+      quantity: 1, 
+      price: null,
+      originalSku: undefined 
+    }]);
   };
 
   const removeItem = (id: number) => {
@@ -69,13 +120,83 @@ export default function ManualRfqPage() {
   };
 
   const updateItem = (id: number, field: string, value: string | number | null) => {
-    setRfqItems(rfqItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+    setRfqItems(rfqItems.map((item) => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        
+        // If SKU is updated, check if it exists in inventory
+        if (field === 'sku' && typeof value === 'string') {
+          const inventoryItem = inventory.find((inv) => inv.sku === value);
+          if (inventoryItem) {
+            updatedItem.description = inventoryItem.description;
+          } else {
+            setNonStandardSkus((prev) => [...new Set([...prev, value])]);
+          }
+        }
+        
+        return updatedItem;
+      }
+      return item;
+    }));
   };
 
-  // Function to update the selected currency
   const updateCurrency = (newCurrency: "CAD" | "USD") => {
     setSelectedCurrency(newCurrency);
   };
+
+  const handleSubmit = async () => {
+    console.log("IN MMMMMMMMMMM");
+    
+    if (!selectedCustomer) {
+      toast.error('Please select a customer');
+      return;
+    }
+
+    if (!selectedSource) {
+      toast.error('Please select a source');
+      return;
+    }
+
+    if (rfqItems.some(item => !item.sku)) {
+      toast.error('Please fill in all SKUs');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/rfq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: parseInt(selectedCustomer),
+          source: selectedSource,
+          notes,
+          items: rfqItems.map(item => ({
+            sku: item.sku,
+            description: item.description,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          currency: selectedCurrency,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('RFQ created successfully');
+        // Redirect to RFQ list or detail page
+        window.location.href = '/rfq-management';
+      } else {
+        toast.error(data.error || 'Failed to create RFQ');
+      }
+    } catch (error) {
+      console.error('Error creating RFQ:', error);
+      toast.error('Error creating RFQ');
+    }
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div>
@@ -89,21 +210,22 @@ export default function ManualRfqPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <Label htmlFor="customer">Customer</Label>
-              <Select>
+              <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
                 <SelectTrigger id="customer" className="w-full">
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tech-solutions">Tech Solutions Inc</SelectItem>
-                  <SelectItem value="abc-electronics">ABC Electronics</SelectItem>
-                  <SelectItem value="global-systems">Global Systems</SelectItem>
-                  <SelectItem value="midwest-distributors">Midwest Distributors</SelectItem>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id.toString()}>
+                      {customer.name} ({customer.type})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label htmlFor="source">Source</Label>
-              <Select>
+              <Select value={selectedSource} onValueChange={setSelectedSource}>
                 <SelectTrigger id="source" className="w-full">
                   <SelectValue placeholder="Select a source" />
                 </SelectTrigger>
@@ -119,7 +241,13 @@ export default function ManualRfqPage() {
 
           <div className="mb-6">
             <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" placeholder="Add any notes about this RFQ" className="min-h-[80px]" />
+            <Textarea 
+              id="notes" 
+              placeholder="Add any notes about this RFQ" 
+              className="min-h-[80px]"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -241,10 +369,13 @@ export default function ManualRfqPage() {
                 </table>
               </div>
 
-              <Button variant="outline" onClick={addItem}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={addItem}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+                <Button onClick={handleSubmit}>Create RFQ</Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="upload" className="space-y-4">
@@ -294,10 +425,6 @@ export default function ManualRfqPage() {
               <Button>Parse Content</Button>
             </TabsContent>
           </Tabs>
-
-          <div className="mt-6 flex justify-end gap-2">
-            <Button>Create RFQ</Button>
-          </div>
         </CardContent>
       </Card>
     </div>

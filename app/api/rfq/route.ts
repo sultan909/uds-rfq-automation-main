@@ -100,8 +100,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, createPaginatedResponse } from '../lib/api-response';
 import { handleApiError, ApiError } from '../lib/error-handler';
 import { db } from '../../../db';
-import { rfqs, customers, users } from '../../../db/schema';
+import { rfqs, customers, users, rfqItems } from '../../../db/schema';
 import { eq, and, like, gte, lte, desc, sql, count } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
+
+interface TransformedRfq {
+  id: number;
+  rfqNumber: string;
+  title: string;
+  description: string;
+  requestorId: number;
+  customerId: number;
+  vendorId: number | null;
+  status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "COMPLETED";
+  source: string;
+  notes: string | null;
+  dueDate: Date | null;
+  totalBudget: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  customer: {
+    id: number;
+    name: string;
+    email: string;
+    type: string;
+  };
+  requestor: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  items: any[];
+  itemCount: number;
+}
 
 /**
  * GET /api/rfq/list
@@ -145,7 +176,10 @@ export async function GET(request: NextRequest) {
     // Get paginated RFQs with related data
     const rfqList = await db
       .select({
-        rfq: rfqs,
+        rfq: {
+          ...rfqs,
+          itemCount: sql<number>`(SELECT COUNT(*) FROM rfq_items WHERE rfq_id = ${rfqs.id})` as unknown as number
+        },
         customer: {
           id: customers.id,
           name: customers.name,
@@ -170,8 +204,10 @@ export async function GET(request: NextRequest) {
     const transformedRfqs = rfqList.map(item => ({
       ...item.rfq,
       customer: item.customer,
-      requestor: item.requestor
-    }));
+      requestor: item.requestor,
+      items: [],
+      itemCount: (item.rfq as any).itemCount
+    } as TransformedRfq));
     
     // Return response
     return NextResponse.json(
@@ -189,55 +225,49 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    // Validate required fields
-    if (!body.customerId) {
-      throw new ApiError('Customer ID is required');
-    }
-    
-    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
-      throw new ApiError('At least one item is required');
-    }
+    const { customerId, source, notes, items, currency } = body;
 
-    // Generate RFQ number if not provided
-    if (!body.rfqNumber) {
-      const date = new Date();
-      const year = date.getFullYear().toString().slice(-2);
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const rfqCount = await db
-        .select({ value: count() })
-        .from(rfqs)
-        .where(like(rfqs.rfqNumber, `RFQ-${year}${month}-%`))
-        .then(result => result[0].value);
-      
-      body.rfqNumber = `RFQ-${year}${month}-${(rfqCount + 1).toString().padStart(4, '0')}`;
-    }
-    
-    // Create RFQ
-    const [newRfq] = await db
-      .insert(rfqs)
-      .values({
-        rfqNumber: body.rfqNumber,
-        title: body.title,
-        description: body.description,
-        requestorId: body.requestorId,
-        customerId: body.customerId,
-        vendorId: body.vendorId,
-        status: body.status || 'PENDING',
-        dueDate: body.dueDate ? new Date(body.dueDate).toISOString() : null,
-        attachments: body.attachments,
-        totalBudget: body.totalBudget,
-        source: body.source || 'MANUAL',
-        notes: body.notes
-      })
-      .returning();
-    
-    // Return response
-    return NextResponse.json(
-      createSuccessResponse(newRfq),
-      { status: 201 }
-    );
+    // Generate a unique RFQ number
+    const rfqNumber = `RFQ-${nanoid(8).toUpperCase()}`;
+
+    // Create the RFQ
+    const [newRfq] = await db.insert(rfqs).values({
+      rfqNumber,
+      title: `RFQ for ${rfqNumber}`,
+      description: notes || '',
+      requestorId: 1, // TODO: Get from session
+      customerId,
+      source,
+      notes,
+      status: 'PENDING',
+    }).returning();
+
+    // Create RFQ items
+    const rfqItemsData = items.map((item: any) => ({
+      rfqId: newRfq.id,
+      name: item.description,
+      description: item.description,
+      quantity: item.quantity || 1,
+      unit: 'EA',
+      currency,
+      suggestedPrice: item.price,
+      status: 'PENDING',
+    }));
+
+    await db.insert(rfqItems).values(rfqItemsData);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: newRfq.id,
+        rfqNumber: newRfq.rfqNumber,
+      },
+    });
   } catch (error) {
-    return handleApiError(error);
+    console.error('Error creating RFQ:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create RFQ' },
+      { status: 500 }
+    );
   }
 }

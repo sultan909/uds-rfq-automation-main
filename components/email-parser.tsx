@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,21 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Loader2, Upload, AlertCircle } from "lucide-react"
 
-// Mock data - replace with actual API calls in your implementation
-const MOCK_CUSTOMERS = [
-  { id: "1", name: "ABC Electronics" },
-  { id: "2", name: "Tech Solutions Inc" },
-  { id: "3", name: "Global Systems" },
-  { id: "4", name: "Midwest Distributors" },
-]
-
-// Mock product database for SKU matching
-const PRODUCT_DATABASE = [
-  { id: 1, sku: "CF226X", description: "HP 26X High Yield Black Toner Cartridge", price: 149.99 },
-  { id: 2, sku: "CE255X", description: "HP 55X High Yield Black Toner Cartridge", price: 129.99 },
-  { id: 3, sku: "CF287X", description: "HP 87X High Yield Black Toner Cartridge", price: 159.99 },
-  { id: 4, sku: "CC364X", description: "HP 64X High Yield Black Toner Cartridge", price: 139.99 },
-]
+// Type for customer
+type Customer = {
+  id: number;
+  name: string;
+  type: string;
+  email?: string;
+  region?: string;
+};
 
 // Type for parsed items
 type ParsedItem = {
@@ -33,7 +26,13 @@ type ParsedItem = {
   description?: string;
   quantity: number;
   internalProductId: number | null;
-  matchedProduct: typeof PRODUCT_DATABASE[0] | null;
+  matchedProduct: {
+    id: number;
+    sku: string;
+    description: string;
+    costCad: number;
+    costUsd: number;
+  } | null;
   status: "matched" | "no-match" | "pending";
 };
 
@@ -45,14 +44,40 @@ export default function EmailParser() {
   const [isParsingText, setIsParsingText] = useState(false)
   const [isCreatingRfq, setIsCreatingRfq] = useState(false)
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([])
+  const [inventoryItems, setInventoryItems] = useState<any[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
   
-  // Mock function to simulate finding SKU matches
+  // Fetch customers and inventory items on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch customers
+        const customersResponse = await fetch('/api/customers');
+        const customersData = await customersResponse.json();
+        if (customersData.success) {
+          setCustomers(customersData.data);
+        }
+
+        // Fetch inventory items
+        const inventoryResponse = await fetch('/api/inventory/items');
+        const inventoryData = await inventoryResponse.json();
+        if (inventoryData.success) {
+          setInventoryItems(inventoryData.data);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+    
+    fetchData();
+  }, []);
+  
+  // Function to find SKU matches from inventory
   const findSkuMatch = (customerSku: string) => {
-    // Simplified mock matching logic
     // Strip any non-alphanumeric characters for more flexible matching
     const normalizedCustomerSku = customerSku.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
     
-    const product = PRODUCT_DATABASE.find(product => {
+    const product = inventoryItems.find(product => {
       const normalizedProductSku = product.sku.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
       return normalizedProductSku === normalizedCustomerSku
     })
@@ -66,47 +91,49 @@ export default function EmailParser() {
     
     setIsParsingText(true)
     
-    // Simulate network delay
-    setTimeout(() => {
-      try {
-        const lines = emailContent.trim().split('\n')
-        const items: ParsedItem[] = []
+    try {
+      const lines = emailContent.trim().split('\n')
+      const items: ParsedItem[] = []
+      
+      for (const line of lines) {
+        if (!line.trim()) continue
         
-        for (const line of lines) {
-          if (!line.trim()) continue
+        // Extract SKU (simple regex for demo)
+        const skuMatch = line.match(/([A-Z0-9]+-?[A-Z0-9]+)/i)
+        
+        if (skuMatch) {
+          const customerSku = skuMatch[1]
           
-          // Extract SKU (simple regex for demo)
-          const skuMatch = line.match(/([A-Z0-9]+-?[A-Z0-9]+)/i)
+          // Extract quantity (simple regex for demo)
+          const qtyMatch = line.match(/qty:?\s*(\d+)|(\d+)\s*units?|quantity:?\s*(\d+)/i)
+          const quantity = qtyMatch ? parseInt(qtyMatch[1] || qtyMatch[2] || qtyMatch[3]) : 1
           
-          if (skuMatch) {
-            const customerSku = skuMatch[1]
-            
-            // Extract quantity (simple regex for demo)
-            const qtyMatch = line.match(/qty:?\s*(\d+)|(\d+)\s*units?|quantity:?\s*(\d+)/i)
-            const quantity = qtyMatch ? parseInt(qtyMatch[1] || qtyMatch[2] || qtyMatch[3]) : 1
-            
-            // Find matching product
-            const matchedProduct = findSkuMatch(customerSku)
-            
-            items.push({
-              customerSku,
-              description: line,
-              quantity,
-              internalProductId: matchedProduct?.id || null,
-              matchedProduct,
-              status: matchedProduct ? "matched" : "no-match"
-            })
-          }
+          // Find matching product from inventory
+          const matchedProduct = findSkuMatch(customerSku)
+          
+          items.push({
+            customerSku,
+            description: line,
+            quantity,
+            internalProductId: matchedProduct?.id || null,
+            matchedProduct: matchedProduct ? {
+              id: matchedProduct.id,
+              sku: matchedProduct.sku,
+              description: matchedProduct.description,
+              costCad: matchedProduct.costCad,
+              costUsd: matchedProduct.costUsd
+            } : null,
+            status: matchedProduct ? "matched" : "no-match"
+          })
         }
-        
-        setParsedItems(items)
-      } catch (error) {
-        console.error("Error parsing email:", error)
-        // In a real app, you'd show a toast or other error notification
-      } finally {
-        setIsParsingText(false)
       }
-    }, 800) // Simulate parsing delay
+      
+      setParsedItems(items)
+    } catch (error) {
+      console.error("Error parsing email:", error)
+    } finally {
+      setIsParsingText(false)
+    }
   }
   
   // Handle file upload
@@ -128,6 +155,8 @@ export default function EmailParser() {
   
   // Create RFQ function
   const createRfq = () => {
+    console.log("HELLLLLLLLO");
+    
     if (!customer) {
       // In a real app, show a toast or notification
       alert("Please select a customer")
@@ -183,9 +212,9 @@ export default function EmailParser() {
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MOCK_CUSTOMERS.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>
+                      {c.name} {c.region ? `(${c.region})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

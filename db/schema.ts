@@ -108,6 +108,7 @@ export const rfqsRelations = relations(rfqs, ({ one, many }) => ({
   quotations: many(quotations),
   comments: many(comments),
   history: many(auditLog, { relationName: 'rfqHistory' }),
+  versions: many(quotationVersions),
 }));
 
 // RFQ Items Table
@@ -530,5 +531,42 @@ export const reportsRelations = relations(reports, ({ one }) => ({
   creator: one(users, {
     fields: [reports.createdBy],
     references: [users.id],
+  }),
+}));
+
+export const quotationVersions = pgTable('quotation_versions', {
+  id: serial('id').primaryKey(),
+  rfqId: integer('rfq_id').notNull(),
+  versionNumber: integer('version_number').notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('NEW'),
+  estimatedPrice: integer('estimated_price').notNull(),
+  finalPrice: integer('final_price').notNull(),
+  changes: text('changes'),
+  createdBy: varchar('created_by', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const quotationVersionsRelations = relations(quotationVersions, ({ one, many }) => ({
+  rfq: one(rfqs, {
+    fields: [quotationVersions.rfqId],
+    references: [rfqs.id],
+  }),
+  responses: many(customerResponses),
+}));
+
+export const customerResponses = pgTable('customer_responses', {
+  id: serial('id').primaryKey(),
+  versionId: integer('version_id').notNull(),
+  status: varchar('status', { length: 20 }).notNull(),
+  comments: text('comments'),
+  requestedChanges: text('requested_changes'),
+  respondedAt: timestamp('responded_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const customerResponsesRelations = relations(customerResponses, ({ one }) => ({
+  version: one(quotationVersions, {
+    fields: [customerResponses.versionId],
+    references: [quotationVersions.id],
   }),
 }));

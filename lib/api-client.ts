@@ -98,6 +98,58 @@ export const rfqApi = {
     apiFetch("/api/rfq/search", {
       params: { query, ...params },
     }),
+  getQuotationHistory: async (rfqId: string) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/versions`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching quotation history:', error);
+      return { success: false, error: 'Failed to fetch quotation history' };
+    }
+  },
+  createVersion: async (rfqId: string, versionData: any) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(versionData),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating version:', error);
+      return { success: false, error: 'Failed to create version' };
+    }
+  },
+  updateVersionStatus: async (rfqId: string, versionId: number, status: string) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/versions/${versionId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating version status:', error);
+      return { success: false, error: 'Failed to update version status' };
+    }
+  },
+  recordCustomerResponse: async (rfqId: string, versionId: number, customerResponse: any) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/versions/${versionId}/customer-response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerResponse),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error recording customer response:', error);
+      return { success: false, error: 'Failed to record customer response' };
+    }
+  },
 };
 
 // Customer API endpoints

@@ -62,29 +62,79 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       throw new ApiError('At least one item is required');
     }
 
+    // Process each item to find inventory by SKU
+    const processedItems = await Promise.all(body.items.map(async (item: any) => {
+      let internalProductId = item.internalProductId;
+      let inventoryData = null;
+
+      // If we have a customer SKU but no internal product ID, try to find the inventory item
+      if (item.customerSku && !internalProductId) {
+        const inventoryItem = await db.query.inventoryItems.findFirst({
+          where: eq(inventoryItems.sku, item.customerSku)
+        });
+        if (inventoryItem) {
+          internalProductId = inventoryItem.id;
+          inventoryData = {
+            id: inventoryItem.id,
+            sku: inventoryItem.sku,
+            mpn: inventoryItem.mpn,
+            brand: inventoryItem.brand,
+            description: inventoryItem.description,
+            quantityOnHand: inventoryItem.quantityOnHand,
+            quantityReserved: inventoryItem.quantityReserved,
+            warehouseLocation: inventoryItem.warehouseLocation,
+            lowStockThreshold: inventoryItem.lowStockThreshold,
+            costCad: inventoryItem.costCad,
+            costUsd: inventoryItem.costUsd,
+            stock: inventoryItem.stock
+          };
+        }
+      }
+
+      return {
+        rfqId: parseInt(id),
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit || 'pcs',
+        customerSku: item.customerSku,
+        internalProductId: internalProductId,
+        suggestedPrice: item.suggestedPrice,
+        finalPrice: item.finalPrice,
+        currency: item.currency || 'CAD',
+        status: item.status || 'PENDING',
+        estimatedPrice: item.estimatedPrice,
+        inventory: inventoryData
+      };
+    }));
+
     // Insert items
     const newItems = await db
       .insert(rfqItems)
-      .values(
-        body.items.map((item: any) => ({
-          rfqId: parseInt(id),
-          name: item.name,
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit || 'pcs',
-          customerSku: item.customerSku,
-          internalProductId: item.internalProductId,
-          suggestedPrice: item.suggestedPrice,
-          finalPrice: item.finalPrice,
-          currency: item.currency || 'CAD',
-          status: item.status || 'PENDING',
-          estimatedPrice: item.estimatedPrice
-        }))
-      )
+      .values(processedItems.map(item => ({
+        rfqId: item.rfqId,
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        customerSku: item.customerSku,
+        internalProductId: item.internalProductId,
+        suggestedPrice: item.suggestedPrice,
+        finalPrice: item.finalPrice,
+        currency: item.currency,
+        status: item.status,
+        estimatedPrice: item.estimatedPrice
+      })))
       .returning();
 
+    // Return items with inventory data
+    const itemsWithInventory = newItems.map((item, index) => ({
+      ...item,
+      inventory: processedItems[index].inventory
+    }));
+
     return NextResponse.json(
-      createSuccessResponse(newItems),
+      createSuccessResponse(itemsWithInventory),
       { status: 201 }
     );
   } catch (error) {
