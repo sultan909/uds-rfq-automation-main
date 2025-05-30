@@ -45,6 +45,7 @@ export default function ManualRfqPage() {
   const [selectedSource, setSelectedSource] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [rfqItems, setRfqItems] = useState<RfqItem[]>([
     {
       id: 1,
@@ -145,7 +146,7 @@ export default function ManualRfqPage() {
   };
 
   const handleSubmit = async () => {
-    console.log("IN MMMMMMMMMMM");
+    if (submitting) return;
     
     if (!selectedCustomer) {
       toast.error('Please select a customer');
@@ -163,7 +164,8 @@ export default function ManualRfqPage() {
     }
 
     try {
-      const response = await fetch('/api/rfq', {
+      setSubmitting(true);
+      const response = await fetch('/api/rfq/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -173,24 +175,32 @@ export default function ManualRfqPage() {
           items: rfqItems.map(item => ({
             sku: item.sku,
             description: item.description,
-            quantity: item.quantity,
+            quantity: item.quantity || 1,
             price: item.price,
+            unit: 'EA'
           })),
           currency: selectedCurrency,
         }),
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create RFQ');
+      }
+
       if (data.success) {
         toast.success('RFQ created successfully');
         // Redirect to RFQ list or detail page
         window.location.href = '/rfq-management';
       } else {
-        toast.error(data.error || 'Failed to create RFQ');
+        throw new Error(data.error || 'Failed to create RFQ');
       }
     } catch (error) {
       console.error('Error creating RFQ:', error);
-      toast.error('Error creating RFQ');
+      toast.error(error instanceof Error ? error.message : 'Error creating RFQ');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -374,7 +384,9 @@ export default function ManualRfqPage() {
                   <Plus className="mr-2 h-4 w-4" />
                   Add Item
                 </Button>
-                <Button onClick={handleSubmit}>Create RFQ</Button>
+                <Button onClick={handleSubmit} disabled={submitting}>
+                  {submitting ? 'Creating...' : 'Create RFQ'}
+                </Button>
               </div>
             </TabsContent>
 

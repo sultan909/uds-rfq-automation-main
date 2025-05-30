@@ -120,7 +120,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           description: inventoryItems.description,
           stock: inventoryItems.stock,
           costCad: inventoryItems.costCad,
-          costUsd: inventoryItems.costUsd
+          costUsd: inventoryItems.costUsd,
+          quantityOnHand: inventoryItems.quantityOnHand,
+          quantityReserved: inventoryItems.quantityReserved,
+          warehouseLocation: inventoryItems.warehouseLocation,
+          lowStockThreshold: inventoryItems.lowStockThreshold,
+          lastSaleDate: inventoryItems.lastSaleDate,
+          brand: inventoryItems.brand,
+          mpn: inventoryItems.mpn
         }
       })
       .from(rfqItems)

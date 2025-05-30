@@ -16,56 +16,32 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    console.log('Fetching inventory item with ID:', params.id);
-    
-    // Validate ID
     const id = parseInt(params.id);
     if (isNaN(id)) {
-      console.error('Invalid inventory ID:', params.id);
       return NextResponse.json(
-        { 
-          success: false, 
-          data: null,
-          error: 'Invalid inventory ID' 
-        },
+        { success: false, error: 'Invalid inventory ID' },
         { status: 400 }
       );
     }
 
-    console.log('Querying database for inventory item...');
-    const item = await db.query.inventoryItems.findFirst({
-      where: eq(inventoryItems.id, id),
+    const inventoryItem = await db.query.inventoryItems.findFirst({
+      where: eq(inventoryItems.id, id)
     });
-    console.log('Database query result:', item);
 
-    if (!item) {
-      console.log('Inventory item not found');
+    if (!inventoryItem) {
       return NextResponse.json(
-        { 
-          success: false, 
-          data: null,
-          error: 'Inventory item not found' 
-        },
+        { success: false, error: 'Inventory item not found' },
         { status: 404 }
       );
     }
 
-    console.log('Successfully found inventory item');
-    return NextResponse.json({
-      success: true,
-      data: item,
-      error: null
-    });
-  } catch (error) {
-    console.error('Error in GET /api/inventory/[id]:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        data: null,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred'
-      },
-      { status: 500 }
+      createSuccessResponse(inventoryItem),
+      { status: 200 }
     );
+  } catch (error) {
+    console.error('Error fetching inventory item:', error);
+    return handleApiError(error);
   }
 }
 

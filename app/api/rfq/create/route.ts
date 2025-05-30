@@ -1,76 +1,149 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
-import { handleApiError, ApiError } from '../../lib/error-handler';
+import { handleApiError } from '../../lib/error-handler';
 import { db } from '../../../../db';
-import { rfqs, rfqItems } from '../../../../db/schema';
-import { count, like } from 'drizzle-orm';
+import { rfqs, rfqItems, inventoryItems, skuMappings, salesHistory } from '../../../../db/schema';
+import { eq, or, desc } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 
-export async function POST(request: NextRequest) {
+// Export the POST method
+export const POST = async (request: NextRequest) => {
   try {
     const body = await request.json();
-    
-    // Validate required fields
-    if (!body.customerId) {
-      throw new ApiError('Customer ID is required');
-    }
-    
-    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
-      throw new ApiError('At least one item is required');
-    }
+    const { customerId, source, notes, items, currency } = body;
 
-    // Generate RFQ number if not provided
-    if (!body.rfqNumber) {
-      const date = new Date();
-      const year = date.getFullYear().toString().slice(-2);
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const rfqCount = await db
-        .select({ value: count() })
-        .from(rfqs)
-        .where(like(rfqs.rfqNumber, `RFQ-${year}${month}-%`))
-        .then(result => result[0].value);
-      
-      body.rfqNumber = `RFQ-${year}${month}-${(rfqCount + 1).toString().padStart(4, '0')}`;
-    }
-    
-    // Create RFQ with default requestorId (1)
-    const [newRfq] = await db
-      .insert(rfqs)
-      .values({
-        rfqNumber: body.rfqNumber,
-        title: body.title,
-        description: body.description,
-        requestorId: 1, // Default requestor ID
-        customerId: parseInt(body.customerId),
-        vendorId: body.vendorId,
-        status: body.status || 'PENDING',
-        dueDate: body.dueDate ? new Date(body.dueDate).toISOString() : null,
-        attachments: body.attachments,
-        totalBudget: body.totalBudget ? parseFloat(body.totalBudget) : null,
-        source: body.source || 'MANUAL',
-        notes: body.notes
-      })
-      .returning();
+    // Generate a unique RFQ number
+    const rfqNumber = `RFQ-${nanoid(8).toUpperCase()}`;
 
-    // Create RFQ items
-    const rfqItemsData = body.items.map((item: any) => ({
-      rfqId: newRfq.id,
-      name: item.customerSku, // Using customerSku as the name since it's required
-      customerSku: item.customerSku,
-      description: item.description,
-      quantity: item.quantity,
-      unit: item.unit || 'EA',
-      estimatedPrice: item.estimatedPrice,
-      inventoryId: item.inventoryId
+    // Create the RFQ
+    const [newRfq] = await db.insert(rfqs).values({
+      rfqNumber,
+      title: `RFQ for ${rfqNumber}`,
+      description: notes || '',
+      requestorId: 1, // TODO: Get from session
+      customerId,
+      source,
+      notes,
+      status: 'PENDING',
+    }).returning();
+
+    // Process items to find inventory matches and history
+    const processedItems = await Promise.all(items.map(async (item: any) => {
+      let inventoryId = null;
+      let inventoryData = null;
+      let historyData = null;
+
+      // Try to find inventory item by SKU or SKU mapping
+      if (item.sku) {
+        // First try direct SKU match
+        let inventoryItem = await db.query.inventoryItems.findFirst({
+          where: eq(inventoryItems.sku, item.sku)
+        });
+
+        // If no direct match, try SKU mapping
+        if (!inventoryItem) {
+          const skuMapping = await db.query.skuMappings.findFirst({
+            where: eq(skuMappings.standardSku, item.sku)
+          });
+          
+          if (skuMapping) {
+            inventoryItem = await db.query.inventoryItems.findFirst({
+              where: eq(inventoryItems.sku, skuMapping.standardSku)
+            });
+          }
+        }
+
+        if (inventoryItem) {
+          inventoryId = inventoryItem.id;
+          // Fetch complete inventory data
+          const completeInventoryItem = await db.query.inventoryItems.findFirst({
+            where: eq(inventoryItems.id, inventoryItem.id)
+          });
+
+          if (completeInventoryItem) {
+            inventoryData = {
+              id: completeInventoryItem.id,
+              sku: completeInventoryItem.sku,
+              description: completeInventoryItem.description,
+              stock: completeInventoryItem.stock,
+              costCad: completeInventoryItem.costCad,
+              costUsd: completeInventoryItem.costUsd,
+              quantityOnHand: completeInventoryItem.quantityOnHand,
+              quantityReserved: completeInventoryItem.quantityReserved,
+              warehouseLocation: completeInventoryItem.warehouseLocation,
+              lowStockThreshold: completeInventoryItem.lowStockThreshold,
+              lastSaleDate: completeInventoryItem.lastSaleDate,
+              brand: completeInventoryItem.brand,
+              mpn: completeInventoryItem.mpn
+            };
+
+            // Fetch sales history for this inventory item
+            const salesHistoryItems = await db
+              .select()
+              .from(salesHistory)
+              .where(eq(salesHistory.productId, completeInventoryItem.id))
+              .orderBy(desc(salesHistory.saleDate))
+              .limit(5);
+
+            historyData = salesHistoryItems.map(history => ({
+              id: history.id,
+              date: history.saleDate,
+              quantity: history.quantity,
+              price: history.unitPrice,
+              customerId: history.customerId,
+              invoiceNumber: history.invoiceNumber
+            }));
+          }
+        }
+      }
+
+      return {
+        rfqId: newRfq.id,
+        name: item.description || item.sku,
+        description: item.description,
+        quantity: item.quantity || 1,
+        unit: item.unit || 'EA',
+        customerSku: item.sku,
+        internalProductId: inventoryId,
+        suggestedPrice: item.price,
+        finalPrice: null,
+        currency: currency || 'CAD',
+        status: 'PENDING',
+        estimatedPrice: item.price,
+        inventory: inventoryData,
+        history: historyData
+      };
     }));
 
-    await db.insert(rfqItems).values(rfqItemsData);
-    
-    // Return response
+    // Insert RFQ items
+    const [insertedItems] = await db.insert(rfqItems)
+      .values(processedItems.map(item => ({
+        rfqId: item.rfqId,
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        customerSku: item.customerSku,
+        internalProductId: item.internalProductId,
+        suggestedPrice: item.suggestedPrice,
+        finalPrice: item.finalPrice,
+        currency: item.currency,
+        status: item.status,
+        estimatedPrice: item.estimatedPrice
+      })))
+      .returning();
+
+    // Return response with items including inventory and history data
     return NextResponse.json(
-      createSuccessResponse(newRfq),
+      createSuccessResponse({
+        id: newRfq.id,
+        rfqNumber: newRfq.rfqNumber,
+        items: processedItems
+      }),
       { status: 201 }
     );
   } catch (error) {
+    console.error('Error creating RFQ:', error);
     return handleApiError(error);
   }
-} 
+}; 

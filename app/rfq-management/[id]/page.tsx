@@ -188,6 +188,24 @@ const QUOTATION_HISTORY_COLUMNS = [
 // Add type for tab names
 type TabName = 'items' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings' | 'quotation-history';
 
+// Add this interface near the top with other interfaces
+interface InventoryResponse {
+  id: number;
+  sku: string;
+  description: string;
+  stock: number;
+  costCad: number;
+  costUsd: number;
+  quantityOnHand: number;
+  quantityReserved: number;
+  warehouseLocation: string;
+  lowStockThreshold: number;
+  lastSaleDate: string | null;
+}
+
+// Add this near the top with other interfaces
+type RfqStatus = 'PENDING' | 'IN_PROGRESS' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED';
+
 export default function RfqDetail({
   params,
 }: {
@@ -451,57 +469,63 @@ export default function RfqDetail({
 
   useEffect(() => {
     const fetchInventoryData = async () => {
-      if (!rfqData?.items?.length) return;
-      
       try {
-        const inventoryPromises = rfqData.items.map(async (item: any) => {
-          if (!item.inventory?.id) return null;
-
-          try {
-            const response = await inventoryApi.get(item.inventory.id) as ApiResponse<InventoryData>;
-            
-            if (!response.success || !response.data) {
-              return null;
-            }
-
-            const inventoryData: InventoryData = {
-              id: response.data.id || 0,
-              sku: response.data.sku || '',
-              mpn: response.data.mpn || '',
-              brand: response.data.brand || '',
-              description: response.data.description || '',
-              quantityOnHand: response.data.quantityOnHand || 0,
-              quantityReserved: response.data.quantityReserved || 0,
-              warehouseLocation: response.data.warehouseLocation || 'N/A',
-              lowStockThreshold: response.data.lowStockThreshold || 5,
-              costCad: response.data.costCad,
-              costUsd: response.data.costUsd,
-              marketPrice: response.data.marketPrice,
-              marketSource: response.data.marketSource,
-              marketLastUpdated: response.data.marketLastUpdated,
-              competitorPrice: response.data.competitorPrice,
-              marketTrend: response.data.marketTrend
-            };
-
-            return {
-              itemId: item.id,
-              inventoryData
-            };
-          } catch (err) {
-            console.error('Error fetching inventory for item:', item.id, err);
-            return null;
-          }
-        });
-
-        const inventoryResults = await Promise.all(inventoryPromises);
-        const inventoryDataMap = inventoryResults.reduce((acc: Record<string, InventoryData>, result) => {
-          if (result) {
-            acc[result.itemId] = result.inventoryData;
-          }
-          return acc;
-        }, {});
+        if (!rfqData?.items?.length) return;
         
-        setSkuDetails(inventoryDataMap);
+        const inventoryData = await Promise.all(
+          rfqData.items.map(async (item: any) => {
+            try {
+              // If item already has inventory data from creation, use it
+              if (item.inventory) {
+                return {
+                  ...item,
+                  inventory: item.inventory
+                };
+              }
+
+              // Otherwise fetch from API
+              if (item.internalProductId) {
+                const [inventoryResponse, historyResponse] = await Promise.all([
+                  inventoryApi.get(item.internalProductId),
+                  inventoryApi.getHistory(item.internalProductId, { period: 'all' })
+                ]);
+                
+                if (inventoryResponse.success && inventoryResponse.data) {
+                  const inventoryData = inventoryResponse.data as InventoryResponse;
+                  const historyData = historyResponse.success ? historyResponse.data : null;
+                  
+                  return {
+                    ...item,
+                    inventory: {
+                      id: inventoryData.id,
+                      sku: inventoryData.sku,
+                      description: inventoryData.description,
+                      stock: inventoryData.stock,
+                      costCad: inventoryData.costCad,
+                      costUsd: inventoryData.costUsd,
+                      quantityOnHand: inventoryData.quantityOnHand,
+                      quantityReserved: inventoryData.quantityReserved,
+                      warehouseLocation: inventoryData.warehouseLocation,
+                      lowStockThreshold: inventoryData.lowStockThreshold,
+                      lastSaleDate: inventoryData.lastSaleDate
+                    },
+                    history: historyData
+                  };
+                }
+              }
+
+              return item;
+            } catch (err) {
+              console.error('Error processing item:', err);
+              return item;
+            }
+          })
+        );
+
+        setSkuDetails(inventoryData.reduce((acc: Record<string, InventoryData>, item) => {
+          acc[item.id] = item.inventory;
+          return acc;
+        }, {}));
       } catch (err) {
         console.error('Error in fetchInventoryData:', err);
         toast.error('Failed to fetch inventory data');
@@ -676,23 +700,25 @@ export default function RfqDetail({
     }
   };
 
-  const handleStatusChange = async (itemId: number, newStatus: string) => {
+  const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
       const response = await rfqApi.update(id, {
-        items: rfqData.items.map((item: any) => 
-          item.id === itemId ? { ...item, status: newStatus } : item
-        )
+        status: newStatus
       });
+      
       if (response.success) {
-        toast.success("Item status updated successfully");
+        toast.success(`RFQ status updated to ${newStatus}`);
         // Refresh RFQ data
         const updatedRfq = await rfqApi.getById(id);
         if (updatedRfq.success && updatedRfq.data) {
           setRfqData(updatedRfq.data);
         }
+      } else {
+        toast.error('Failed to update RFQ status');
       }
     } catch (err) {
-      toast.error("Failed to update item status");
+      console.error('Error updating RFQ status:', err);
+      toast.error('Failed to update RFQ status');
     }
   };
 
@@ -940,15 +966,39 @@ export default function RfqDetail({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Status:</span>
-                    <span className="font-medium capitalize">
-                      {rfq.status?.toLowerCase() || 'Unknown'}
-                    </span>
+                    <Select
+                      value={rfq.status}
+                      onValueChange={(value) => handleStatusChange(value as RfqStatus)}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                        <SelectItem value="QUOTED">Quoted</SelectItem>
+                        <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                        <SelectItem value="COMPLETED">Completed</SelectItem>
+                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Source:</span>
                     <span className="font-medium">{rfq.source || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">RFQ Number:</span>
+                    <span className="font-medium">{rfq.rfqNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Created Date:</span>
+                    <span className="font-medium">
+                      {new Date(rfq.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                   {rfq.dueDate && (
                     <div className="flex justify-between">
@@ -960,9 +1010,7 @@ export default function RfqDetail({
                   )}
                   {rfq.totalBudget && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Total Budget:
-                      </span>
+                      <span className="text-muted-foreground">Total Budget:</span>
                       <span className="font-medium">
                         {formatCurrency(
                           currency === "CAD"
@@ -972,12 +1020,29 @@ export default function RfqDetail({
                       </span>
                     </div>
                   )}
+                  {rfq.notes && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Notes:</span>
+                      <span className="font-medium">{rfq.notes}</span>
+                    </div>
+                  )}
                   <div className="pt-4 flex gap-2">
                     <Button asChild>
                       <a href={`/rfq-management/${id}/create-quote`}>Create Quote</a>
                     </Button>
-                    <Button variant="outline" onClick={handleRejectRfq}>
-                      Reject RFQ
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleStatusChange('COMPLETED')}
+                      disabled={rfq.status === 'COMPLETED'}
+                    >
+                      Mark as Completed
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleStatusChange('CANCELLED')}
+                      disabled={rfq.status === 'CANCELLED'}
+                    >
+                      Cancel RFQ
                     </Button>
                   </div>
                 </div>
@@ -1492,7 +1557,7 @@ export default function RfqDetail({
                             <TableCell>
                               <Select
                                 value={item.status}
-                                onValueChange={(value) => handleStatusChange(item.id, value)}
+                                onValueChange={(value) => handleStatusChange(value as RfqStatus)}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select status" />
