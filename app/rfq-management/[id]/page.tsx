@@ -1208,113 +1208,191 @@ export default function RfqDetail({
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <CardTitle>Sales History</CardTitle>
-                    <TableCustomizer
-                      columns={historyColumns}
-                      visibleColumns={visibleColumns.history}
-                      onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
-                    />
+                    <div className="flex items-center gap-4">
+                      <Select
+                        value={filters.period}
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select period" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="3months">Last 3 Months</SelectItem>
+                          <SelectItem value="6months">Last 6 Months</SelectItem>
+                          <SelectItem value="12months">Last 12 Months</SelectItem>
+                          <SelectItem value="all">All Time</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <TableCustomizer
+                        columns={historyColumns}
+                        visibleColumns={visibleColumns.history}
+                        onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {historyLoading ? (
-                    <div className="flex justify-center items-center py-4">
-                      <Spinner size={32} />
-                    </div>
-                  ) : historyError ? (
-                    <div className="text-red-500 text-center py-4">{historyError}</div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {historyColumns.map((column: { id: string; label: string }) => 
-                            visibleColumns.history.includes(column.id) && (
-                              <TableHead key={column.id}>{column.label}</TableHead>
-                            )
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item: any) => {
-                          const itemSku = item.customerSku || item.inventory?.sku;
-                          const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
+                  <Tabs defaultValue="pricing" className="w-full">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="pricing">Pricing History</TabsTrigger>
+                      <TabsTrigger value="quantity">Quantity History</TabsTrigger>
+                    </TabsList>
 
-                          if (salesHistory.length === 0) {
-                            return null;
-                          }
+                    <TabsContent value="pricing">
+                      {historyLoading ? (
+                        <div className="flex justify-center items-center py-4">
+                          <Spinner size={32} />
+                        </div>
+                      ) : historyError ? (
+                        <div className="text-red-500 text-center py-4">{historyError}</div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>SKU</TableHead>
+                              {mainCustomers.map(customer => (
+                                <TableHead key={customer.id}>{customer.name}</TableHead>
+                              ))}
+                              <TableHead>Other Customers</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {items.map((item: any) => {
+                              const itemSku = item.customerSku || item.inventory?.sku;
+                              const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
 
-                          const lastSale = salesHistory[0] as HistoryItem;
-                          const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
-                          const avgSalePrice = salesHistory.length > 0 
-                            ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
-                            : 0;
+                              if (salesHistory.length === 0) {
+                                return null;
+                              }
 
-                          return (
-                            <TableRow key={item.id}>
-                              {visibleColumns.history.includes('sku') && (
-                                <TableCell>{itemSku}</TableCell>
-                              )}
-                              {visibleColumns.history.includes('lastTransaction') && (
-                                <TableCell>
-                                  {lastSale?.lastTransaction 
-                                    ? new Date(lastSale.lastTransaction).toLocaleDateString()
-                                    : 'N/A'}
-                                </TableCell>
-                              )}
-                              {visibleColumns.history.includes('customer') && (
-                                <TableCell className="text-green-600">
-                                  {lastSale?.customer || 'N/A'}
-                                </TableCell>
-                              )}
-                              {visibleColumns.history.includes('lastPrice') && (
-                                <TableCell>{formatCurrency(lastSale?.lastPrice || 0)}</TableCell>
-                              )}
-                              {visibleColumns.history.includes('lastQuantity') && (
-                                <TableCell>{lastSale?.lastQuantity || 'N/A'}</TableCell>
-                              )}
-                              {visibleColumns.history.includes('totalQuantity') && (
-                                <TableCell>{totalSales}</TableCell>
-                              )}
-                              {visibleColumns.history.includes('avgPrice') && (
-                                <TableCell>{formatCurrency(avgSalePrice)}</TableCell>
-                              )}
-                              {visibleColumns.history.includes('trend') && (
-                                <TableCell>
-                                  <Badge variant={lastSale?.trend === 'up' ? 'default' : 'destructive'}>
-                                    {lastSale?.trend === 'up' ? '↑' : '↓'}
-                                  </Badge>
-                                </TableCell>
-                              )}
-                              {/* Render main customer history columns */}
-                              {mainCustomers.map(customer => {
-                                const columnId = `mainCustomer_${customer.id}`;
-                                if (!visibleColumns.history.includes(columnId)) return null;
-                                
-                                const customerHistory = lastSale?.mainCustomerHistory?.[customer.id];
-                                return (
-                                  <TableCell key={columnId}>
-                                    {customerHistory ? (
+                              // Get the last sale from non-main customers
+                              const otherCustomerSales = salesHistory.filter(h => 
+                                !mainCustomers.some(mc => mc.name === h.customer)
+                              );
+
+                              return (
+                                <TableRow key={item.id}>
+                                  <TableCell>{itemSku}</TableCell>
+                                  {mainCustomers.map(customer => {
+                                    const customerHistory = salesHistory[0]?.mainCustomerHistory?.[customer.id];
+                                    return (
+                                      <TableCell key={customer.id}>
+                                        {customerHistory ? (
+                                          <div className="space-y-1">
+                                            <div>Last Price: {formatCurrency(customerHistory.lastPrice)}</div>
+                                            <div>Last Date: {new Date(customerHistory.lastTransaction).toLocaleDateString()}</div>
+                                            <Badge variant={customerHistory.trend === 'up' ? 'default' : 'destructive'}>
+                                              {customerHistory.trend === 'up' ? '↑' : '↓'}
+                                            </Badge>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground">No history</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  })}
+                                  <TableCell>
+                                    {otherCustomerSales.length > 0 ? (
                                       <div className="space-y-1">
-                                        <div>Last: {new Date(customerHistory.lastTransaction).toLocaleDateString()}</div>
-                                        <div>Price: {formatCurrency(customerHistory.lastPrice)}</div>
-                                        <div>Qty: {customerHistory.lastQuantity}</div>
-                                        <div>Total: {customerHistory.totalQuantity}</div>
-                                        <div>Avg: {formatCurrency(customerHistory.avgPrice)}</div>
-                                        <Badge variant={customerHistory.trend === 'up' ? 'default' : 'destructive'}>
-                                          {customerHistory.trend === 'up' ? '↑' : '↓'}
+                                        <div>Last Price: {formatCurrency(otherCustomerSales[0].lastPrice)}</div>
+                                        <div>Customer: {otherCustomerSales[0].customer}</div>
+                                        <div>Last Date: {new Date(otherCustomerSales[0].lastTransaction).toLocaleDateString()}</div>
+                                        <Badge variant={otherCustomerSales[0].trend === 'up' ? 'default' : 'destructive'}>
+                                          {otherCustomerSales[0].trend === 'up' ? '↑' : '↓'}
                                         </Badge>
                                       </div>
                                     ) : (
                                       <span className="text-muted-foreground">No history</span>
                                     )}
                                   </TableCell>
-                                );
-                              })}
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="quantity">
+                      {historyLoading ? (
+                        <div className="flex justify-center items-center py-4">
+                          <Spinner size={32} />
+                        </div>
+                      ) : historyError ? (
+                        <div className="text-red-500 text-center py-4">{historyError}</div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>SKU</TableHead>
+                              {mainCustomers.map(customer => (
+                                <TableHead key={customer.id}>{customer.name}</TableHead>
+                              ))}
+                              <TableHead>Other Customers</TableHead>
+                              <TableHead>Total Quantity</TableHead>
                             </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
+                          </TableHeader>
+                          <TableBody>
+                            {items.map((item: any) => {
+                              const itemSku = item.customerSku || item.inventory?.sku;
+                              const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
+
+                              if (salesHistory.length === 0) {
+                                return null;
+                              }
+
+                              let totalQuantity = 0;
+
+                              // Get sales from non-main customers
+                              const otherCustomerSales = salesHistory.filter(h => 
+                                !mainCustomers.some(mc => mc.name === h.customer)
+                              );
+
+                              return (
+                                <TableRow key={item.id}>
+                                  <TableCell>{itemSku}</TableCell>
+                                  {mainCustomers.map(customer => {
+                                    const customerHistory = salesHistory[0]?.mainCustomerHistory?.[customer.id];
+                                    if (customerHistory) {
+                                      totalQuantity += customerHistory.totalQuantity;
+                                    }
+                                    return (
+                                      <TableCell key={customer.id}>
+                                        {customerHistory ? (
+                                          <div className="space-y-1">
+                                            <div>Last Qty: {customerHistory.lastQuantity}</div>
+                                            <div>Total Qty: {customerHistory.totalQuantity}</div>
+                                            <div>Last Date: {new Date(customerHistory.lastTransaction).toLocaleDateString()}</div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground">No history</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  })}
+                                  <TableCell>
+                                    {otherCustomerSales.length > 0 ? (
+                                      <div className="space-y-1">
+                                        <div>Last Qty: {otherCustomerSales[0].lastQuantity}</div>
+                                        <div>Total Qty: {otherCustomerSales[0].totalQuantity}</div>
+                                        <div>Customer: {otherCustomerSales[0].customer}</div>
+                                        <div>Last Date: {new Date(otherCustomerSales[0].lastTransaction).toLocaleDateString()}</div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">No history</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="font-semibold">
+                                    {totalQuantity + (otherCustomerSales.length > 0 ? otherCustomerSales[0].totalQuantity : 0)}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                   {renderPagination()}
                 </CardContent>
               </Card>
