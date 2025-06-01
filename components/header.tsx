@@ -58,10 +58,6 @@ export function Header({
           <ThemeToggle />
           <CurrencyToggle showOverride={false} />
           <CurrencyRateDisplay />
-<<<<<<< Updated upstream
-         
-=======
->>>>>>> Stashed changes
         </div>
       </div>
     </header>
