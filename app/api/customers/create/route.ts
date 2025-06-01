@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
-    return createSuccessResponse(newCustomer, 201)
+    return NextResponse.json(createSuccessResponse(newCustomer))
   } catch (error) {
-    return handleApiError(error)
+    return handleApiError(error) // This already returns a NextResponse
   }
 } 

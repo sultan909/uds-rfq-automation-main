@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../../lib/api-response';
 import { handleApiError, ApiError } from '../../../lib/error-handler';
 import { db } from '../../../../../db';
-import { quotations, rfqs, vendors, quotationVersions } from '../../../../../db/schema';
+import { quotations, rfqs, vendors, quotationVersions, salesHistory } from '../../../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -134,6 +134,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
     const body = await request.json();
+console.log("body",body);
 
     // Check if quote exists
     const existingQuote = await db
@@ -150,8 +151,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const [updatedQuote] = await db
       .update(quotations)
       .set({
-      // @ts-ignore
-
+        // @ts-ignore
         amount: body.amount,
         currency: body.currency,
         validUntil: body.validUntil ? new Date(body.validUntil).toISOString() : null,
@@ -161,6 +161,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       })
       .where(eq(quotations.rfqId, parseInt(id)))
       .returning();
+
+    // If status is updated to APPROVED or COMPLETED, create sales history entries
+    if (body.status === 'APPROVED' || body.status === 'COMPLETED'|| body.status === 'ACCEPTED') {
+      console.log('Creating sales history entries for RFQ', id);
+      // Get the RFQ with its items
+      const rfqWithItems = await db.query.rfqs.findFirst({
+        where: eq(rfqs.id, parseInt(id)),
+        with: {
+          items: true,
+          customer: true
+        }
+      });
+
+      if (rfqWithItems && rfqWithItems.items && rfqWithItems.items.length > 0) {
+        // Create sales history entries for each item
+        const salesHistoryEntries = rfqWithItems.items.map(item => ({
+          invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          customerId: rfqWithItems.customerId,
+          // @ts-ignore
+          productId: item.inventoryItemId || 1, // Default to 1 if not mapped
+          quantity: item.quantity,
+          // @ts-ignore
+
+          unitPrice: item.unitPrice || 0,
+          // @ts-ignore
+
+          extendedPrice: (item.quantity || 0) * (item.unitPrice || 0),
+          // @ts-ignore
+          currency: updatedQuote.currency || 'CAD',
+          saleDate: new Date().toISOString().split('T')[0],
+          quickbooksInvoiceId: `QB-${Date.now()}`
+        }));
+
+        // Insert sales history entries
+        await db.insert(salesHistory).values(salesHistoryEntries);
+      }
+    }
 
     return NextResponse.json(createSuccessResponse(updatedQuote));
   } catch (error) {

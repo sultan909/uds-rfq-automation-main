@@ -110,7 +110,48 @@ async function main() {
     const customerTypes = schema.customerTypeEnum.enumValues;
     const regions = ['North America', 'Europe', 'Asia', 'South America', 'Australia'];
     
-    const customersData = Array(8).fill(null).map(() => ({
+    // Fixed wholesale customers with main_customer true
+    const fixedCustomers = [
+      {
+        name: 'Randmar',
+        type: 'WHOLESALER',
+        region: 'North America',
+        email: 'info@randmar.com',
+        phone: faker.phone.number(),
+        address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
+        contactPerson: faker.person.fullName(),
+        quickbooksId: `QB-RAND${faker.string.alphanumeric(4)}`,
+        isActive: true,
+        main_customer: true
+      },
+      {
+        name: 'UGS',
+        type: 'WHOLESALER',
+        region: 'North America',
+        email: 'info@ugs.com',
+        phone: faker.phone.number(),
+        address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
+        contactPerson: faker.person.fullName(),
+        quickbooksId: `QB-UGS${faker.string.alphanumeric(4)}`,
+        isActive: true,
+        main_customer: true
+      },
+      {
+        name: 'DCS',
+        type: 'WHOLESALER',
+        region: 'North America',
+        email: 'info@dcs.com',
+        phone: faker.phone.number(),
+        address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
+        contactPerson: faker.person.fullName(),
+        quickbooksId: `QB-DCS${faker.string.alphanumeric(4)}`,
+        isActive: true,
+        main_customer: true
+      }
+    ];
+    
+    // Generate additional random customers
+    const randomCustomers = Array(5).fill(null).map(() => ({
       name: faker.company.name(),
       type: getRandomElement(customerTypes),
       region: getRandomElement(regions),
@@ -119,9 +160,13 @@ async function main() {
       address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
       contactPerson: faker.person.fullName(),
       quickbooksId: `QB-${faker.string.alphanumeric(8)}`,
-      isActive: faker.datatype.boolean(0.9)
+      isActive: faker.datatype.boolean(0.9),
+      main_customer: false
     }));
     
+    // Combine fixed and random customers
+    const customersData = [...fixedCustomers, ...randomCustomers];
+    // @ts-ignore
     const insertedCustomers = await db.insert(schema.customers).values(customersData).returning();
     console.log(`Inserted ${insertedCustomers.length} customers`);
 

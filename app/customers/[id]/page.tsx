@@ -318,8 +318,8 @@ export default function CustomerView({
                     </TableHeader>
                     <TableBody>
                       {history.history
-                        .filter((item: any) => 
-                          filters.type === 'all' || 
+                        .filter((item: any) =>
+                          filters.type === 'all' ||
                           (filters.type === 'rfq' && item.type === 'rfq') ||
                           (filters.type === 'sale' && item.type === 'sale')
                         )
@@ -329,7 +329,7 @@ export default function CustomerView({
                               {item.date ? new Date(item.date).toLocaleDateString() : "-"}
                             </TableCell>
                             <TableCell>
-                              <Badge 
+                              <Badge
                                 variant={item.type === 'rfq' ? 'default' : 'secondary'}
                                 className="capitalize"
                               >
@@ -381,12 +381,12 @@ export default function CustomerView({
                           </TableCell>
                           <TableCell>{rfq.rfqNumber}</TableCell>
                           <TableCell>
-                            <Badge 
+                            <Badge
                               variant={
                                 rfq.status === 'COMPLETED' ? 'default' :
-                                rfq.status === 'APPROVED' ? 'default' :
-                                rfq.status === 'REJECTED' ? 'destructive' :
-                                'secondary'
+                                  rfq.status === 'APPROVED' ? 'default' :
+                                    rfq.status === 'REJECTED' ? 'destructive' :
+                                      'secondary'
                               }
                               className="capitalize"
                             >

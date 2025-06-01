@@ -9,27 +9,66 @@ import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
 
-interface RfqTableRowProps {
-  rfqId: number
+// PrimeReact imports
+import { DataTable } from 'primereact/datatable'
+import { Column } from 'primereact/column'
+import { FilterMatchMode } from 'primereact/api'
+import { InputText } from 'primereact/inputtext'
+import { Dropdown } from 'primereact/dropdown'
+import { Tag } from 'primereact/tag'
+import { Calendar } from 'primereact/calendar'
+
+// PrimeReact CSS imports
+import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/primereact.min.css'
+import 'primeicons/primeicons.css'
+
+interface RfqData {
+  id: number
   rfqNumber: string
-  customer: string
-  date: string
+  customer: {
+    name: string
+  }
+  createdAt: string
   source: string
-  items: number
+  itemCount: number
   status: string
 }
 
 export default function RfqManagement() {
-  const [rfqs, setRfqs] = useState<any[]>([])
+  const [rfqs, setRfqs] = useState<RfqData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
+  const [globalFilterValue, setGlobalFilterValue] = useState("")
+  const [filters, setFilters] = useState({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    rfqNumber: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'customer.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    source: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    status: { value: null, matchMode: FilterMatchMode.EQUALS },
+    createdAt: { value: null, matchMode: FilterMatchMode.DATE_IS }
+  })
+
+  const statusOptions = [
+    { label: 'Pending', value: 'pending' },
+    { label: 'In Review', value: 'in_review' },
+    { label: 'Approved', value: 'approved' },
+    { label: 'Rejected', value: 'rejected' },
+    { label: 'Completed', value: 'completed' }
+  ]
+
+  const sortOptions = [
+    { label: 'Newest First', value: 'newest' },
+    { label: 'Oldest First', value: 'oldest' },
+    { label: 'Customer A-Z', value: 'customer_asc' },
+    { label: 'Customer Z-A', value: 'customer_desc' }
+  ]
 
   useEffect(() => {
     fetchRfqs()
   }, [selectedTab])
-  console.log("rfqs", rfqs)
 
   const fetchRfqs = async () => {
     try {
@@ -38,7 +77,7 @@ export default function RfqManagement() {
         status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
       })
       if (response.success && response.data) {
-        setRfqs(response.data as any[])
+        setRfqs(response.data as RfqData[])
       } else {
         setError("Failed to load RFQs")
         toast.error("Failed to load RFQs")
@@ -63,7 +102,7 @@ export default function RfqManagement() {
         status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
       })
       if (response.success && response.data) {
-        setRfqs(response.data as any[])
+        setRfqs(response.data as RfqData[])
       } else {
         setError("Failed to search RFQs")
         toast.error("Failed to search RFQs")
@@ -75,6 +114,111 @@ export default function RfqManagement() {
       setLoading(false)
     }
   }
+
+  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    let _filters = { ...filters }
+    // @ts-ignore
+    _filters['global'].value = value
+    setFilters(_filters)
+    setGlobalFilterValue(value)
+  }
+
+  const renderHeader = () => {
+    return (
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Dropdown 
+            options={sortOptions} 
+            placeholder="Sort by..." 
+            className="w-40"
+          />
+        </div>
+        <div className="flex gap-2 items-center">
+          <span className="p-input-icon-left">
+            <i className="pi pi-search" />
+            <InputText 
+              value={globalFilterValue} 
+              onChange={onGlobalFilterChange} 
+              placeholder="Global Search..." 
+              className="w-64"
+            />
+          </span>
+          <Button onClick={handleSearch}>Search</Button>
+          <Button asChild>
+            <a href="/rfq-management/new">New RFQ</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const statusBodyTemplate = (rowData: RfqData) => {
+    const statusMap = {
+      pending: { severity: 'warning', label: 'Pending' },
+      in_review: { severity: 'info', label: 'In Review' },
+      approved: { severity: 'success', label: 'Approved' },
+      rejected: { severity: 'danger', label: 'Rejected' },
+      completed: { severity: 'success', label: 'Completed' }
+    }
+    
+    const status = statusMap[rowData.status.toLowerCase() as keyof typeof statusMap]
+    return <Tag value={status?.label} severity={status?.severity as any} />
+  }
+
+  const dateBodyTemplate = (rowData: RfqData) => {
+    return new Date(rowData.createdAt).toLocaleDateString()
+  }
+
+  const customerBodyTemplate = (rowData: RfqData) => {
+    return rowData.customer?.name || "Unknown"
+  }
+
+  const actionBodyTemplate = (rowData: RfqData) => {
+    return (
+      <div className="flex gap-2">
+        <Button variant="ghost" size="sm" asChild>
+          <a href={`/rfq-management/${rowData.id}`}>
+            <i className="pi pi-eye mr-1"></i>
+            View
+          </a>
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
+          <a href={`/rfq-management/${rowData.id}/create-quote`}>
+            <i className="pi pi-file-edit mr-1"></i>
+            Quote
+          </a>
+        </Button>
+      </div>
+    )
+  }
+
+  const statusFilterTemplate = (options: any) => {
+    return (
+      <Dropdown 
+        value={options.value} 
+        options={statusOptions} 
+        onChange={(e) => options.filterCallback(e.value)} 
+        placeholder="Select Status"
+        className="p-column-filter"
+        showClear
+      />
+    )
+  }
+
+  const dateFilterTemplate = (options: any) => {
+    return (
+      <Calendar 
+        value={options.value} 
+        onChange={(e) => options.filterCallback(e.value)} 
+        placeholder="Select Date"
+        dateFormat="mm/dd/yy"
+        className="p-column-filter"
+      />
+    )
+  }
+
+  const header = renderHeader()
 
   return (
     <div className="flex h-screen">
@@ -103,102 +247,96 @@ export default function RfqManagement() {
                   <TabsTrigger value="completed">Completed</TabsTrigger>
                 </TabsList>
 
-                <div className="flex justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <select className="border rounded-md px-3 py-1.5 text-sm bg-background text-foreground">
-                      <option>Newest First</option>
-                      <option>Oldest First</option>
-                      <option>Customer A-Z</option>
-                      <option>Customer Z-A</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="search"
-                      placeholder="Search RFQs..."
-                      className="w-64"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    />
-                    <Button onClick={handleSearch}>Search</Button>
-                    <Button asChild>
-                      <a href="/rfq-management/new">New RFQ</a>
-                    </Button>
-                  </div>
-                </div>
-
                 <TabsContent value={selectedTab} className="m-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="pb-2 font-medium text-foreground">
-                            RFQ Number
-                          </th>
-                          <th className="pb-2 font-medium text-foreground">
-                            Customer
-                          </th>
-                          <th className="pb-2 font-medium text-foreground">
-                            Date
-                          </th>
-                          <th className="pb-2 font-medium text-foreground">
-                            Source
-                          </th>
-                          <th className="pb-2 font-medium text-foreground">
-                            Items
-                          </th>
-                          <th className="pb-2 font-medium text-foreground">
-                            Status
-                          </th>
-                          <th className="pb-2 font-medium text-foreground">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {loading ? (
-                          <tr>
-                            <td colSpan={7} className="text-center py-8">
-                              <div className="flex justify-center items-center">
-                                <Spinner size={32} />
-                              </div>
-                            </td>
-                          </tr>
-                        ) : error ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="text-center py-4 text-red-500"
-                            >
-                              {error}
-                            </td>
-                          </tr>
-                        ) : rfqs.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="text-center py-4">
-                              No RFQs found
-                            </td>
-                          </tr>
-                        ) : (
-                          rfqs.map((rfq) => (
-                            <RfqTableRow
-                              key={rfq.id}
-                              rfqId={rfq.id}
-                              rfqNumber={rfq.rfqNumber}
-                              customer={rfq.customer?.name || "Unknown"}
-                              date={new Date(
-                                rfq.createdAt
-                              ).toLocaleDateString()}
-                              source={rfq.source}
-                              items={rfq.itemCount || 0}
-                              status={rfq.status.toLowerCase()}
-                            />
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  {loading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <Spinner size={32} />
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-4 text-red-500">
+                      {error}
+                    </div>
+                  ) : (
+                    <div className="card">
+                      <DataTable 
+                        value={rfqs}
+                        paginator 
+                        rows={10} 
+                        rowsPerPageOptions={[5, 10, 25, 50]}
+                        dataKey="id"
+                        filters={filters}
+                        filterDisplay="row"
+                        globalFilterFields={['rfqNumber', 'customer.name', 'source', 'status']}
+                        header={header}
+                        emptyMessage="No RFQs found."
+                        loading={loading}
+                        sortMode="multiple"
+                        removableSort
+                        showGridlines
+                        stripedRows
+                        size="small"
+                        className="p-datatable-sm"
+                      >
+                        <Column 
+                          field="rfqNumber" 
+                          header="RFQ Number" 
+                          sortable 
+                          filter 
+                          filterPlaceholder="Search by RFQ Number"
+                          style={{ minWidth: '150px' }}
+                        />
+                        <Column 
+                          field="customer.name" 
+                          header="Customer" 
+                          body={customerBodyTemplate}
+                          sortable 
+                          filter 
+                          filterPlaceholder="Search by Customer"
+                          style={{ minWidth: '200px' }}
+                        />
+                        <Column 
+                          field="createdAt" 
+                          header="Date" 
+                          body={dateBodyTemplate}
+                          sortable 
+                          filter 
+                          filterElement={dateFilterTemplate}
+                          style={{ minWidth: '150px' }}
+                        />
+                        <Column 
+                          field="source" 
+                          header="Source" 
+                          sortable 
+                          filter 
+                          filterPlaceholder="Search by Source"
+                          style={{ minWidth: '120px' }}
+                        />
+                        <Column 
+                          field="itemCount" 
+                          header="Items" 
+                          sortable 
+                          filter 
+                          filterPlaceholder="Search by Item Count"
+                          style={{ minWidth: '100px' }}
+                        />
+                        <Column 
+                          field="status" 
+                          header="Status" 
+                          body={statusBodyTemplate}
+                          sortable 
+                          filter 
+                          filterElement={statusFilterTemplate}
+                          style={{ minWidth: '150px' }}
+                        />
+                        <Column 
+                          header="Actions" 
+                          body={actionBodyTemplate}
+                          exportable={false}
+                          style={{ minWidth: '200px' }}
+                        />
+                      </DataTable>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>
@@ -206,48 +344,5 @@ export default function RfqManagement() {
         </div>
       </div>
     </div>
-  )
-}
-
-function RfqTableRow({ rfqId, rfqNumber, customer, date, source, items, status }: RfqTableRowProps) {
-  const statusClasses = {
-    pending: "status-new",
-    in_review: "status-draft",
-    approved: "status-accepted",
-    rejected: "status-declined",
-    completed: "status-processed",
-  }
-
-  const statusLabels = {
-    pending: "Pending",
-    in_review: "In Review",
-    approved: "Approved",
-    rejected: "Rejected",
-    completed: "Completed",
-  }
-
-  return (
-    <tr className="border-b text-foreground">
-      <td className="py-3">{rfqNumber}</td>
-      <td className="py-3">{customer}</td>
-      <td className="py-3">{date}</td>
-      <td className="py-3">{source}</td>
-      <td className="py-3">{items}</td>
-      <td className="py-3">
-        <span className={statusClasses[status as keyof typeof statusClasses]}>
-          {statusLabels[status as keyof typeof statusLabels]}
-        </span>
-      </td>
-      <td className="py-3">
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <a href={`/rfq-management/${rfqId}`}>View</a>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={`/rfq-management/${rfqId}/create-quote`}>Quote</a>
-          </Button>
-        </div>
-      </td>
-    </tr>
   )
 }

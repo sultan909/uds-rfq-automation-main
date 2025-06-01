@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, createPaginatedResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
 import { db } from '../../../../db';
-import { rfqs, customers, users, rfqItems, inventoryItems, auditLog } from '../../../../db/schema';
+import { rfqs, customers, users, rfqItems, inventoryItems, auditLog, salesHistory } from '../../../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 interface RouteParams {
@@ -188,15 +188,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const body = await request.json();
+    console.log("body",body);
 
     // Check if RFQ exists
-    const existingRfq = await db
-      .select()
-      .from(rfqs)
-      .where(eq(rfqs.id, parseInt(id)))
-      .then((result: typeof rfqs.$inferSelect[]) => result[0]);
+    const existingRfq = await db.query.rfqs.findFirst({
+      where: eq(rfqs.id, parseInt(id)),
+      with: {
+        items: true,
+        customer: true,
+      }
+    });
 
     if (!existingRfq) {
       throw new ApiError(`RFQ with ID ${id} not found`, 404);
@@ -220,6 +223,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       entityId: parseInt(id),
       details: body
     });
+console.log("existingRfq",existingRfq);
+
+    // If status is updated to APPROVED, COMPLETED, or ACCEPTED, create sales history entries
+    if (body.status === 'APPROVED' || body.status === 'COMPLETED' || body.status === 'ACCEPTED') {
+      if (existingRfq.items && existingRfq.items.length > 0) {
+        // Create sales history entries for each item
+        const salesHistoryEntries = existingRfq.items.map(item => ({
+          invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          customerId: existingRfq.customerId,
+          productId: item.internalProductId || 1, // Default to 1 if not mapped
+          quantity: item.quantity,
+          unitPrice: item.finalPrice || item.suggestedPrice || 0,
+          extendedPrice: (item.quantity || 0) * (item.finalPrice || item.suggestedPrice || 0),
+          // @ts-ignore
+          currency: 'CAD',
+          saleDate: new Date().toISOString().split('T')[0],
+          quickbooksInvoiceId: `QB-${Date.now()}`
+        }));
+
+
+        // Insert sales history entries
+        await db.insert(salesHistory).values(salesHistoryEntries);
+      }
+    }
+
 
     return NextResponse.json(createSuccessResponse(updatedRfq));
   } catch (error) {

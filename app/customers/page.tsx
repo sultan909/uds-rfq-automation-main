@@ -37,6 +37,7 @@ export default function CustomerManagement() {
   useEffect(() => {
     fetchCustomers()
   }, [selectedTab])
+  console.log("cusomtera", customers);
 
   const fetchCustomers = async () => {
     try {
