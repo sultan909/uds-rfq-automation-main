@@ -16,6 +16,8 @@ interface DashboardMetrics {
     completedRfqs: number
     declinedRfqs: number
     conversionRate: number
+    weeklyConversionRate: number
+    weeklyConversionChange: number
   }
   customerMetrics: {
     totalCustomers: number
@@ -29,6 +31,8 @@ interface DashboardMetrics {
   salesMetrics: {
     totalSalesCAD: number
     recentSalesCAD: number
+    weeklySalesCAD: number
+    weeklySalesChange: number
     currency: string
   }
 }
@@ -82,7 +86,6 @@ export default function Dashboard() {
 
     fetchData()
   }, [])
-
   console.log("rfqq",rfqList);
   
 
@@ -134,26 +137,13 @@ export default function Dashboard() {
             <MetricCard
               label="Active RFQs"
               value={metrics.rfqMetrics.activeRfqs.toString()}
-              change={`${(
-                (metrics.rfqMetrics.activeRfqs / metrics.rfqMetrics.totalRfqs) *
-                100
-              ).toFixed(1)}% of total`}
-              trend="neutral"
               color="blue"
             />
-            <MetricCard
-              label="Conversion Rate"
-              value={`${metrics.rfqMetrics.conversionRate.toFixed(1)}%`}
-              change="Based on completed RFQs"
-              trend={metrics.rfqMetrics.conversionRate > 50 ? "up" : "down"}
-              color="green"
-            />
+            <ConversionRateMetric rfqMetrics={metrics.rfqMetrics} />
             <SalesVolumeMetric salesData={metrics.salesMetrics} />
             <MetricCard
               label="Low Stock Alert"
               value={metrics.inventoryMetrics.lowStockItems.toString()}
-              change={`${metrics.inventoryMetrics.outOfStockItems} out of stock`}
-              trend="neutral"
               color="red"
             />
           </div>
@@ -289,7 +279,34 @@ export default function Dashboard() {
   );
 }
 
-// Add a new component for the Sales Volume metric that uses the currency context
+// Conversion Rate metric with weekly data
+function ConversionRateMetric({
+  rfqMetrics,
+}: {
+  rfqMetrics: DashboardMetrics["rfqMetrics"];
+}) {
+  const trend = rfqMetrics.weeklyConversionChange >= 0 ? "up" : "down";
+  const changeValue = Math.abs(rfqMetrics.weeklyConversionChange || 0);
+
+  return (
+    <div className="metric-card bg-green-50 dark:bg-green-950/30">
+      <div className="metric-label">Conversion Rate</div>
+      <div className="metric-value">{rfqMetrics.conversionRate.toFixed(1)}%</div>
+      <div className={`metric-change ${
+        trend === "up" ? "metric-positive" : "metric-negative"
+      }`}>
+        {trend === "up" ? (
+          <ArrowUpIcon className="inline w-3 h-3 mr-1" />
+        ) : (
+          <ArrowDownIcon className="inline w-3 h-3 mr-1" />
+        )}
+        {changeValue.toFixed(1)}% this week
+      </div>
+    </div>
+  );
+}
+
+// Sales Volume metric with weekly data
 function SalesVolumeMetric({
   salesData,
 }: {
@@ -300,46 +317,47 @@ function SalesVolumeMetric({
   // Format the value based on the selected currency
   const formattedValue = formatCurrency(
     currency === salesData.currency
-      ? salesData.totalSalesCAD
+      ? salesData.weeklySalesCAD || salesData.totalSalesCAD
       : convertCurrency(
-          salesData.totalSalesCAD,
+          salesData.weeklySalesCAD || salesData.totalSalesCAD,
           salesData.currency as "CAD" | "USD"
         )
   );
 
-  // Calculate percentage change
-  const percentageChange =
-    (salesData.recentSalesCAD / salesData.totalSalesCAD) * 100 - 100;
+  // Use weekly sales change if available, otherwise calculate from recent sales
+  const percentageChange = salesData.weeklySalesChange !== undefined 
+    ? salesData.weeklySalesChange 
+    : salesData.totalSalesCAD > 0 
+      ? ((salesData.recentSalesCAD / salesData.totalSalesCAD) * 100) - 100 
+      : 0;
+
+  const trend = percentageChange >= 0 ? "up" : "down";
 
   return (
-    <div className={`metric-card bg-purple-50 dark:bg-purple-950/30`}>
+    <div className="metric-card bg-purple-50 dark:bg-purple-950/30">
       <div className="metric-label">Sales Volume</div>
       <div className="metric-value">{formattedValue}</div>
-      <div
-        className={`metric-change ${
-          percentageChange >= 0 ? "metric-positive" : "metric-negative"
-        }`}
-      >
-        {percentageChange >= 0 ? (
+      <div className={`metric-change ${
+        trend === "up" ? "metric-positive" : "metric-negative"
+      }`}>
+        {trend === "up" ? (
           <ArrowUpIcon className="inline w-3 h-3 mr-1" />
         ) : (
           <ArrowDownIcon className="inline w-3 h-3 mr-1" />
         )}
-        {Math.abs(percentageChange).toFixed(1)}% from last month
+        {Math.abs(percentageChange).toFixed(1)}% this week
       </div>
     </div>
-  )
+  );
 }
 
 interface MetricCardProps {
   label: string
   value: string
-  change: string
-  trend: "up" | "down" | "neutral"
   color: "blue" | "green" | "purple" | "red"
 }
 
-function MetricCard({ label, value, change, trend, color }: MetricCardProps) {
+function MetricCard({ label, value, color }: MetricCardProps) {
   const colorMap = {
     blue: "bg-blue-50 dark:bg-blue-950/30",
     green: "bg-green-50 dark:bg-green-950/30",
@@ -351,19 +369,6 @@ function MetricCard({ label, value, change, trend, color }: MetricCardProps) {
     <div className={`metric-card ${colorMap[color]}`}>
       <div className="metric-label">{label}</div>
       <div className="metric-value">{value}</div>
-      <div
-        className={`metric-change ${
-          trend === "up"
-            ? "metric-positive"
-            : trend === "down"
-            ? "metric-negative"
-            : "metric-neutral"
-        }`}
-      >
-        {trend === "up" && <ArrowUpIcon className="inline w-3 h-3 mr-1" />}
-        {trend === "down" && <ArrowDownIcon className="inline w-3 h-3 mr-1" />}
-        {change}
-      </div>
     </div>
   );
 }
