@@ -26,6 +26,7 @@ export default function NewCustomer() {
     state: "",
     country: "",
     postalCode: "",
+    quickbooks_id: "",
     notes: "",
   })
 
@@ -39,7 +40,7 @@ export default function NewCustomer() {
         toast.success("Customer created successfully")
         router.push("/customers")
       } else {
-        toast.error(response.message || "Failed to create customer")
+        toast.error( "Failed to create customer")
       }
     } catch (error) {
       toast.error("An error occurred while creating the customer")
@@ -173,6 +174,17 @@ export default function NewCustomer() {
                     value={formData.postalCode}
                     onChange={handleChange}
                     placeholder="Enter postal code"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="quickbooks_id">QuickBooks ID</Label>
+                  <Input
+                    id="quickbooks_id"
+                    name="quickbooks_id"
+                    value={formData.quickbooks_id}
+                    onChange={handleChange}
+                    placeholder="Enter QuickBooks ID"
                   />
                 </div>
               </div>

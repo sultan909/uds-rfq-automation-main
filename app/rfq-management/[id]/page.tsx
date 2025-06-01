@@ -279,10 +279,10 @@ export default function RfqDetail({
           page: currentPage,
           pageSize: itemsPerPage
         });
-        
+
         if (response.success && response.data) {
           setRfqData(response.data);
-          
+
           if (response.meta?.pagination) {
             setTotalItems(response.meta.pagination.totalItems);
             setTotalPages(response.meta.pagination.totalPages);
@@ -372,91 +372,115 @@ export default function RfqDetail({
         toast.error('Failed to fetch main customers');
       }
     };
-    
+
     fetchMainCustomers();
   }, []);
 
   useEffect(() => {
     const fetchHistory = async () => {
       if (!rfqData?.customer?.id || !items?.length || !mainCustomers?.length) return;
-      
+
       try {
         setHistoryLoading(true);
-        const salesPromises = items.map(async (item: any) => {
+
+        const mainCustomerMap = new Map<number, string>(
+          mainCustomers.map(c => [c.id, c.name])
+        );
+
+        const historyPromises = items.map(async (item: any) => {
           const itemSku = item.customerSku || item.inventory?.sku;
-          if (!itemSku) return null;
+          const itemId = item.inventory?.id;
+          if (!itemSku || !itemId) return null;
 
-          const response = await customerApi.getHistory(rfqData.customer.id, filters.period) as SalesHistoryResponse;
-          
-          const mainCustomerHistoryPromises = mainCustomers.map(async (customer) => {
-            const customerHistory = await customerApi.getHistory(customer.id.toString(), filters.period) as SalesHistoryResponse;
-            if (customerHistory.success && customerHistory.data) {
-              const itemHistory = customerHistory.data.history?.filter((h) => {
-                return h.type === 'sale' && h.sku === itemSku;
-              }) || [];
+          try {
+            const inventoryHistory = await inventoryApi.getHistory(itemId, { period: filters.period });
+            console.log(`🧾 Inventory history for item ${itemId}:`, inventoryHistory);
 
-              if (itemHistory.length > 0) {
-                const lastSale = itemHistory[0];
-                const totalSales = itemHistory.reduce((sum, h) => sum + (h.quantity || 0), 0);
-                const avgSalePrice = itemHistory.reduce((sum, h) => sum + (h.unitPrice || 0), 0) / itemHistory.length;
+            // @ts-ignore
+            if (inventoryHistory.success && inventoryHistory.data?.transactions) {
+              // @ts-ignore
+              const transactions = inventoryHistory.data.transactions.filter((tx: any) => tx.type === 'sale');
+              console.log("transcations", transactions);
 
-                return {
-                  [customer.id]: {
-                    lastTransaction: lastSale.date,
-                    lastPrice: lastSale.unitPrice,
-                    lastQuantity: lastSale.quantity,
-                    totalQuantity: totalSales,
-                    avgPrice: avgSalePrice,
-                    trend: lastSale.priceTrend || 'neutral'
-                  }
+              const transactionsByCustomer: Record<number, any[]> = {};
+
+              transactions.forEach((tx: any) => {
+                const customerId = tx.customerId;
+                if (!customerId) return;
+                if (!transactionsByCustomer[customerId]) {
+                  transactionsByCustomer[customerId] = [];
+                }
+                transactionsByCustomer[customerId].push(tx);
+              });
+
+              const mainCustomerHistory: any[] = [];
+              const otherCustomerHistory: any[] = [];
+
+              Object.entries(transactionsByCustomer).forEach(([customerIdStr, customerTxs]) => {
+                const customerId = Number(customerIdStr);
+                const isMainCustomer = mainCustomerMap.has(customerId);
+                const customerName =
+                  mainCustomerMap.get(customerId) ||
+                  customerTxs[0]?.customerName || // fallback to first transaction name
+                  `Customer ${customerId}`;
+
+                const sortedTxs = [...customerTxs].sort((a, b) =>
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
+
+                const lastTx = sortedTxs[0];
+                const totalQuantity = customerTxs.reduce((sum, tx) => sum + (tx.quantity || 0), 0);
+                const totalPrice = customerTxs.reduce((sum, tx) => sum + (tx.unitPrice * (tx.quantity || 0)), 0);
+                const avgPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+                const historyEntry = {
+                  itemId: itemId,
+                  sku: itemSku,
+                  description: item.description || item.name || 'N/A',
+                  customerId,
+                  customer: customerName || `Customer ${customerId}`,
+                  lastTransaction: lastTx.date,
+                  lastPrice: lastTx.price,
+                  lastQuantity: lastTx.quantity || 0,
+                  totalQuantity,
+                  avgPrice,
                 };
-              }
+
+                if (isMainCustomer) {
+                  mainCustomerHistory.push(historyEntry);
+                } else {
+                  otherCustomerHistory.push(historyEntry);
+                }
+              });
+
+              return {
+                itemId: itemId,
+                sku: itemSku,
+                description: item.description || item.name || 'N/A',
+                mainCustomerHistory,
+                otherCustomerHistory,
+              };
             }
+
             return null;
-          });
-
-          const mainCustomerHistoryResults = await Promise.all(mainCustomerHistoryPromises);
-          const mainCustomerHistory = mainCustomerHistoryResults.reduce((acc, curr) => {
-            if (curr) {
-              return { ...acc, ...curr };
-            }
-            return acc;
-          }, {});
-
-          if (response.success && response.data) {
-            const itemHistory = response.data.history?.filter((h) => {
-              return h.type === 'sale' && h.sku === itemSku;
-            }) || [];
-
-            const transformedHistory = itemHistory.map((sale) => ({
-              sku: itemSku,
-              lastTransaction: sale.date,
-              customer: response.data.customerName || 'Unknown Customer',
-              lastPrice: sale.unitPrice,
-              lastQuantity: sale.quantity,
-              totalQuantity: sale.quantity,
-              avgPrice: sale.unitPrice,
-              trend: sale.priceTrend || 'neutral',
-              mainCustomerHistory
-            }));
-
-            return {
-              itemId: item.id,
-              sku: itemSku,
-              history: transformedHistory
-            };
+          } catch (error) {
+            console.error(`❌ Error fetching history for item ${itemSku}:`, error);
+            return null;
           }
-          return null;
         });
 
-        const results = await Promise.all(salesPromises);
-        const validResults = results.filter(result => result !== null);
-        
+        const results = await Promise.all(historyPromises);
+        const validResults = results.filter(Boolean);
+
+        // Flatten main and other customer data across all items
+
+
+
         setHistory({
-          history: validResults.flatMap(result => result?.history || [])
+          history: validResults
         });
+
       } catch (err) {
-        console.error('Error fetching history:', err);
+        console.error('❌ Error in fetchHistory:', err);
         setHistoryError("An error occurred while loading history data");
         toast.error("An error occurred while loading history data");
       } finally {
@@ -471,7 +495,7 @@ export default function RfqDetail({
     const fetchInventoryData = async () => {
       try {
         if (!rfqData?.items?.length) return;
-        
+
         const inventoryData = await Promise.all(
           rfqData.items.map(async (item: any) => {
             try {
@@ -489,11 +513,11 @@ export default function RfqDetail({
                   inventoryApi.get(item.internalProductId),
                   inventoryApi.getHistory(item.internalProductId, { period: 'all' })
                 ]);
-                
+
                 if (inventoryResponse.success && inventoryResponse.data) {
                   const inventoryData = inventoryResponse.data as InventoryResponse;
                   const historyData = historyResponse.success ? historyResponse.data : null;
-                  
+
                   return {
                     ...item,
                     inventory: {
@@ -539,20 +563,224 @@ export default function RfqDetail({
     console.log('Current skuDetails:', skuDetails);
   }, [skuDetails]);
 
+  // Enhanced Sales History Export - Matching the History Tab Display Structure
+
   const exportToExcel = () => {
     try {
-      // Prepare the data for export
+      // Validate rfqData exists and has required properties
+      if (!rfqData) {
+        throw new Error('No RFQ data available');
+      }
+
+      // Helper function to safely access customer history data
+      // @ts-ignore
+      const getCustomerHistoryData = (salesHistory, customerId) => {
+        try {
+          const mainCustomerHistory = salesHistory[0]?.mainCustomerHistory;
+          if (!mainCustomerHistory) return null;
+
+          // Handle both array and object formats
+          if (Array.isArray(mainCustomerHistory)) {
+            return mainCustomerHistory.find(h => h.customerId === customerId);
+          } else {
+            return mainCustomerHistory[customerId];
+          }
+        } catch (error) {
+          console.warn('Error accessing customer history:', error);
+          return null;
+        }
+      };
+
+      // Helper function to get other customer history
+      // @ts-ignore
+      const getOtherCustomerHistory = (salesHistory) => {
+        try {
+          return salesHistory[0]?.otherCustomerHistory || [];
+        } catch (error) {
+          console.warn('Error accessing other customer history:', error);
+          return [];
+        }
+      };
+
+      // Create Pricing History Sheet (matches Pricing History tab)
+      const createPricingHistorySheet = () => {
+        const headers = [
+          'SKU',
+          ...mainCustomers.map(customer => `${customer.name} - Last Price`),
+          ...mainCustomers.map(customer => `${customer.name} - Last Date`),
+          ...mainCustomers.map(customer => `${customer.name} - Trend`),
+          'Other Customers - Last Price',
+          'Other Customers - Customer Name',
+          'Other Customers - Last Date',
+          'Other Customers - Trend'
+        ];
+        // @ts-ignore
+
+        const rows = rfqData.items?.map((item) => {
+          const itemSku = item.customerSku || item.inventory?.sku || 'N/A';
+          const salesHistory = history.history.filter((h) => h.sku === itemSku);
+
+          if (salesHistory.length === 0) {
+            return [itemSku, ...Array(headers.length - 1).fill('No history')];
+          }
+
+          const otherCustomerHistory = getOtherCustomerHistory(salesHistory);
+          const row = [itemSku];
+
+          // Add main customer last prices
+          mainCustomers.forEach(customer => {
+            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
+            row.push(customerHistory ? formatCurrency(customerHistory.lastPrice || 0) : 'No history');
+          });
+
+          // Add main customer last dates
+          mainCustomers.forEach(customer => {
+            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
+            row.push(customerHistory && customerHistory.lastTransaction
+              ? new Date(customerHistory.lastTransaction).toLocaleDateString()
+              : 'N/A');
+          });
+
+          // Add main customer trends
+          mainCustomers.forEach(customer => {
+            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
+            const trend = customerHistory?.trend;
+            row.push(trend === 'up' ? '↑' : trend === 'down' ? '↓' : 'neutral');
+          });
+
+          // Add other customers data
+          if (otherCustomerHistory.length > 0) {
+            const otherCustomer = otherCustomerHistory[0];
+            row.push(formatCurrency(otherCustomer.lastPrice || 0));
+            row.push(otherCustomer.customer || 'N/A');
+            row.push(otherCustomer.lastTransaction
+              ? new Date(otherCustomer.lastTransaction).toLocaleDateString()
+              : 'N/A');
+            row.push(otherCustomer.trend === 'up' ? '↑' : otherCustomer.trend === 'down' ? '↓' : 'neutral');
+          } else {
+            row.push('No history', 'N/A', 'N/A', 'neutral');
+          }
+
+          return row;
+        }) || [];
+
+        return [headers, ...rows];
+      };
+
+      // Create Quantity History Sheet (matches Quantity History tab)
+      const createQuantityHistorySheet = () => {
+        const headers = [
+          'SKU',
+          ...mainCustomers.map(customer => `${customer.name} - Last Qty`),
+          ...mainCustomers.map(customer => `${customer.name} - Total Qty`),
+          ...mainCustomers.map(customer => `${customer.name} - Last Date`),
+          'Other Customers - Last Qty',
+          'Other Customers - Total Qty',
+          'Other Customers - Customer Name',
+          'Other Customers - Last Date',
+          'Total Quantity (All Customers)'
+        ];
+        // @ts-ignore
+
+        const rows = rfqData.items?.map((item) => {
+          const itemSku = item.customerSku || item.inventory?.sku || 'N/A';
+          const salesHistory = history.history.filter((h) => h.sku === itemSku);
+
+          if (salesHistory.length === 0) {
+            return [itemSku, ...Array(headers.length - 1).fill('No history')];
+          }
+
+          const otherCustomerHistory = getOtherCustomerHistory(salesHistory);
+          const row = [itemSku];
+          let totalQuantity = 0;
+
+          // Add main customer last quantities
+          mainCustomers.forEach(customer => {
+            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
+            row.push(customerHistory?.lastQuantity || 0);
+          });
+
+          // Add main customer total quantities
+          mainCustomers.forEach(customer => {
+            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
+            const totalQty = customerHistory?.totalQuantity || 0;
+            totalQuantity += totalQty;
+            row.push(totalQty);
+          });
+
+          // Add main customer last dates
+          mainCustomers.forEach(customer => {
+            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
+            row.push(customerHistory && customerHistory.lastTransaction
+              ? new Date(customerHistory.lastTransaction).toLocaleDateString()
+              : 'N/A');
+          });
+
+          // Add other customers data
+          if (otherCustomerHistory.length > 0) {
+            const otherCustomer = otherCustomerHistory[0];
+            const otherQty = otherCustomer.totalQuantity || 0;
+            totalQuantity += otherQty;
+
+            row.push(otherCustomer.lastQuantity || 0);
+            row.push(otherQty);
+            row.push(otherCustomer.customer || 'N/A');
+            row.push(otherCustomer.lastTransaction
+              ? new Date(otherCustomer.lastTransaction).toLocaleDateString()
+              : 'N/A');
+          } else {
+            row.push(0, 0, 'N/A', 'N/A');
+          }
+
+          // Add total quantity across all customers
+          row.push(totalQuantity);
+
+          return row;
+        }) || [];
+
+        return [headers, ...rows];
+      };
+
+      // Create Sales History Summary (original simple format for reference)
+      const createSalesHistorySummary = () => {
+        return [
+          ['SKU', 'Date', 'Customer', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
+          // @ts-ignore
+
+          ...rfqData.items?.flatMap((item) => {
+            const itemSku = item.customerSku || item.inventory?.sku;
+            const salesHistory = history.history.filter((h) => h.sku === itemSku);
+
+            if (salesHistory.length === 0) {
+              return [];
+            }
+
+            const lastSale = salesHistory[0];
+            return [
+              itemSku,
+              lastSale?.lastTransaction ? new Date(lastSale.lastTransaction).toLocaleDateString() : 'N/A',
+              lastSale?.customer || 'N/A',
+              lastSale?.lastQuantity || 'N/A',
+              formatCurrency(lastSale?.lastPrice || 0),
+              formatCurrency((lastSale?.lastPrice || 0) * (lastSale?.lastQuantity || 0)),
+              lastSale?.trend === 'up' ? '↑' : lastSale?.trend === 'down' ? '↓' : 'neutral'
+            ];
+          }) || []
+        ];
+      };
+
+      // Prepare the enhanced export data
       const exportData = {
         'RFQ Summary': [
-          ['RFQ Number', rfqData.rfqNumber],
-          ['Date Received', new Date(rfqData.createdAt).toLocaleDateString()],
-          ['Source', rfqData.source],
-          ['Status', rfqData.status],
+          ['RFQ Number', rfqData.rfqNumber || 'N/A'],
+          ['Date Received', rfqData.createdAt ? new Date(rfqData.createdAt).toLocaleDateString() : 'N/A'],
+          ['Source', rfqData.source || 'N/A'],
+          ['Status', rfqData.status || 'N/A'],
           ['Due Date', rfqData.dueDate ? new Date(rfqData.dueDate).toLocaleDateString() : 'N/A'],
           ['Total Budget', formatCurrency(
             currency === "CAD"
-              ? rfqData.totalBudget
-              : convertCurrency(rfqData.totalBudget, "CAD")
+              ? (rfqData.totalBudget || 0)
+              : convertCurrency(rfqData.totalBudget || 0, "CAD")
           )],
         ],
         'Customer Information': [
@@ -592,41 +820,14 @@ export default function RfqDetail({
             ];
           }) || [],
         ],
-        'Sales History': [
-          ['SKU', 'Date', 'Customer', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
-          ...rfqData.items?.flatMap((item: any) => {
-            const itemSku = item.customerSku || item.inventory?.sku;
-            console.log("itemsku", itemSku);
-            console.log("history", history);
-            
-            const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
-            console.log("filtered history", salesHistory);
-
-            if (salesHistory.length === 0) {
-              return [];
-            }
-
-            const lastSale = salesHistory[0] as HistoryItem;
-            const totalSales = salesHistory.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0);
-            const avgSalePrice = salesHistory.length > 0 
-              ? salesHistory.reduce((sum: number, h: any) => sum + (h.unitPrice || 0), 0) / salesHistory.length 
-              : 0;
-
-            return [
-              itemSku,
-              lastSale?.lastTransaction ? new Date(lastSale.lastTransaction).toLocaleDateString() : 'N/A',
-              lastSale?.customer || 'N/A',
-              lastSale?.lastQuantity || 'N/A',
-              formatCurrency(lastSale?.lastPrice || 0),
-              formatCurrency(lastSale?.lastPrice * lastSale?.lastQuantity || 0),
-              lastSale?.trend === 'up' ? '↑' : lastSale?.trend === 'down' ? '↓' : 'neutral'
-            ];
-          }) || [],
-        ],
+        // Enhanced Sales History - matches the History tab display
+        'Sales History - Pricing': createPricingHistorySheet(),
+        'Sales History - Quantity': createQuantityHistorySheet(),
+        'Sales History - Summary': createSalesHistorySummary(),
         'Purchase History': [
           ['SKU', 'Date', 'Vendor', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
           ...rfqData.items?.flatMap((item: any) => {
-            const purchaseHistory = inventoryHistory[item.id]?.transactions?.filter((t: any) => 
+            const purchaseHistory = inventoryHistory[item.id]?.transactions?.filter((t: any) =>
               t.type === 'purchase'
             ) || [];
 
@@ -656,47 +857,94 @@ export default function RfqDetail({
         ]
       };
 
+      // Log export data for debugging
+      console.log('🚀 Export data prepared:', {
+        sheets: Object.keys(exportData),
+        pricingHistoryRows: exportData['Sales History - Pricing']?.length,
+        quantityHistoryRows: exportData['Sales History - Quantity']?.length,
+        mainCustomers: mainCustomers.map(c => c.name),
+        historyData: history.history.length
+      });
+
+      // Ensure all sheets are valid arrays and handle empty data
+      Object.entries(exportData).forEach(([sheetName, data]) => {
+        if (!Array.isArray(data)) {
+          console.error(`Invalid data for sheet ${sheetName}:`, data);
+          // @ts-ignore
+          exportData[sheetName] = [['No data available']];
+        } else {
+          // Ensure each row is an array and handle empty data
+          // @ts-ignore
+
+          exportData[sheetName] = data.length > 0
+            ? data.map(row => Array.isArray(row) ? row : [row])
+            : [['No data available']];
+        }
+      });
+
       // Create a new workbook
       const wb = XLSX.utils.book_new();
 
       // Add each section as a separate worksheet
       Object.entries(exportData).forEach(([sheetName, data]) => {
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        
-        // Auto-fit column widths
-        // @ts-ignore
-        const colWidths = data[0].map((_, index) => {
-          const maxLength = Math.max(
-            ...data.map(row => {
-              const cellValue = row[index]?.toString() || '';
-              return cellValue.length;
-            })
-          );
-          return { wch: Math.min(Math.max(maxLength + 2, 10), 50) }; // Min width 10, max width 50
-        });
-        ws['!cols'] = colWidths;
+        try {
+          // Skip empty sheets
+          if (!data || data.length === 0) {
+            console.warn(`Skipping empty sheet: ${sheetName}`);
+            return;
+          }
 
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          const ws = XLSX.utils.aoa_to_sheet(data);
+
+          // Auto-fit column widths with better handling
+          // @ts-ignore
+          const colWidths = data[0].map((_, index: any) => {
+            const maxLength = Math.max(
+              ...data.map(row => {
+                const cellValue = (row[index]?.toString() || '').length;
+                return Math.min(Math.max(cellValue, 10), 50); // Min width 10, max width 50
+              })
+            );
+            return { wch: maxLength + 2 }; // Add padding
+          });
+
+          ws['!cols'] = colWidths;
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+          console.log(`✅ Sheet created: ${sheetName} with ${data.length} rows`);
+        } catch (sheetError) {
+          console.error(`Error processing sheet ${sheetName}:`, sheetError);
+          // Create an error sheet instead of failing the entire export
+          // @ts-ignore
+          const errorWs = XLSX.utils.aoa_to_sheet([['Error processing this sheet', sheetError.message]]);
+          XLSX.utils.book_append_sheet(wb, errorWs, `${sheetName}_ERROR`);
+        }
       });
 
-      // Generate Excel file
+      // Check if workbook has any sheets
+      if (wb.SheetNames.length === 0) {
+        throw new Error('No valid data to export');
+      }
+
+      // Generate and download the Excel file
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      
-      // Create download link
+      const blob = new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `RFQ_${rfqData.rfqNumber}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.download = `RFQ_${rfqData.rfqNumber || 'export'}_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success('RFQ data exported successfully');
+      toast.success('RFQ data exported successfully with enhanced sales history');
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      toast.error('Failed to export RFQ data');
+      toast.error(`Failed to export RFQ data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -705,7 +953,7 @@ export default function RfqDetail({
       const response = await rfqApi.update(id, {
         status: newStatus
       });
-      
+
       if (response.success) {
         toast.success(`RFQ status updated to ${newStatus}`);
         // Refresh RFQ data
@@ -788,7 +1036,7 @@ export default function RfqDetail({
     if (tab === 'history' && columnId.startsWith('mainCustomer_')) {
       return;
     }
-    
+
     setVisibleColumns(prev => ({
       ...prev,
       [tab]: prev[tab].includes(columnId)
@@ -1030,15 +1278,15 @@ export default function RfqDetail({
                     <Button asChild>
                       <a href={`/rfq-management/${id}/create-quote`}>Create Quote</a>
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => handleStatusChange('COMPLETED')}
                       disabled={rfq.status === 'COMPLETED'}
                     >
                       Mark as Completed
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => handleStatusChange('CANCELLED')}
                       disabled={rfq.status === 'CANCELLED'}
                     >
@@ -1102,7 +1350,7 @@ export default function RfqDetail({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {ITEMS_COLUMNS.map(column => 
+                        {ITEMS_COLUMNS.map(column =>
                           visibleColumns.items.includes(column.id) && (
                             <TableHead key={column.id}>{column.label}</TableHead>
                           )
@@ -1159,7 +1407,7 @@ export default function RfqDetail({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {PRICING_COLUMNS.map(column => 
+                        {PRICING_COLUMNS.map(column =>
                           visibleColumns.pricing.includes(column.id) && (
                             <TableHead key={column.id}>{column.label}</TableHead>
                           )
@@ -1216,7 +1464,7 @@ export default function RfqDetail({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {INVENTORY_COLUMNS.map(column => 
+                        {INVENTORY_COLUMNS.map(column =>
                           visibleColumns.inventory.includes(column.id) && (
                             <TableHead key={column.id}>{column.label}</TableHead>
                           )
@@ -1325,27 +1573,27 @@ export default function RfqDetail({
                             {items.map((item: any) => {
                               const itemSku = item.customerSku || item.inventory?.sku;
                               const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
+                              // @ts-ignore
+                              const otherCustomerHistory = salesHistory[0]?.otherCustomerHistory
 
                               if (salesHistory.length === 0) {
                                 return null;
                               }
 
-                              // Get the last sale from non-main customers
-                              const otherCustomerSales = salesHistory.filter(h => 
-                                !mainCustomers.some(mc => mc.name === h.customer)
-                              );
-
                               return (
                                 <TableRow key={item.id}>
                                   <TableCell>{itemSku}</TableCell>
                                   {mainCustomers.map(customer => {
-                                    const customerHistory = salesHistory[0]?.mainCustomerHistory?.[customer.id];
+                                    const te = salesHistory[0]?.mainCustomerHistory
+                                    // @ts-ignore
+                                    const customerHistory = te.filter((t) => t.customerId === customer.id)
+
                                     return (
                                       <TableCell key={customer.id}>
-                                        {customerHistory ? (
+                                        {customerHistory.length > 0 ? (
                                           <div className="space-y-1">
-                                            <div>Last Price: {formatCurrency(customerHistory.lastPrice)}</div>
-                                            <div>Last Date: {new Date(customerHistory.lastTransaction).toLocaleDateString()}</div>
+                                            <div>Last Price: {formatCurrency(customerHistory[0]?.lastPrice)}</div>
+                                            <div>Last Date: {new Date(customerHistory[0]?.lastTransaction).toLocaleDateString()}</div>
                                             <Badge variant={customerHistory.trend === 'up' ? 'default' : 'destructive'}>
                                               {customerHistory.trend === 'up' ? '↑' : '↓'}
                                             </Badge>
@@ -1357,13 +1605,13 @@ export default function RfqDetail({
                                     );
                                   })}
                                   <TableCell>
-                                    {otherCustomerSales.length > 0 ? (
+                                    {otherCustomerHistory.length > 0 ? (
                                       <div className="space-y-1">
-                                        <div>Last Price: {formatCurrency(otherCustomerSales[0].lastPrice)}</div>
-                                        <div>Customer: {otherCustomerSales[0].customer}</div>
-                                        <div>Last Date: {new Date(otherCustomerSales[0].lastTransaction).toLocaleDateString()}</div>
-                                        <Badge variant={otherCustomerSales[0].trend === 'up' ? 'default' : 'destructive'}>
-                                          {otherCustomerSales[0].trend === 'up' ? '↑' : '↓'}
+                                        <div>Last Price: {formatCurrency(otherCustomerHistory[0].lastPrice)}</div>
+                                        <div>Customer: {otherCustomerHistory[0].customer}</div>
+                                        <div>Last Date: {new Date(otherCustomerHistory[0].lastTransaction).toLocaleDateString()}</div>
+                                        <Badge variant={otherCustomerHistory[0].trend === 'up' ? 'default' : 'destructive'}>
+                                          {otherCustomerHistory[0].trend === 'up' ? '↑' : '↓'}
                                         </Badge>
                                       </div>
                                     ) : (
@@ -1401,6 +1649,8 @@ export default function RfqDetail({
                             {items.map((item: any) => {
                               const itemSku = item.customerSku || item.inventory?.sku;
                               const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
+                              // @ts-ignore
+                              const otherCustomerHistory = salesHistory[0]?.otherCustomerHistory
 
                               if (salesHistory.length === 0) {
                                 return null;
@@ -1409,7 +1659,7 @@ export default function RfqDetail({
                               let totalQuantity = 0;
 
                               // Get sales from non-main customers
-                              const otherCustomerSales = salesHistory.filter(h => 
+                              const otherCustomerSales = salesHistory.filter(h =>
                                 !mainCustomers.some(mc => mc.name === h.customer)
                               );
 
@@ -1436,12 +1686,12 @@ export default function RfqDetail({
                                     );
                                   })}
                                   <TableCell>
-                                    {otherCustomerSales.length > 0 ? (
+                                    {otherCustomerHistory.length > 0 ? (
                                       <div className="space-y-1">
-                                        <div>Last Qty: {otherCustomerSales[0].lastQuantity}</div>
-                                        <div>Total Qty: {otherCustomerSales[0].totalQuantity}</div>
-                                        <div>Customer: {otherCustomerSales[0].customer}</div>
-                                        <div>Last Date: {new Date(otherCustomerSales[0].lastTransaction).toLocaleDateString()}</div>
+                                        <div>Last Qty: {otherCustomerHistory[0].lastQuantity}</div>
+                                        <div>Total Qty: {otherCustomerHistory[0].totalQuantity}</div>
+                                        <div>Customer: {otherCustomerHistory[0].customer}</div>
+                                        <div>Last Date: {new Date(otherCustomerHistory[0].lastTransaction).toLocaleDateString()}</div>
                                       </div>
                                     ) : (
                                       <span className="text-muted-foreground">No history</span>
@@ -1479,7 +1729,7 @@ export default function RfqDetail({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {MARKET_COLUMNS.map(column => 
+                        {MARKET_COLUMNS.map(column =>
                           visibleColumns.market.includes(column.id) && (
                             <TableHead key={column.id}>{column.label}</TableHead>
                           )
@@ -1540,7 +1790,7 @@ export default function RfqDetail({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {SETTINGS_COLUMNS.map(column => 
+                        {SETTINGS_COLUMNS.map(column =>
                           visibleColumns.settings.includes(column.id) && (
                             <TableHead key={column.id}>{column.label}</TableHead>
                           )
@@ -1621,7 +1871,7 @@ export default function RfqDetail({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {QUOTATION_HISTORY_COLUMNS.map(column => 
+                          {QUOTATION_HISTORY_COLUMNS.map(column =>
                             visibleColumns['quotation-history'].includes(column.id) && (
                               <TableHead key={column.id}>{column.label}</TableHead>
                             )
@@ -1675,8 +1925,8 @@ export default function RfqDetail({
                                   <div className="space-y-1">
                                     <Badge variant={
                                       version.customerResponse.status === 'ACCEPTED' ? 'default' :
-                                      version.customerResponse.status === 'DECLINED' ? 'destructive' :
-                                      'secondary'
+                                        version.customerResponse.status === 'DECLINED' ? 'destructive' :
+                                          'secondary'
                                     }>
                                       {version.customerResponse.status}
                                     </Badge>
