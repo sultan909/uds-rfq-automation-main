@@ -111,6 +111,25 @@ export default function Dashboard() {
           // showDateFilter
         />
         <div className="flex-1 overflow-auto p-4">
+          {/* Global Search - move this above KPI cards */}
+          <div className="mb-6 flex items-center justify-between">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <Input
+                type="search"
+                placeholder="Search for RFQs, SKUs, or Customers..."
+                className="pl-10 py-6"
+              />
+            </div>
+            <a href="/rfq-management/new" className="ml-4">
+              <button className="btn btn-primary px-6 py-3 rounded-md bg-primary text-white font-semibold hover:bg-primary/90 transition-colors">
+                NEW RFQ
+              </button>
+            </a>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <MetricCard
               label="Active RFQs"
@@ -137,20 +156,6 @@ export default function Dashboard() {
               trend="neutral"
               color="red"
             />
-          </div>
-
-          {/* Global Search */}
-          <div className="mb-6">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <Input
-                type="search"
-                placeholder="Search for RFQs, SKUs, or Customers..."
-                className="pl-10 py-6"
-              />
-            </div>
           </div>
 
           <div className="grid gap-6">

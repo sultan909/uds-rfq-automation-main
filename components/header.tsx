@@ -58,13 +58,7 @@ export function Header({
           <ThemeToggle />
           <CurrencyToggle showOverride={false} />
           <CurrencyRateDisplay />
-          <Link
-            href="/settings"
-            className="p-2 hover:bg-muted rounded-full"
-            title="Settings"
-          >
-            <SettingsIcon className="h-5 w-5" />
-          </Link>
+         
         </div>
       </div>
     </header>

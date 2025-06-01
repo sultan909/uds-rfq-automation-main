@@ -16,9 +16,10 @@ import { RfqStatusDistributionChart } from "@/components/reports/rfq-status-dist
 import { SalesMetricsCards } from "@/components/reports/sales-metrics-cards"
 import { RfqMetricsCards } from "@/components/reports/rfq-metrics-cards"
 import { DateRangePicker } from "@/components/date-range-picker"
+import type { DateRange } from "react-day-picker"
 
 export default function ReportsDashboard() {
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(2025, 0, 1),
     to: new Date(2025, 3, 30),
   })
@@ -30,12 +31,6 @@ export default function ReportsDashboard() {
         <Header title="Reports & Analytics" subtitle="Track performance metrics and business insights" />
         <div className="flex-1 overflow-auto p-4">
           <div className="flex justify-between items-center mb-6">
-            <Tabs defaultValue="sales" className="w-[400px]">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="sales">Sales Analytics</TabsTrigger>
-                <TabsTrigger value="rfq">RFQ Analytics</TabsTrigger>
-              </TabsList>
-            </Tabs>
             <div className="flex items-center gap-3">
               <DateRangePicker date={dateRange} onDateChange={setDateRange} />
               <Button variant="outline" size="sm">
@@ -47,6 +42,12 @@ export default function ReportsDashboard() {
                 Export
               </Button>
             </div>
+            <Tabs defaultValue="sales" className="w-[400px]">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="sales">Sales Analytics</TabsTrigger>
+                <TabsTrigger value="rfq">RFQ Analytics</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           <Tabs defaultValue="sales">
@@ -107,7 +108,7 @@ export default function ReportsDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <Card className="lg:col-span-2 bg-card text-card-foreground">
                     <CardHeader>
-                      <CardTitle>RFQ Conversion Rate</CardTitle>
+                      <CardTitle>RFQ Conversion Rates</CardTitle>
                       <CardDescription>Percentage of RFQs converted to sales</CardDescription>
                     </CardHeader>
                     <CardContent>
