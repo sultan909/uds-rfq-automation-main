@@ -6,7 +6,7 @@ import { DollarSign } from "lucide-react"
 import { useState } from "react"
 
 export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean } = {}) {
-  const { currency, toggleCurrency, fxRateLabel, isManualRate, setManualRate, fxRate } = useCurrency()
+  const { currency, toggleCurrency, isManualRate, setManualRate, getUsdToCadRate } = useCurrency()
   const [showOverrideInput, setShowOverrideInput] = useState(false)
   const [manualInput, setManualInput] = useState("")
 
@@ -23,9 +23,11 @@ export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean
         setTimeout(() => {
           btn.textContent = originalText
           setShowOverrideInput(false)
+          setManualInput("")
         }, 1000)
       } else {
         setShowOverrideInput(false)
+        setManualInput("")
       }
     }
   }
@@ -33,7 +35,10 @@ export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean
   const handleClear = () => {
     setManualRate(null)
     setManualInput("")
+    setShowOverrideInput(false)
   }
+
+  const currentRate = getUsdToCadRate()
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -50,20 +55,18 @@ export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean
         {showOverride && (
           <>
             <span className="text-xs text-muted-foreground">
-              {currency === 'CAD' 
-                ? `1 USD = ${fxRate.toFixed(2)} CAD`
-                : `1 CAD = ${fxRate.toFixed(2)} USD`}
+              1 USD = {currentRate.toFixed(2)} CAD
               {isManualRate && " (Manual)"}
             </span>
             <button
               onClick={() => {
                 if (isManualRate) {
                   // Clear the manual rate
-                  setManualRate(null);
-                  setManualInput("");
+                  handleClear();
                 } else {
                   // Show input to set manual rate
                   setShowOverrideInput(!showOverrideInput);
+                  setManualInput(currentRate.toString());
                 }
               }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -81,7 +84,7 @@ export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean
           <div className="flex items-center gap-2">
             <div className="flex items-center border rounded bg-muted/30 pr-1">
               <span className="px-2 py-1 text-xs font-medium bg-muted text-muted-foreground border-r">
-                1 {currency === 'CAD' ? 'USD' : 'CAD'}
+                1 USD
               </span>
               <span className="px-2 text-xs">=</span>
               <input
@@ -90,16 +93,31 @@ export function CurrencyToggle({ showOverride = true }: { showOverride?: boolean
                 min="0"
                 value={manualInput}
                 onChange={e => setManualInput(e.target.value)}
-                placeholder={fxRate.toString()}
+                placeholder={currentRate.toString()}
                 className="bg-transparent border-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-1 text-xs w-20"
                 aria-label="Exchange rate value"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleOverride();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowOverrideInput(false);
+                    setManualInput("");
+                  }
+                }}
               />
               <span className="text-xs font-medium">
-                {currency}
+                CAD
               </span>
             </div>
             <Button variant="default" size="sm" onClick={handleOverride} className="h-8">
-              Apply Rate
+              Apply
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => {
+              setShowOverrideInput(false);
+              setManualInput("");
+            }} className="h-8">
+              Cancel
             </Button>
           </div>
         </div>

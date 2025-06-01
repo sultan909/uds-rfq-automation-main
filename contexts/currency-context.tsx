@@ -13,6 +13,7 @@ interface CurrencyContextType {
   fxRateLabel: string
   isManualRate: boolean
   setManualRate: (rate: number | null) => void
+  getUsdToCadRate: () => number
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined)
@@ -23,6 +24,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [manualRate, setManualRate] = useState<number | null>(null)
 
   useEffect(() => {
+    // Fix the endpoint call - use the correct endpoint
     fetch("/api/currency/rates")
       .then(res => res.json())
       .then(data => {
@@ -46,17 +48,18 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     }).format(amount)
   }
 
-  // Determine the FX rate to use
-  const fxRate = manualRate !== null
-    ? manualRate
-    : currency === "CAD"
-      ? fxRates.USD_TO_CAD
-      : fxRates.CAD_TO_USD
+  // Always get the USD to CAD rate (the rate should always show 1 USD = X CAD)
+  const getUsdToCadRate = (): number => {
+    return manualRate !== null ? manualRate : fxRates.USD_TO_CAD
+  }
 
-  // Label for the FX rate
-  const fxRateLabel = currency === "CAD"
-    ? `Rate: 1 CAD = ${fxRates.CAD_TO_USD.toFixed(4)} USD`
-    : `Rate: 1 USD = ${fxRates.USD_TO_CAD.toFixed(4)} CAD`
+  // Determine the FX rate to use for conversions based on current currency
+  const fxRate = currency === "CAD" 
+    ? getUsdToCadRate() // If displaying CAD, use USD_TO_CAD rate
+    : (1 / getUsdToCadRate()) // If displaying USD, use the inverse (CAD_TO_USD)
+
+  // Label should always show "1 USD = X CAD" regardless of selected currency
+  const fxRateLabel = `1 USD = ${getUsdToCadRate().toFixed(4)} CAD`
 
   const isManualRate = manualRate !== null
 
@@ -65,16 +68,52 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (source === currency) {
       return amount
     }
-    // Use the current FX rate (manual or live)
-    if (source === "CAD" && currency === "USD") {
-      return amount * (manualRate !== null ? 1 / manualRate : fxRates.CAD_TO_USD)
+    
+    const usdToCadRate = getUsdToCadRate()
+    
+    // Convert from source to target currency
+    if (source === "USD" && currency === "CAD") {
+      return amount * usdToCadRate
+    } else if (source === "CAD" && currency === "USD") {
+      return amount / usdToCadRate
+    }
+    
+    return amount
+  }
+
+  const handleSetManualRate = (rate: number | null) => {
+    setManualRate(rate)
+    // In a real application, you might want to persist this to localStorage or backend
+    if (rate !== null) {
+      localStorage.setItem('manualFxRate', rate.toString())
     } else {
-      return amount * fxRate
+      localStorage.removeItem('manualFxRate')
     }
   }
 
+  // Load manual rate from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('manualFxRate')
+    if (saved) {
+      const rate = parseFloat(saved)
+      if (!isNaN(rate) && rate > 0) {
+        setManualRate(rate)
+      }
+    }
+  }, [])
+
   return (
-    <CurrencyContext.Provider value={{ currency, toggleCurrency, formatCurrency, convertCurrency, fxRate, fxRateLabel, isManualRate, setManualRate }}>
+    <CurrencyContext.Provider value={{ 
+      currency, 
+      toggleCurrency, 
+      formatCurrency, 
+      convertCurrency, 
+      fxRate, 
+      fxRateLabel, 
+      isManualRate, 
+      setManualRate: handleSetManualRate,
+      getUsdToCadRate
+    }}>
       {children}
     </CurrencyContext.Provider>
   )

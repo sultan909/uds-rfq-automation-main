@@ -6,7 +6,6 @@ import { CurrencyToggle } from "@/components/currency-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DatePicker } from "@/components/date-picker"
 import Link from "next/link"
-import { Settings as SettingsIcon } from "lucide-react"
 import { useCurrency } from "@/contexts/currency-context"
 
 interface HeaderProps {
@@ -19,11 +18,12 @@ interface HeaderProps {
 }
 
 function CurrencyRateDisplay() {
-  const { currency, fxRate } = useCurrency();
+  const { getUsdToCadRate, isManualRate } = useCurrency();
   
   return (
     <div className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded-md">
-      Rate: 1 {currency} = {(1 / fxRate).toFixed(2)} {currency === "CAD" ? "USD" : "CAD"}
+      1 USD = {getUsdToCadRate().toFixed(2)} CAD
+      {isManualRate && <span className="ml-1 text-orange-600">(Manual)</span>}
     </div>
   );
 }
@@ -58,7 +58,10 @@ export function Header({
           <ThemeToggle />
           <CurrencyToggle showOverride={false} />
           <CurrencyRateDisplay />
+<<<<<<< Updated upstream
          
+=======
+>>>>>>> Stashed changes
         </div>
       </div>
     </header>
