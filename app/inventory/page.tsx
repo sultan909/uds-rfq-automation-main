@@ -4,9 +4,8 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowUpDown, Package } from "lucide-react"
+import { Package } from "lucide-react"
 import { useEffect, useState } from "react"
 import { inventoryApi } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -14,19 +13,19 @@ import { useRouter } from "next/navigation"
 import { useCurrency } from "@/contexts/currency-context"
 import { Spinner } from "@/components/spinner"
 
-interface InventoryTableRowProps {
-  id: string
-  sku: string
-  name: string
-  brand: string
-  stock: number
-  unitPrice: number
-  warehouse_location: string
-  status: string
-  category: string
-  onView: (id: string) => void
-  onEdit: (id: string) => void
-}
+// PrimeReact imports
+import { DataTable } from 'primereact/datatable'
+import { Column } from 'primereact/column'
+import { FilterMatchMode } from 'primereact/api'
+import { InputText } from 'primereact/inputtext'
+import { Dropdown } from 'primereact/dropdown'
+import { Tag } from 'primereact/tag'
+import { Calendar } from 'primereact/calendar'
+
+// PrimeReact CSS imports
+import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/primereact.min.css'
+import 'primeicons/primeicons.css'
 
 interface InventoryItem {
   id: number
@@ -41,27 +40,47 @@ interface InventoryItem {
   warehouseLocation: string | null
 }
 
-interface CategoryCount {
-  category: string
-  count: number
-}
-
 interface InventoryApiResponse extends Array<InventoryItem> {}
 
 export default function InventoryManagement() {
   const router = useRouter()
+  const { currency, formatCurrency, convertCurrency } = useCurrency()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
+  const [globalFilterValue, setGlobalFilterValue] = useState("")
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [stats, setStats] = useState({
     total: 0,
     lowStock: 0,
     outOfStock: 0,
     active: 0
   })
-  const { currency, formatCurrency, convertCurrency } = useCurrency();
+  const [filters, setFilters] = useState({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    sku: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    brand: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    category: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    warehouseLocation: { value: null, matchMode: FilterMatchMode.CONTAINS }
+  })
+
+  const stockStatusOptions = [
+    { label: 'Active', value: 'ACTIVE' },
+    { label: 'Low Stock', value: 'LOW_STOCK' },
+    { label: 'Out of Stock', value: 'OUT_OF_STOCK' }
+  ]
+
+  const sortOptions = [
+    { label: 'SKU A-Z', value: 'sku_asc' },
+    { label: 'SKU Z-A', value: 'sku_desc' },
+    { label: 'Quantity High-Low', value: 'quantity_desc' },
+    { label: 'Quantity Low-High', value: 'quantity_asc' },
+    { label: 'Brand A-Z', value: 'brand_asc' },
+    { label: 'Brand Z-A', value: 'brand_desc' }
+  ]
 
   useEffect(() => {
     fetchInventory()
@@ -148,13 +167,172 @@ export default function InventoryManagement() {
     }
   }
 
-  const handleView = (id: string) => {
-    router.push(`/inventory/${id}`)
+  // Handle row click to navigate to inventory details
+  const onRowClick = (event: any) => {
+    const itemData = event.data as InventoryItem
+    router.push(`/inventory/${itemData.id}`)
   }
 
-  const handleEdit = (id: string) => {
-    router.push(`/inventory/${id}/edit`)
+  // Handle row selection for visual feedback
+  const onSelectionChange = (event: any) => {
+    setSelectedItem(event.value)
   }
+
+  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    let _filters = { ...filters }
+    // @ts-ignore
+    _filters['global'].value = value
+    setFilters(_filters)
+    setGlobalFilterValue(value)
+  }
+
+  const renderHeader = () => {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
+          {/* Left side - Sort controls */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <i className="pi pi-sort-alt text-muted-foreground" />
+              <Dropdown 
+                options={sortOptions} 
+                placeholder="Sort by..." 
+                className="w-[200px] border rounded-md"
+                panelClassName="min-w-[200px]"
+              />
+            </div>
+          </div>
+
+          {/* Right side - Search and Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <i className="pi pi-search" />
+              </span>
+              <InputText 
+                value={globalFilterValue} 
+                onChange={onGlobalFilterChange} 
+                placeholder="Search inventory by SKU, description, brand..."
+                className="w-full sm:w-[400px] pl-9 h-10 border rounded-md bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button asChild className="gap-2 h-10 px-4">
+                <a href="/inventory/new">
+                  <i className="pi pi-plus" />
+                  New Item
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const stockStatusBodyTemplate = (rowData: InventoryItem) => {
+    let severity: "success" | "warning" | "danger" | "info"
+    let label: string
+    
+    if (rowData.quantityOnHand === 0) {
+      severity = "danger"
+      label = "Out of Stock"
+    } else if (rowData.quantityOnHand <= rowData.lowStockThreshold) {
+      severity = "warning"
+      label = "Low Stock"
+    } else {
+      severity = "success"
+      label = "In Stock"
+    }
+    
+    return <Tag value={label} severity={severity} />
+  }
+
+  const quantityBodyTemplate = (rowData: InventoryItem) => {
+    return (
+      <div className="text-sm">
+        <div className="font-medium">{rowData.quantityOnHand}</div>
+        {rowData.quantityReserved > 0 && (
+          <div className="text-muted-foreground text-xs">
+            {rowData.quantityReserved} reserved
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const priceBodyTemplate = (rowData: InventoryItem) => {
+    if (!rowData.costCad) {
+      return <span className="text-muted-foreground">-</span>
+    }
+    
+    // Convert from CAD (database stores in CAD) to selected currency if needed
+    const convertedAmount = currency === 'CAD' 
+      ? rowData.costCad 
+      : convertCurrency(rowData.costCad, 'CAD')
+    
+    return (
+      <div className="text-sm font-medium">
+        {formatCurrency(convertedAmount)}
+      </div>
+    )
+  }
+
+  const categoryBodyTemplate = (rowData: InventoryItem) => {
+    return (
+      <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 inline-block">
+        {rowData.category}
+      </div>
+    )
+  }
+
+  const locationBodyTemplate = (rowData: InventoryItem) => {
+    return (
+      <div className="max-w-xs truncate">
+        {rowData.warehouseLocation || "N/A"}
+      </div>
+    )
+  }
+
+  const descriptionBodyTemplate = (rowData: InventoryItem) => {
+    return (
+      <div className="max-w-xs truncate" title={rowData.description}>
+        {rowData.description}
+      </div>
+    )
+  }
+
+  const actionsBodyTemplate = (rowData: InventoryItem) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-3 text-xs"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/inventory/${rowData.id}`)
+          }}
+        >
+          View
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-3 text-xs"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/inventory/${rowData.id}/edit`)
+          }}
+        >
+          Edit
+        </Button>
+      </div>
+    )
+  }
+
+  const header = renderHeader()
 
   return (
     <div className="flex h-screen">
@@ -200,253 +378,146 @@ export default function InventoryManagement() {
             </Card>
           </div>
 
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Inventory List</h2>
-              <div className="flex gap-2">
-                <Input
-                  type="search"
-                  placeholder="Search inventory..."
-                  className="w-64"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <Button onClick={handleSearch}>Search</Button>
-                <Button asChild>
-                  <a href="/inventory/new">New Item</a>
-                </Button>
-              </div>
+          <div className="bg-background border rounded-lg overflow-hidden">
+            <div className="p-4">
+              <h2 className="text-lg font-medium mb-2">Inventory List</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Review and manage all inventory items. Click on any row to view details.
+              </p>
+
+              <Tabs defaultValue="all" onValueChange={setSelectedTab}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="all" className="relative">
+                    All
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                      {stats.total}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="active" className="relative">
+                    Active
+                    <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      {stats.active}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="low_stock" className="relative">
+                    Low Stock
+                    <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                      {stats.lowStock}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="out_of_stock" className="relative">
+                    Out of Stock
+                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                      {stats.outOfStock}
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value={selectedTab} className="m-0">
+                  {header}
+                  {loading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <Spinner size={32} />
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-4 text-red-500">
+                      {error}
+                    </div>
+                  ) : (
+                    <div className="card">
+                      <DataTable 
+                        key={`inventory-table-${currency}`}
+                        value={items}
+                        paginator 
+                        rows={10} 
+                        rowsPerPageOptions={[5, 10, 25, 50]}
+                        dataKey="id"
+                        filters={filters}
+                        globalFilterFields={['sku', 'description', 'brand', 'category', 'warehouseLocation']}
+                        emptyMessage="No inventory items found."
+                        loading={loading}
+                        sortMode="multiple"
+                        removableSort
+                        showGridlines
+                        stripedRows
+                        size="small"
+                        className="p-datatable-sm cursor-pointer"
+                        selectionMode="single"
+                        selection={selectedItem}
+                        onSelectionChange={onSelectionChange}
+                        onRowClick={onRowClick}
+                        rowHover
+                        tableStyle={{ minWidth: '50rem' }}
+                      >
+                        <Column 
+                          field="sku" 
+                          header="SKU" 
+                          sortable 
+                          style={{ minWidth: '150px' }}
+                        />
+                        <Column 
+                          field="description" 
+                          header="Description" 
+                          body={descriptionBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '250px' }}
+                        />
+                        <Column 
+                          field="brand" 
+                          header="Brand" 
+                          sortable 
+                          style={{ minWidth: '150px' }}
+                        />
+                        <Column 
+                          field="category" 
+                          header="Category" 
+                          body={categoryBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '120px' }}
+                        />
+                        <Column 
+                          field="quantityOnHand" 
+                          header="Stock" 
+                          body={quantityBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '100px' }}
+                        />
+                        <Column 
+                          field="costCad" 
+                          header={`Price (${currency})`} 
+                          body={priceBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '120px' }}
+                          key={`price-inventory-${currency}`}
+                        />
+                        <Column 
+                          field="warehouseLocation" 
+                          header="Location" 
+                          body={locationBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '150px' }}
+                        />
+                        <Column 
+                          field="status" 
+                          header="Status" 
+                          body={stockStatusBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '120px' }}
+                        />
+                        <Column 
+                          header="Actions" 
+                          body={actionsBodyTemplate}
+                          style={{ minWidth: '120px' }}
+                        />
+                      </DataTable>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
-
-            <Tabs defaultValue="all" onValueChange={setSelectedTab}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="all" className="relative">
-                  All
-                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                    {stats.total}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="active" className="relative">
-                  Active
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                    {stats.active}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="low_stock" className="relative">
-                  Low Stock
-                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                    {stats.lowStock}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="out_of_stock" className="relative">
-                  Out of Stock
-                  <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
-                    {stats.outOfStock}
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value={selectedTab} className="m-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="py-3 px-4 text-left font-semibold">
-                          <div className="flex items-center gap-2">
-                            SKU
-                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          <div className="flex items-center gap-2">
-                            Description
-                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          <div className="flex items-center gap-2">
-                            Brand
-                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          <div className="flex items-center gap-2">
-                            Category
-                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          <div className="flex items-center gap-2">
-                            Stock
-                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          <div className="flex items-center gap-2">
-                            Price ({currency})
-                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          Location
-                        </th>
-                        <th className="py-3 px-4 text-left font-semibold">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr>
-                          <td colSpan={8} className="text-center py-8">
-                            <div className="flex justify-center items-center">
-                              <Spinner size={32} />
-                            </div>
-                          </td>
-                        </tr>
-                      ) : error ? (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="text-center py-8 text-red-500"
-                          >
-                            {error}
-                          </td>
-                        </tr>
-                      ) : items.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="text-center py-8 text-muted-foreground"
-                          >
-                            No items found
-                          </td>
-                        </tr>
-                      ) : (
-                        items.map((item) => (
-                          <tr
-                            key={item.id}
-                            className="border-b hover:bg-muted/50 transition-colors"
-                          >
-                            <td className="py-4 px-4">{item.sku}</td>
-                            <td className="py-4 px-4">
-                              <div className="max-w-xs truncate">
-                                {item.description}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">{item.brand}</td>
-                            <td className="py-4 px-4">
-                              <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 inline-block">
-                                {item.category}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                ${
-                                  item.quantityOnHand === 0
-                                    ? "bg-red-100 text-red-800"
-                                    : item.quantityOnHand <=
-                                      item.lowStockThreshold
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-green-100 text-green-800"
-                                }`}
-                              >
-                                {item.quantityOnHand}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              {formatCurrency(
-                                currency === "CAD"
-                                  ? item.costCad || 0
-                                  : convertCurrency(item.costCad || 0, "CAD")
-                              )}
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="max-w-xs truncate">
-                                {item.warehouseLocation || "N/A"}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-3 text-xs"
-                                  onClick={() => handleView(item.id.toString())}
-                                >
-                                  View
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-3 text-xs"
-                                  onClick={() => handleEdit(item.id.toString())}
-                                >
-                                  Edit
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function InventoryTableRow({
-  id,
-  sku,
-  name,
-  brand,
-  stock,
-  unitPrice,
-  warehouse_location,
-  status,
-  category,
-  onView,
-  onEdit
-}: InventoryTableRowProps) {
-  const getStatusClass = (stock: number, minStockLevel: number) => {
-    if (stock === 0) return "status-declined"
-    if (stock <= minStockLevel) return "status-pending"
-    return "status-processed"
-  }
-
-  return (
-    <tr className="border-b">
-      <td className="py-3">{sku}</td>
-      <td className="py-3">{name}</td>
-      <td className="py-3">{brand}</td>
-      <td className="py-3">
-        <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 inline-block">
-          {category}
-        </div>
-      </td>
-      <td className="py-3">
-        <span className={getStatusClass(stock, 5)}>{stock}</span>
-      </td>
-      <td className="py-3">${unitPrice ? unitPrice.toFixed(2) : '0.00'}</td>
-      <td className="py-3">{warehouse_location}</td>
-      <td className="py-3">
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onView(id)}>
-            View
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => onEdit(id)}>
-            Edit
-          </Button>
-        </div>
-      </td>
-    </tr>
   )
 }

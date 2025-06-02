@@ -4,40 +4,92 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowUpDown, Building, Users } from "lucide-react"
+import { Building, Users } from "lucide-react"
 import { useCurrency } from "@/contexts/currency-context"
 import { useEffect, useState } from "react"
 import { customerApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
+import { useRouter } from "next/navigation"
 
-interface CustomerTableRowProps {
+// PrimeReact imports
+import { DataTable } from 'primereact/datatable'
+import { Column } from 'primereact/column'
+import { FilterMatchMode } from 'primereact/api'
+import { InputText } from 'primereact/inputtext'
+import { Dropdown } from 'primereact/dropdown'
+import { Tag } from 'primereact/tag'
+import { Calendar } from 'primereact/calendar'
+
+// PrimeReact CSS imports
+import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/primereact.min.css'
+import 'primeicons/primeicons.css'
+
+interface Customer {
   id: string
   name: string
   email: string
-  type: string
   phone: string
+  type: string
+  lastOrder: string | null
+  totalOrders: number
+  totalSpentCAD: number
+  createdAt: string
+  updatedAt: string
   status: string
+  address: string | null
+  city: string | null
+  country: string | null
 }
 
 export default function CustomerManagement() {
-  const [customers, setCustomers] = useState<any[]>([])
+  const router = useRouter()
+  const { currency, formatCurrency, convertCurrency } = useCurrency()
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
+  const [globalFilterValue, setGlobalFilterValue] = useState("")
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [stats, setStats] = useState({
     total: 0,
     dealers: 0,
-    wholesalers: 0
+    wholesalers: 0,
+    retailers: 0,
+    direct: 0
   })
+  const [filters, setFilters] = useState({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    email: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    type: { value: null, matchMode: FilterMatchMode.EQUALS },
+    phone: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    city: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    lastOrder: { value: null as Date | null, matchMode: FilterMatchMode.DATE_IS }
+  })
+
+  const customerTypeOptions = [
+    { label: 'Dealer', value: 'DEALER' },
+    { label: 'Wholesaler', value: 'WHOLESALER' },
+    { label: 'Retailer', value: 'RETAILER' },
+    { label: 'Direct', value: 'DIRECT' }
+  ]
+
+  const sortOptions = [
+    { label: 'Newest First', value: 'newest' },
+    { label: 'Oldest First', value: 'oldest' },
+    { label: 'Name A-Z', value: 'name_asc' },
+    { label: 'Name Z-A', value: 'name_desc' },
+    { label: 'Total Spent High-Low', value: 'spent_desc' },
+    { label: 'Total Spent Low-High', value: 'spent_asc' }
+  ]
 
   useEffect(() => {
     fetchCustomers()
   }, [selectedTab])
-  console.log("cusomtera", customers);
 
   const fetchCustomers = async () => {
     try {
@@ -47,15 +99,16 @@ export default function CustomerManagement() {
       const response = await customerApi.list(params)
 
       if (response.success && response.data) {
-        const customerData = response.data as any[]
+        const customerData = response.data as Customer[]
         setCustomers(customerData)
 
         // Calculate statistics
         setStats({
           total: customerData.length,
           dealers: customerData.filter((c) => c.type === "DEALER").length,
-          wholesalers: customerData.filter((c) => c.type === "WHOLESALER")
-            .length,
+          wholesalers: customerData.filter((c) => c.type === "WHOLESALER").length,
+          retailers: customerData.filter((c) => c.type === "RETAILER").length,
+          direct: customerData.filter((c) => c.type === "DIRECT").length,
         })
       } else {
         setError("Failed to load customers")
@@ -81,7 +134,7 @@ export default function CustomerManagement() {
         type: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
       })
       if (response.success && response.data) {
-        setCustomers(response.data as any[])
+        setCustomers(response.data as Customer[])
       } else {
         setError("Failed to search customers")
         toast.error("Failed to search customers")
@@ -94,6 +147,228 @@ export default function CustomerManagement() {
     }
   }
 
+  // Handle row click to navigate to customer details
+  const onRowClick = (event: any) => {
+    const customerData = event.data as Customer
+    router.push(`/customers/${customerData.id}`)
+  }
+
+  // Handle row selection for visual feedback
+  const onSelectionChange = (event: any) => {
+    setSelectedCustomer(event.value)
+  }
+
+  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    let _filters = { ...filters }
+    // @ts-ignore
+    _filters['global'].value = value
+    setFilters(_filters)
+    setGlobalFilterValue(value)
+  }
+
+  const renderHeader = () => {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
+          {/* Left side - Sort and Date controls */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <i className="pi pi-sort-alt text-muted-foreground" />
+              <Dropdown 
+                options={sortOptions} 
+                placeholder="Sort by..." 
+                className="w-[200px] border rounded-md"
+                panelClassName="min-w-[200px]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <i className="pi pi-calendar text-muted-foreground" />
+              <Calendar 
+                value={filters.lastOrder.value} 
+                onChange={(e) => {
+                  let _filters = { ...filters };
+                  _filters.lastOrder.value = e.value || null;
+                  setFilters(_filters);
+                }}
+                placeholder="Filter by last order date"
+                className="w-[200px] border rounded-md"
+                showIcon
+                dateFormat="dd/mm/yy"
+              />
+            </div>
+          </div>
+
+          {/* Right side - Search and Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <i className="pi pi-search" />
+              </span>
+              <InputText 
+                value={globalFilterValue} 
+                onChange={onGlobalFilterChange} 
+                placeholder="Search customers by name, email, phone..."
+                className="w-full sm:w-[400px] pl-9 h-10 border rounded-md bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button asChild className="gap-2 h-10 px-4">
+                <a href="/customers/new">
+                  <i className="pi pi-plus" />
+                  New Customer
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const customerTypeBodyTemplate = (rowData: Customer) => {
+    const typeMap = {
+      DEALER: { severity: 'info', label: 'Dealer' },
+      WHOLESALER: { severity: 'success', label: 'Wholesaler' },
+      RETAILER: { severity: 'warning', label: 'Retailer' },
+      DIRECT: { severity: 'danger', label: 'Direct' }
+    }
+    
+    const type = typeMap[rowData.type as keyof typeof typeMap]
+    return <Tag value={type?.label} severity={type?.severity as any} />
+  }
+
+  const nameBodyTemplate = (rowData: Customer) => {
+    return (
+      <div className="flex flex-col">
+        <div className="font-medium">{rowData.name}</div>
+        {rowData.email && (
+          <div className="text-xs text-muted-foreground">{rowData.email}</div>
+        )}
+      </div>
+    )
+  }
+
+  const contactBodyTemplate = (rowData: Customer) => {
+    return (
+      <div className="flex flex-col">
+        {rowData.phone && (
+          <div className="text-sm">{rowData.phone}</div>
+        )}
+        {rowData.city && (
+          <div className="text-xs text-muted-foreground">
+            {rowData.city}{rowData.country && `, ${rowData.country}`}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const lastOrderBodyTemplate = (rowData: Customer) => {
+    if (!rowData.lastOrder) {
+      return <span className="text-muted-foreground">Never</span>
+    }
+    
+    const date = new Date(rowData.lastOrder)
+    const isRecent = Date.now() - date.getTime() < 30 * 24 * 60 * 60 * 1000 // Less than 30 days
+    
+    return (
+      <div className="text-sm">
+        <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
+          {date.toLocaleDateString()}
+        </div>
+        <div className="text-muted-foreground text-xs">
+          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {isRecent && <span className="ml-1 text-primary">•</span>}
+        </div>
+      </div>
+    )
+  }
+
+  const totalSpentBodyTemplate = (rowData: Customer) => {
+    if (!rowData.totalSpentCAD || rowData.totalSpentCAD === 0) {
+      return <span className="text-muted-foreground">-</span>
+    }
+    
+    // Convert from CAD (database stores in CAD) to selected currency if needed
+    const convertedAmount = currency === 'CAD' 
+      ? rowData.totalSpentCAD 
+      : convertCurrency(rowData.totalSpentCAD, 'CAD')
+    
+    return (
+      <div className="text-sm font-medium">
+        {formatCurrency(convertedAmount)}
+      </div>
+    )
+  }
+
+  const ordersBodyTemplate = (rowData: Customer) => {
+    return (
+      <div className="text-sm">
+        <div className="font-medium">{rowData.totalOrders}</div>
+        <div className="text-muted-foreground text-xs">
+          {rowData.totalOrders === 1 ? 'order' : 'orders'}
+        </div>
+      </div>
+    )
+  }
+
+  const actionsBodyTemplate = (rowData: Customer) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-3 text-xs"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/customers/${rowData.id}`)
+          }}
+        >
+          View
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-3 text-xs"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/customers/${rowData.id}/edit`)
+          }}
+        >
+          Edit
+        </Button>
+      </div>
+    )
+  }
+
+  const typeFilterTemplate = (options: any) => {
+    return (
+      <Dropdown 
+        value={options.value} 
+        options={customerTypeOptions} 
+        onChange={(e) => options.filterCallback(e.value)} 
+        placeholder="Select Type"
+        className="p-column-filter"
+        showClear
+      />
+    )
+  }
+
+  const dateFilterTemplate = (options: any) => {
+    return (
+      <Calendar 
+        value={options.value} 
+        onChange={(e) => options.filterCallback(e.value)} 
+        placeholder="Select Date"
+        dateFormat="mm/dd/yy"
+        className="p-column-filter"
+      />
+    )
+  }
+
+  const header = renderHeader()
+
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -104,7 +379,7 @@ export default function CustomerManagement() {
           showNewCustomer
         />
         <div className="flex-1 overflow-auto p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4 flex items-center gap-4">
               <div className="bg-blue-100 p-3 rounded-full">
                 <Users className="h-6 w-6 text-blue-600" />
@@ -136,198 +411,156 @@ export default function CustomerManagement() {
                 <div className="text-2xl font-bold">{stats.wholesalers}</div>
               </div>
             </Card>
+
+            <Card className="p-4 flex items-center gap-4">
+              <div className="bg-orange-100 p-3 rounded-full">
+                <Building className="h-6 w-6 text-orange-600" />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Retailers</div>
+                <div className="text-2xl font-bold">{stats.retailers}</div>
+              </div>
+            </Card>
           </div>
 
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Customer List</h2>
-              <div className="flex gap-2">
-                <Input
-                  type="search"
-                  placeholder="Search customers..."
-                  className="w-64"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <Button onClick={handleSearch}>Search</Button>
-                <Button asChild>
-                  <a href="/customers/new">New Customer</a>
-                </Button>
-              </div>
+          <div className="bg-background border rounded-lg overflow-hidden">
+            <div className="p-4">
+              <h2 className="text-lg font-medium mb-2">Customer List</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Review and manage all customer information. Click on any row to view details.
+              </p>
+
+              <Tabs defaultValue="all" onValueChange={setSelectedTab}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="all" className="relative">
+                    All
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                      {stats.total}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="dealer" className="relative">
+                    Dealers
+                    <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                      {stats.dealers}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="wholesaler" className="relative">
+                    Wholesalers
+                    <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      {stats.wholesalers}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="retailer" className="relative">
+                    Retailers
+                    <span className="ml-2 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                      {stats.retailers}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="direct" className="relative">
+                    Direct
+                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                      {stats.direct}
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value={selectedTab} className="m-0">
+                  {header}
+                  {loading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <Spinner size={32} />
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-4 text-red-500">
+                      {error}
+                    </div>
+                  ) : (
+                    <div className="card">
+                      <DataTable 
+                        key={`customers-table-${currency}`}
+                        value={customers}
+                        paginator 
+                        rows={10} 
+                        rowsPerPageOptions={[5, 10, 25, 50]}
+                        dataKey="id"
+                        filters={filters}
+                        globalFilterFields={['name', 'email', 'phone', 'type', 'city']}
+                        emptyMessage="No customers found."
+                        loading={loading}
+                        sortMode="multiple"
+                        removableSort
+                        showGridlines
+                        stripedRows
+                        size="small"
+                        className="p-datatable-sm cursor-pointer"
+                        selectionMode="single"
+                        selection={selectedCustomer}
+                        onSelectionChange={onSelectionChange}
+                        onRowClick={onRowClick}
+                        rowHover
+                        tableStyle={{ minWidth: '50rem' }}
+                      >
+                        <Column 
+                          field="name" 
+                          header="Customer" 
+                          body={nameBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '200px' }}
+                        />
+                        <Column 
+                          field="type" 
+                          header="Type" 
+                          body={customerTypeBodyTemplate}
+                          sortable 
+                          filter
+                          filterElement={typeFilterTemplate}
+                          style={{ minWidth: '120px' }}
+                        />
+                        <Column 
+                          field="phone" 
+                          header="Contact" 
+                          body={contactBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '180px' }}
+                        />
+                        <Column 
+                          field="lastOrder" 
+                          header="Last Order" 
+                          body={lastOrderBodyTemplate}
+                          sortable 
+                          filter
+                          filterElement={dateFilterTemplate}
+                          style={{ minWidth: '120px' }}
+                        />
+                        <Column 
+                          field="totalOrders" 
+                          header="Orders" 
+                          body={ordersBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '100px' }}
+                        />
+                        <Column 
+                          field="totalSpentCAD" 
+                          header={`Total Spent (${currency})`} 
+                          body={totalSpentBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '140px' }}
+                          key={`total-spent-customers-${currency}`}
+                        />
+                        <Column 
+                          header="Actions" 
+                          body={actionsBodyTemplate}
+                          style={{ minWidth: '120px' }}
+                        />
+                      </DataTable>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
-
-            <Tabs defaultValue="all" onValueChange={setSelectedTab}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="wholesaler">Wholesalers</TabsTrigger>
-                <TabsTrigger value="dealer">Dealers</TabsTrigger>
-                <TabsTrigger value="retailer">Retailers</TabsTrigger>
-                <TabsTrigger value="direct">Direct</TabsTrigger>
-              </TabsList>
-
-              <div className="flex justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <select className="border rounded-md px-3 py-1.5 text-sm bg-background text-foreground">
-                    <option>Newest First</option>
-                    <option>Oldest First</option>
-                    <option>Name A-Z</option>
-                    <option>Name Z-A</option>
-                  </select>
-                </div>
-              </div>
-
-              <TabsContent value={selectedTab} className="m-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Customer Name
-                            <ArrowUpDown className="h-4 w-4" />
-                          </div>
-                        </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Type
-                            <ArrowUpDown className="h-4 w-4" />
-                          </div>
-                        </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Last Order
-                            <ArrowUpDown className="h-4 w-4" />
-                          </div>
-                        </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Total Orders
-                            <ArrowUpDown className="h-4 w-4" />
-                          </div>
-                        </th>
-                        <th className="pb-2 font-medium">
-                          <div className="flex items-center gap-1">
-                            Total Spent
-                            <ArrowUpDown className="h-4 w-4" />
-                          </div>
-                        </th>
-                        <th className="pb-2 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr>
-                          <td colSpan={7} className="text-center py-8">
-                            <div className="flex justify-center items-center">
-                              <Spinner size={32} />
-                            </div>
-                          </td>
-                        </tr>
-                      ) : error ? (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="text-center py-4 text-red-500"
-                          >
-                            {error}
-                          </td>
-                        </tr>
-                      ) : customers.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="text-center py-4">
-                            No customers found
-                          </td>
-                        </tr>
-                      ) : (
-                        customers.map((customer) => (
-                          <CustomerRow
-                            key={customer.id}
-                            id={customer.id}
-                            name={customer.name}
-                            type={customer.type}
-                            lastOrder={customer.lastOrder || "Never"}
-                            totalOrders={customer.totalOrders || 0}
-                            totalSpentCAD={customer.totalSpentCAD || 0}
-                          />
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="dealers" className="m-0">
-                {/* Similar table structure for dealers */}
-              </TabsContent>
-
-              <TabsContent value="wholesalers" className="m-0">
-                {/* Similar table structure for wholesalers */}
-              </TabsContent>
-            </Tabs>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-interface CustomerRowProps {
-  id: string
-  name: string
-  type: string
-  lastOrder: string
-  totalOrders: number
-  totalSpentCAD: number
-}
-
-function CustomerRow({
-  id,
-  name,
-  type,
-  lastOrder,
-  totalOrders,
-  totalSpentCAD,
-}: CustomerRowProps) {
-  const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const router = require('next/navigation').useRouter();
-
-  // Format the total spent based on the selected currency
-  const formattedTotalSpent = formatCurrency(
-    currency === "CAD" ? totalSpentCAD : convertCurrency(totalSpentCAD, "CAD")
-  )
-
-  return (
-    <tr className="border-b">
-      <td className="py-3">{name}</td>
-      <td className="py-3">
-        <span
-          className={type === "Dealer" ? "status-processed" : "status-pending"}
-        >
-          {type}
-        </span>
-      </td>
-      <td className="py-3">{lastOrder}</td>
-      <td className="py-3">{totalOrders}</td>
-      <td className="py-3">{formattedTotalSpent}</td>
-      <td className="py-3">
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push(`/customers/${id}`)}
-          >
-            View
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push(`/customers/${id}/edit`)}
-          >
-            Edit
-          </Button>
-        </div>
-      </td>
-    </tr>
   )
 }
