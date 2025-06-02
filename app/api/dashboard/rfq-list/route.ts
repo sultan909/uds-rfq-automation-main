@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         customerId: rfqs.customerId,
         customerName: customers.name,
         createdAt: rfqs.createdAt,
+        updatedAt: rfqs.updatedAt,
         status: rfqs.status,
         itemCount: sql<number>`(SELECT COUNT(*) FROM rfq_items WHERE rfq_id = ${rfqs.id})`
       })
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
           )
         )
       )
-      .orderBy(desc(rfqs.createdAt))
+      .orderBy(desc(rfqs.updatedAt))
       .limit(10);
 
     // Separate active and completed RFQs

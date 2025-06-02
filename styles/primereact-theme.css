@@ -475,3 +475,60 @@
 .search-icon:hover {
   color: var(--p-primary-color) !important;
 }
+
+/* Enhanced Date Column Styling */
+.date-column {
+  min-width: 120px !important;
+}
+
+.date-cell {
+  line-height: 1.2 !important;
+}
+
+.date-primary {
+  font-weight: 500 !important;
+  color: var(--p-text-color) !important;
+}
+
+.date-secondary {
+  font-size: 0.75rem !important;
+  color: var(--p-text-muted-color) !important;
+  margin-top: 2px !important;
+}
+
+.date-recent {
+  color: var(--p-primary-color) !important;
+}
+
+.date-recent-indicator {
+  color: var(--p-primary-color) !important;
+  font-weight: bold !important;
+  margin-left: 4px !important;
+}
+
+/* Enhanced table responsiveness for date columns */
+@media (max-width: 768px) {
+  .date-column {
+    min-width: 100px !important;
+  }
+  
+  .date-secondary {
+    display: none !important;
+  }
+}
+
+/* Tooltip styling for truncated dates on mobile */
+.date-tooltip {
+  background: var(--p-surface-700) !important;
+  color: var(--p-surface-0) !important;
+  padding: 0.5rem !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.875rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.dark .date-tooltip {
+  background: var(--p-surface-800) !important;
+  color: var(--p-surface-50) !important;
+  box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.1), 0 2px 4px -1px rgba(255, 255, 255, 0.06) !important;
+}

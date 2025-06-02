@@ -55,6 +55,7 @@ interface RfqListItem {
   rfqNumber: string
   customerName: string
   createdAt: string
+  updatedAt: string
   status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "COMPLETED"
   itemCount: number
 }
@@ -121,9 +122,31 @@ export default function Dashboard() {
     return <Tag value={status.label} severity={status.severity} />
   }
 
-  // Date template
-  const dateBodyTemplate = (rowData: RfqListItem) => {
-    return new Date(rowData.createdAt).toLocaleDateString()
+  // Date template functions
+  const createdDateBodyTemplate = (rowData: RfqListItem) => {
+    const date = new Date(rowData.createdAt)
+    return (
+      <div className="text-sm">
+        <div className="font-medium">{date.toLocaleDateString()}</div>
+        <div className="text-muted-foreground text-xs">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+      </div>
+    )
+  }
+
+  const updatedDateBodyTemplate = (rowData: RfqListItem) => {
+    const date = new Date(rowData.updatedAt)
+    const isRecent = Date.now() - date.getTime() < 24 * 60 * 60 * 1000 // Less than 24 hours
+    return (
+      <div className="text-sm">
+        <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
+          {date.toLocaleDateString()}
+        </div>
+        <div className="text-muted-foreground text-xs">
+          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {isRecent && <span className="ml-1 text-primary">•</span>}
+        </div>
+      </div>
+    )
   }
 
   if (loading)
@@ -226,8 +249,15 @@ export default function Dashboard() {
                   />
                   <Column 
                     field="createdAt" 
-                    header="Date" 
-                    body={dateBodyTemplate}
+                    header="Created" 
+                    body={createdDateBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                  <Column 
+                    field="updatedAt" 
+                    header="Updated" 
+                    body={updatedDateBodyTemplate}
                     sortable 
                     style={{ minWidth: '120px' }}
                   />
@@ -288,8 +318,15 @@ export default function Dashboard() {
                   />
                   <Column 
                     field="createdAt" 
-                    header="Date" 
-                    body={dateBodyTemplate}
+                    header="Created" 
+                    body={createdDateBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                  <Column 
+                    field="updatedAt" 
+                    header="Updated" 
+                    body={updatedDateBodyTemplate}
                     sortable 
                     style={{ minWidth: '120px' }}
                   />
