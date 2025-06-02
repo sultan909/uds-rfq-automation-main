@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CurrencyProvider } from "@/contexts/currency-context"
+import { PrimeReactProvider } from 'primereact/api'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -23,9 +24,21 @@ export default function RootLayout({
     className="light"
     style={{colorScheme: "light"}}>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light">
-          <CurrencyProvider>{children}</CurrencyProvider>
-        </ThemeProvider>
+        <PrimeReactProvider value={{ 
+          ripple: true,
+          hideOverlaysOnDocumentScrolling: false,
+          autoZIndex: true,
+          zIndex: {
+            modal: 1100,
+            overlay: 1000,
+            menu: 1000,
+            tooltip: 1100
+          }
+        }}>
+          <ThemeProvider attribute="class" defaultTheme="light">
+            <CurrencyProvider>{children}</CurrencyProvider>
+          </ThemeProvider>
+        </PrimeReactProvider>
       </body>
     </html>
   )
