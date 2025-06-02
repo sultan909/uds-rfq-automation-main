@@ -157,7 +157,7 @@ export default function Dashboard() {
       return <span className="text-muted-foreground">-</span>
     }
     
-    // Convert from CAD to selected currency if needed
+    // Convert from CAD (database stores in CAD) to selected currency if needed
     const convertedAmount = currency === 'CAD' 
       ? rowData.totalBudget 
       : convertCurrency(rowData.totalBudget, 'CAD')
@@ -242,6 +242,7 @@ export default function Dashboard() {
               </div>
               <div className="card">
                 <DataTable 
+                  key={`active-rfqs-${currency}`}
                   value={rfqList?.activeRfqs || []}
                   paginator={rfqList?.activeRfqs && rfqList.activeRfqs.length > 5}
                   rows={5}
@@ -318,6 +319,7 @@ export default function Dashboard() {
               </div>
               <div className="card">
                 <DataTable 
+                  key={`completed-rfqs-${currency}`}
                   value={rfqList?.completedRfqs || []}
                   paginator={rfqList?.completedRfqs && rfqList.completedRfqs.length > 5}
                   rows={5}

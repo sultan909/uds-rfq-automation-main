@@ -218,7 +218,7 @@ export default function RfqManagement() {
       return <span className="text-muted-foreground">-</span>
     }
     
-    // Convert from CAD to selected currency if needed
+    // Convert from CAD (database stores in CAD) to selected currency if needed
     const convertedAmount = currency === 'CAD' 
       ? rowData.totalBudget 
       : convertCurrency(rowData.totalBudget, 'CAD')
@@ -297,6 +297,7 @@ export default function RfqManagement() {
                   ) : (
                     <div className="card">
                       <DataTable 
+                        key={`rfq-table-${currency}`}
                         value={rfqs}
                         paginator 
                         rows={10} 

@@ -40,12 +40,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+    if (currency === "CAD") {
+      return `$${amount.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+    } else {
+      return `US$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+    }
   }
 
   // Always get the USD to CAD rate (the rate should always show 1 USD = X CAD)
