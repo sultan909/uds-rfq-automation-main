@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import custom PrimeReact theme */
+@import '../styles/primereact-theme.css';
+
 @layer base {
   :root {
     --background: 0 0% 100%;

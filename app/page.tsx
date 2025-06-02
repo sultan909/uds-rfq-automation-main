@@ -3,11 +3,24 @@
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Card } from "@/components/ui/card"
-import {Spinner} from "@/components/spinner"
+import { Spinner } from "@/components/spinner"
 import { ArrowUpIcon, ArrowDownIcon, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useCurrency } from "@/contexts/currency-context"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+
+// PrimeReact imports
+import { DataTable } from 'primereact/datatable'
+import { Column } from 'primereact/column'
+import { Tag } from 'primereact/tag'
+import { Button } from 'primereact/button'
+
+// PrimeReact CSS imports
+import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/primereact.min.css'
+import 'primeicons/primeicons.css'
+import '../styles/primereact-theme.css'
 
 interface DashboardMetrics {
   rfqMetrics: {
@@ -52,6 +65,7 @@ interface DashboardRfqList {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [rfqList, setRfqList] = useState<DashboardRfqList | null>(null)
   const [loading, setLoading] = useState(true)
@@ -86,8 +100,31 @@ export default function Dashboard() {
 
     fetchData()
   }, [])
-  console.log("rfqq",rfqList);
-  
+
+  // Handle row click for navigation
+  const onRowClick = (event: any) => {
+    const rfqData = event.data as RfqListItem
+    router.push(`/rfq-management/${rfqData.id}`)
+  }
+
+  // Status template for PrimeReact Tag component
+  const statusBodyTemplate = (rowData: RfqListItem) => {
+    const statusMap = {
+      PENDING: { severity: 'warning' as const, label: 'Pending' },
+      IN_REVIEW: { severity: 'info' as const, label: 'In Review' },
+      APPROVED: { severity: 'success' as const, label: 'Approved' },
+      REJECTED: { severity: 'danger' as const, label: 'Rejected' },
+      COMPLETED: { severity: 'success' as const, label: 'Completed' }
+    }
+    
+    const status = statusMap[rowData.status]
+    return <Tag value={status.label} severity={status.severity} />
+  }
+
+  // Date template
+  const dateBodyTemplate = (rowData: RfqListItem) => {
+    return new Date(rowData.createdAt).toLocaleDateString()
+  }
 
   if (loading)
     return (
@@ -111,10 +148,9 @@ export default function Dashboard() {
           title="Dashboard"
           subtitle="Overview of your quotes, inventory, and sales"
           showNewRfq
-          // showDateFilter
         />
         <div className="flex-1 overflow-auto p-4">
-          {/* Global Search - move this above KPI cards */}
+          {/* Global Search */}
           <div className="mb-6 flex items-center justify-between">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -133,6 +169,7 @@ export default function Dashboard() {
             </a>
           </div>
 
+          {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <MetricCard
               label="Active RFQs"
@@ -160,54 +197,54 @@ export default function Dashboard() {
                   View all
                 </a>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium text-foreground">
-                        RFQ Number
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Customer
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">Date</th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Items
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Status
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rfqList?.activeRfqs.map((rfq) => (
-                      <tr key={rfq.id} className="border-b text-foreground">
-                        <td className="py-3">{rfq.rfqNumber}</td>
-                        <td className="py-3">{rfq.customerName}</td>
-                        <td className="py-3">
-                          {new Date(rfq.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="py-3">{rfq.itemCount}</td>
-                        <td className="py-3">
-                          <span className={getStatusClass(rfq.status)}>
-                            {getStatusLabel(rfq.status)}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <a
-                            href={`/rfq-management/${rfq.id}`}
-                            className="text-primary hover:underline"
-                          >
-                            View
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="card">
+                <DataTable 
+                  value={rfqList?.activeRfqs || []}
+                  paginator={rfqList?.activeRfqs && rfqList.activeRfqs.length > 5}
+                  rows={5}
+                  rowsPerPageOptions={[5, 10, 15]}
+                  dataKey="id"
+                  emptyMessage="No active RFQs found."
+                  loading={loading}
+                  className="p-datatable-sm"
+                  onRowClick={onRowClick}
+                  rowHover
+                  size="small"
+                  tableStyle={{ minWidth: '50rem' }}
+                >
+                  <Column 
+                    field="rfqNumber" 
+                    header="RFQ Number" 
+                    sortable 
+                    style={{ minWidth: '150px' }}
+                  />
+                  <Column 
+                    field="customerName" 
+                    header="Customer" 
+                    sortable 
+                    style={{ minWidth: '180px' }}
+                  />
+                  <Column 
+                    field="createdAt" 
+                    header="Date" 
+                    body={dateBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                  <Column 
+                    field="itemCount" 
+                    header="Items" 
+                    sortable 
+                    style={{ minWidth: '80px' }}
+                  />
+                  <Column 
+                    field="status" 
+                    header="Status" 
+                    body={statusBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                </DataTable>
               </div>
             </Card>
 
@@ -222,54 +259,54 @@ export default function Dashboard() {
                   View all
                 </a>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium text-foreground">
-                        RFQ Number
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Customer
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">Date</th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Items
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Status
-                      </th>
-                      <th className="pb-2 font-medium text-foreground">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rfqList?.completedRfqs.map((rfq) => (
-                      <tr key={rfq.id} className="border-b text-foreground">
-                        <td className="py-3">{rfq.rfqNumber}</td>
-                        <td className="py-3">{rfq.customerName}</td>
-                        <td className="py-3">
-                          {new Date(rfq.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="py-3">{rfq.itemCount}</td>
-                        <td className="py-3">
-                          <span className={getStatusClass(rfq.status)}>
-                            {getStatusLabel(rfq.status)}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <a
-                            href={`/rfq-management/${rfq.id}`}
-                            className="text-primary hover:underline"
-                          >
-                            View
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="card">
+                <DataTable 
+                  value={rfqList?.completedRfqs || []}
+                  paginator={rfqList?.completedRfqs && rfqList.completedRfqs.length > 5}
+                  rows={5}
+                  rowsPerPageOptions={[5, 10, 15]}
+                  dataKey="id"
+                  emptyMessage="No completed RFQs found."
+                  loading={loading}
+                  className="p-datatable-sm"
+                  onRowClick={onRowClick}
+                  rowHover
+                  size="small"
+                  tableStyle={{ minWidth: '50rem' }}
+                >
+                  <Column 
+                    field="rfqNumber" 
+                    header="RFQ Number" 
+                    sortable 
+                    style={{ minWidth: '150px' }}
+                  />
+                  <Column 
+                    field="customerName" 
+                    header="Customer" 
+                    sortable 
+                    style={{ minWidth: '180px' }}
+                  />
+                  <Column 
+                    field="createdAt" 
+                    header="Date" 
+                    body={dateBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                  <Column 
+                    field="itemCount" 
+                    header="Items" 
+                    sortable 
+                    style={{ minWidth: '80px' }}
+                  />
+                  <Column 
+                    field="status" 
+                    header="Status" 
+                    body={statusBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                </DataTable>
               </div>
             </Card>
           </div>
@@ -371,27 +408,4 @@ function MetricCard({ label, value, color }: MetricCardProps) {
       <div className="metric-value">{value}</div>
     </div>
   );
-}
-
-// Helper functions for status display
-function getStatusClass(status: string) {
-  const statusClasses = {
-    PENDING: "status-new",
-    IN_REVIEW: "status-draft",
-    APPROVED: "status-accepted",
-    REJECTED: "status-declined",
-    COMPLETED: "status-processed"
-  }
-  return statusClasses[status as keyof typeof statusClasses]
-}
-
-function getStatusLabel(status: string) {
-  const statusLabels = {
-    PENDING: "Pending",
-    IN_REVIEW: "In Review",
-    APPROVED: "Approved",
-    REJECTED: "Rejected",
-    COMPLETED: "Completed"
-  }
-  return statusLabels[status as keyof typeof statusLabels]
 }
