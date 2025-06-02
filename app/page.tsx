@@ -7,7 +7,7 @@ import { Spinner } from "@/components/spinner"
 import { ArrowUpIcon, ArrowDownIcon, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useCurrency } from "@/contexts/currency-context"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 
 // PrimeReact imports
@@ -74,6 +74,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Force re-render when currency changes
+  const [currencyKey, setCurrencyKey] = useState(0)
+  
+  useEffect(() => {
+    setCurrencyKey(prev => prev + 1)
+  }, [currency])
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -104,14 +111,21 @@ export default function Dashboard() {
     fetchData()
   }, [])
 
-  // Handle row click for navigation
-  const onRowClick = (event: any) => {
-    const rfqData = event.data as RfqListItem
-    router.push(`/rfq-management/${rfqData.id}`)
-  }
+  // Handle row click for navigation with useCallback to prevent re-renders
+  const onRowClick = useCallback((event: any) => {
+    try {
+      const rfqData = event.data as RfqListItem
+      if (rfqData && rfqData.id) {
+        console.log('Navigating to RFQ:', rfqData.id) // Debug log
+        router.push(`/rfq-management/${rfqData.id}`)
+      }
+    } catch (error) {
+      console.error('Error navigating to RFQ:', error)
+    }
+  }, [router])
 
   // Status template for PrimeReact Tag component
-  const statusBodyTemplate = (rowData: RfqListItem) => {
+  const statusBodyTemplate = useCallback((rowData: RfqListItem) => {
     const statusMap = {
       PENDING: { severity: 'warning' as const, label: 'Pending' },
       IN_REVIEW: { severity: 'info' as const, label: 'In Review' },
@@ -122,10 +136,10 @@ export default function Dashboard() {
     
     const status = statusMap[rowData.status]
     return <Tag value={status.label} severity={status.severity} />
-  }
+  }, [])
 
   // Date template functions
-  const createdDateBodyTemplate = (rowData: RfqListItem) => {
+  const createdDateBodyTemplate = useCallback((rowData: RfqListItem) => {
     const date = new Date(rowData.createdAt)
     return (
       <div className="text-sm">
@@ -133,9 +147,9 @@ export default function Dashboard() {
         <div className="text-muted-foreground text-xs">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
       </div>
     )
-  }
+  }, [])
 
-  const updatedDateBodyTemplate = (rowData: RfqListItem) => {
+  const updatedDateBodyTemplate = useCallback((rowData: RfqListItem) => {
     const date = new Date(rowData.updatedAt)
     const isRecent = Date.now() - date.getTime() < 24 * 60 * 60 * 1000 // Less than 24 hours
     return (
@@ -149,9 +163,9 @@ export default function Dashboard() {
         </div>
       </div>
     )
-  }
+  }, [])
 
-  // Total amount template function
+  // Total amount template function - NOT using useCallback so it updates with currency changes
   const totalAmountBodyTemplate = (rowData: RfqListItem) => {
     if (!rowData.totalBudget) {
       return <span className="text-muted-foreground">-</span>
@@ -242,7 +256,6 @@ export default function Dashboard() {
               </div>
               <div className="card">
                 <DataTable 
-                  key={`active-rfqs-${currency}`}
                   value={rfqList?.activeRfqs || []}
                   paginator={rfqList?.activeRfqs && rfqList.activeRfqs.length > 5}
                   rows={5}
@@ -254,7 +267,8 @@ export default function Dashboard() {
                   onRowClick={onRowClick}
                   rowHover
                   size="small"
-                  tableStyle={{ minWidth: '50rem' }}
+                  tableStyle={{ minWidth: '50rem', cursor: 'pointer' }}
+                  key={`active-rfqs-${currency}-${currencyKey}`}
                 >
                   <Column 
                     field="rfqNumber" 
@@ -294,6 +308,7 @@ export default function Dashboard() {
                     body={totalAmountBodyTemplate}
                     sortable 
                     style={{ minWidth: '120px' }}
+                    key={`total-amount-active-${currency}`}
                   />
                   <Column 
                     field="status" 
@@ -319,7 +334,6 @@ export default function Dashboard() {
               </div>
               <div className="card">
                 <DataTable 
-                  key={`completed-rfqs-${currency}`}
                   value={rfqList?.completedRfqs || []}
                   paginator={rfqList?.completedRfqs && rfqList.completedRfqs.length > 5}
                   rows={5}
@@ -331,7 +345,8 @@ export default function Dashboard() {
                   onRowClick={onRowClick}
                   rowHover
                   size="small"
-                  tableStyle={{ minWidth: '50rem' }}
+                  tableStyle={{ minWidth: '50rem', cursor: 'pointer' }}
+                  key={`completed-rfqs-${currency}-${currencyKey}`}
                 >
                   <Column 
                     field="rfqNumber" 
@@ -371,6 +386,7 @@ export default function Dashboard() {
                     body={totalAmountBodyTemplate}
                     sortable 
                     style={{ minWidth: '120px' }}
+                    key={`total-amount-completed-${currency}`}
                   />
                   <Column 
                     field="status" 

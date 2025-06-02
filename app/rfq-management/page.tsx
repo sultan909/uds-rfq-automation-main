@@ -365,6 +365,7 @@ export default function RfqManagement() {
                           body={totalAmountBodyTemplate}
                           sortable 
                           style={{ minWidth: '120px' }}
+                          key={`total-amount-rfq-${currency}`}
                         />
                         <Column 
                           field="status" 
