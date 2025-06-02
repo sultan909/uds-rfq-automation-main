@@ -8,6 +8,7 @@ import { useEffect, useState } from "react"
 import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
+import { useRouter } from "next/navigation"
 
 // PrimeReact imports
 import { DataTable } from 'primereact/datatable'
@@ -36,12 +37,14 @@ interface RfqData {
 }
 
 export default function RfqManagement() {
+  const router = useRouter()
   const [rfqs, setRfqs] = useState<RfqData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
   const [globalFilterValue, setGlobalFilterValue] = useState("")
+  const [selectedRfq, setSelectedRfq] = useState<RfqData | null>(null)
   const [filters, setFilters] = useState({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     rfqNumber: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -51,8 +54,7 @@ export default function RfqManagement() {
     createdAt: { value: null, matchMode: FilterMatchMode.DATE_IS }
   })
 
-  const statusOptions = [
-    { label: 'Pending', value: 'pending' },
+  const statusOptions = [    { label: 'Pending', value: 'pending' },
     { label: 'In Review', value: 'in_review' },
     { label: 'Approved', value: 'approved' },
     { label: 'Rejected', value: 'rejected' },
@@ -115,6 +117,17 @@ export default function RfqManagement() {
     }
   }
 
+  // Handle row click to navigate to RFQ details
+  const onRowClick = (event: any) => {
+    const rfqData = event.data as RfqData
+    router.push(`/rfq-management/${rfqData.id}`)
+  }
+
+  // Handle row selection for visual feedback
+  const onSelectionChange = (event: any) => {
+    setSelectedRfq(event.value)
+  }
+
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     let _filters = { ...filters }
@@ -123,7 +136,6 @@ export default function RfqManagement() {
     setFilters(_filters)
     setGlobalFilterValue(value)
   }
-
   const renderHeader = () => {
     return (
       <div className="flex justify-between items-center">
@@ -174,25 +186,6 @@ export default function RfqManagement() {
     return rowData.customer?.name || "Unknown"
   }
 
-  const actionBodyTemplate = (rowData: RfqData) => {
-    return (
-      <div className="flex gap-2">
-        <Button variant="ghost" size="sm" asChild>
-          <a href={`/rfq-management/${rowData.id}`}>
-            <i className="pi pi-eye mr-1"></i>
-            View
-          </a>
-        </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <a href={`/rfq-management/${rowData.id}/create-quote`}>
-            <i className="pi pi-file-edit mr-1"></i>
-            Quote
-          </a>
-        </Button>
-      </div>
-    )
-  }
-
   const statusFilterTemplate = (options: any) => {
     return (
       <Dropdown 
@@ -234,7 +227,7 @@ export default function RfqManagement() {
             <div className="p-4">
               <h2 className="text-lg font-medium mb-2">RFQ List</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Review and manage all request for quotes
+                Review and manage all request for quotes. Click on any row to view details.
               </p>
 
               <Tabs defaultValue="all" onValueChange={setSelectedTab}>
@@ -275,7 +268,13 @@ export default function RfqManagement() {
                         showGridlines
                         stripedRows
                         size="small"
-                        className="p-datatable-sm"
+                        className="p-datatable-sm cursor-pointer"
+                        selectionMode="single"
+                        selection={selectedRfq}
+                        onSelectionChange={onSelectionChange}
+                        onRowClick={onRowClick}
+                        rowHover
+                        tableStyle={{ minWidth: '50rem' }}
                       >
                         <Column 
                           field="rfqNumber" 
@@ -327,12 +326,6 @@ export default function RfqManagement() {
                           filter 
                           filterElement={statusFilterTemplate}
                           style={{ minWidth: '150px' }}
-                        />
-                        <Column 
-                          header="Actions" 
-                          body={actionBodyTemplate}
-                          exportable={false}
-                          style={{ minWidth: '200px' }}
                         />
                       </DataTable>
                     </div>
