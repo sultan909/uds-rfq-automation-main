@@ -31,6 +31,7 @@ interface RfqData {
     name: string
   }
   createdAt: string
+  updatedAt: string
   source: string
   itemCount: number
   status: string
@@ -178,8 +179,31 @@ export default function RfqManagement() {
     return <Tag value={status?.label} severity={status?.severity as any} />
   }
 
-  const dateBodyTemplate = (rowData: RfqData) => {
-    return new Date(rowData.createdAt).toLocaleDateString()
+  // Date template functions
+  const createdDateBodyTemplate = (rowData: RfqData) => {
+    const date = new Date(rowData.createdAt)
+    return (
+      <div className="text-sm">
+        <div className="font-medium">{date.toLocaleDateString()}</div>
+        <div className="text-muted-foreground text-xs">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+      </div>
+    )
+  }
+
+  const updatedDateBodyTemplate = (rowData: RfqData) => {
+    const date = new Date(rowData.updatedAt)
+    const isRecent = Date.now() - date.getTime() < 24 * 60 * 60 * 1000 // Less than 24 hours
+    return (
+      <div className="text-sm">
+        <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
+          {date.toLocaleDateString()}
+        </div>
+        <div className="text-muted-foreground text-xs">
+          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {isRecent && <span className="ml-1 text-primary">•</span>}
+        </div>
+      </div>
+    )
   }
 
   const customerBodyTemplate = (rowData: RfqData) => {
@@ -241,6 +265,7 @@ export default function RfqManagement() {
                 </TabsList>
 
                 <TabsContent value={selectedTab} className="m-0">
+                  {header}
                   {loading ? (
                     <div className="flex justify-center items-center py-8">
                       <Spinner size={32} />
@@ -258,9 +283,7 @@ export default function RfqManagement() {
                         rowsPerPageOptions={[5, 10, 25, 50]}
                         dataKey="id"
                         filters={filters}
-                        filterDisplay="row"
                         globalFilterFields={['rfqNumber', 'customer.name', 'source', 'status']}
-                        header={header}
                         emptyMessage="No RFQs found."
                         loading={loading}
                         sortMode="multiple"
@@ -280,8 +303,6 @@ export default function RfqManagement() {
                           field="rfqNumber" 
                           header="RFQ Number" 
                           sortable 
-                          filter 
-                          filterPlaceholder="Search by RFQ Number"
                           style={{ minWidth: '150px' }}
                         />
                         <Column 
@@ -289,33 +310,32 @@ export default function RfqManagement() {
                           header="Customer" 
                           body={customerBodyTemplate}
                           sortable 
-                          filter 
-                          filterPlaceholder="Search by Customer"
                           style={{ minWidth: '200px' }}
                         />
                         <Column 
                           field="createdAt" 
-                          header="Date" 
-                          body={dateBodyTemplate}
+                          header="Created" 
+                          body={createdDateBodyTemplate}
                           sortable 
-                          filter 
-                          filterElement={dateFilterTemplate}
-                          style={{ minWidth: '150px' }}
+                          style={{ minWidth: '120px' }}
+                        />
+                        <Column 
+                          field="updatedAt" 
+                          header="Updated" 
+                          body={updatedDateBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '120px' }}
                         />
                         <Column 
                           field="source" 
                           header="Source" 
                           sortable 
-                          filter 
-                          filterPlaceholder="Search by Source"
                           style={{ minWidth: '120px' }}
                         />
                         <Column 
                           field="itemCount" 
                           header="Items" 
                           sortable 
-                          filter 
-                          filterPlaceholder="Search by Item Count"
                           style={{ minWidth: '100px' }}
                         />
                         <Column 
@@ -323,8 +343,6 @@ export default function RfqManagement() {
                           header="Status" 
                           body={statusBodyTemplate}
                           sortable 
-                          filter 
-                          filterElement={statusFilterTemplate}
                           style={{ minWidth: '150px' }}
                         />
                       </DataTable>
