@@ -57,6 +57,7 @@ interface RfqListItem {
   createdAt: string
   updatedAt: string
   status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "COMPLETED"
+  totalBudget: number | null
   itemCount: number
 }
 
@@ -67,6 +68,7 @@ interface DashboardRfqList {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { currency, formatCurrency, convertCurrency } = useCurrency()
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [rfqList, setRfqList] = useState<DashboardRfqList | null>(null)
   const [loading, setLoading] = useState(true)
@@ -145,6 +147,24 @@ export default function Dashboard() {
           {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           {isRecent && <span className="ml-1 text-primary">•</span>}
         </div>
+      </div>
+    )
+  }
+
+  // Total amount template function
+  const totalAmountBodyTemplate = (rowData: RfqListItem) => {
+    if (!rowData.totalBudget) {
+      return <span className="text-muted-foreground">-</span>
+    }
+    
+    // Convert from CAD to selected currency if needed
+    const convertedAmount = currency === 'CAD' 
+      ? rowData.totalBudget 
+      : convertCurrency(rowData.totalBudget, 'CAD')
+    
+    return (
+      <div className="text-sm font-medium">
+        {formatCurrency(convertedAmount)}
       </div>
     )
   }
@@ -268,6 +288,13 @@ export default function Dashboard() {
                     style={{ minWidth: '80px' }}
                   />
                   <Column 
+                    field="totalBudget" 
+                    header="Total Amount" 
+                    body={totalAmountBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
+                  />
+                  <Column 
                     field="status" 
                     header="Status" 
                     body={statusBodyTemplate}
@@ -335,6 +362,13 @@ export default function Dashboard() {
                     header="Items" 
                     sortable 
                     style={{ minWidth: '80px' }}
+                  />
+                  <Column 
+                    field="totalBudget" 
+                    header="Total Amount" 
+                    body={totalAmountBodyTemplate}
+                    sortable 
+                    style={{ minWidth: '120px' }}
                   />
                   <Column 
                     field="status" 

@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         createdAt: rfqs.createdAt,
         updatedAt: rfqs.updatedAt,
         status: rfqs.status,
+        totalBudget: rfqs.totalBudget,
         itemCount: sql<number>`(SELECT COUNT(*) FROM rfq_items WHERE rfq_id = ${rfqs.id})`
       })
       .from(rfqs)

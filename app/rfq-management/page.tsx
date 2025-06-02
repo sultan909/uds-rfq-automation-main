@@ -9,6 +9,7 @@ import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
 import { useRouter } from "next/navigation"
+import { useCurrency } from "@/contexts/currency-context"
 
 // PrimeReact imports
 import { DataTable } from 'primereact/datatable'
@@ -34,11 +35,13 @@ interface RfqData {
   updatedAt: string
   source: string
   itemCount: number
+  totalBudget: number | null
   status: string
 }
 
 export default function RfqManagement() {
   const router = useRouter()
+  const { currency, formatCurrency, convertCurrency } = useCurrency()
   const [rfqs, setRfqs] = useState<RfqData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -210,6 +213,23 @@ export default function RfqManagement() {
     return rowData.customer?.name || "Unknown"
   }
 
+  const totalAmountBodyTemplate = (rowData: RfqData) => {
+    if (!rowData.totalBudget) {
+      return <span className="text-muted-foreground">-</span>
+    }
+    
+    // Convert from CAD to selected currency if needed
+    const convertedAmount = currency === 'CAD' 
+      ? rowData.totalBudget 
+      : convertCurrency(rowData.totalBudget, 'CAD')
+    
+    return (
+      <div className="text-sm font-medium">
+        {formatCurrency(convertedAmount)}
+      </div>
+    )
+  }
+
   const statusFilterTemplate = (options: any) => {
     return (
       <Dropdown 
@@ -337,6 +357,13 @@ export default function RfqManagement() {
                           header="Items" 
                           sortable 
                           style={{ minWidth: '100px' }}
+                        />
+                        <Column 
+                          field="totalBudget" 
+                          header="Total Amount" 
+                          body={totalAmountBodyTemplate}
+                          sortable 
+                          style={{ minWidth: '120px' }}
                         />
                         <Column 
                           field="status" 
