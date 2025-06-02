@@ -30,14 +30,14 @@ export async function GET(request: NextRequest) {
     const rfqCounts = await db
       .select({
         totalRfqs: count(),
-        activeRfqs: sql<number>`COUNT(CASE WHEN status IN ('PENDING', 'IN_REVIEW') THEN 1 END)`,
-        completedRfqs: sql<number>`COUNT(CASE WHEN status IN ('APPROVED', 'COMPLETED') THEN 1 END)`,
-        declinedRfqs: sql<number>`COUNT(CASE WHEN status = 'REJECTED' THEN 1 END)`,
+        activeRfqs: sql<number>`COUNT(CASE WHEN status IN ('DRAFT', 'NEGOTIATING') THEN 1 END)`,
+        completedRfqs: sql<number>`COUNT(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') THEN 1 END)`,
+        declinedRfqs: sql<number>`COUNT(CASE WHEN status = 'DECLINED' THEN 1 END)`,
         // Weekly metrics
-        weeklyCompletedRfqs: sql<number>`COUNT(CASE WHEN status IN ('APPROVED', 'COMPLETED') AND created_at >= ${sevenDaysAgoISO} THEN 1 END)`,
+        weeklyCompletedRfqs: sql<number>`COUNT(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') AND created_at >= ${sevenDaysAgoISO} THEN 1 END)`,
         weeklyTotalRfqs: sql<number>`COUNT(CASE WHEN created_at >= ${sevenDaysAgoISO} THEN 1 END)`,
         // Previous week for comparison
-        previousWeekCompletedRfqs: sql<number>`COUNT(CASE WHEN status IN ('APPROVED', 'COMPLETED') AND created_at >= ${fourteenDaysAgoISO} AND created_at < ${sevenDaysAgoISO} THEN 1 END)`,
+        previousWeekCompletedRfqs: sql<number>`COUNT(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') AND created_at >= ${fourteenDaysAgoISO} AND created_at < ${sevenDaysAgoISO} THEN 1 END)`,
         previousWeekTotalRfqs: sql<number>`COUNT(CASE WHEN created_at >= ${fourteenDaysAgoISO} AND created_at < ${sevenDaysAgoISO} THEN 1 END)`
       })
       .from(rfqs);
@@ -83,10 +83,10 @@ export async function GET(request: NextRequest) {
     // Calculate sales data from completed RFQs with weekly breakdown
     const salesMetrics = await db
       .select({
-        totalSalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('APPROVED', 'COMPLETED') THEN total_budget ELSE 0 END), 0)`,
-        recentSalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('APPROVED', 'COMPLETED') AND created_at >= ${thirtyDaysAgoISO} THEN total_budget ELSE 0 END), 0)`,
-        weeklySalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('APPROVED', 'COMPLETED') AND created_at >= ${sevenDaysAgoISO} THEN total_budget ELSE 0 END), 0)`,
-        previousWeekSalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('APPROVED', 'COMPLETED') AND created_at >= ${fourteenDaysAgoISO} AND created_at < ${sevenDaysAgoISO} THEN total_budget ELSE 0 END), 0)`
+        totalSalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') THEN total_budget ELSE 0 END), 0)`,
+        recentSalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') AND created_at >= ${thirtyDaysAgoISO} THEN total_budget ELSE 0 END), 0)`,
+        weeklySalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') AND created_at >= ${sevenDaysAgoISO} THEN total_budget ELSE 0 END), 0)`,
+        previousWeekSalesCAD: sql<number>`COALESCE(SUM(CASE WHEN status IN ('ACCEPTED', 'PROCESSED') AND created_at >= ${fourteenDaysAgoISO} AND created_at < ${sevenDaysAgoISO} THEN total_budget ELSE 0 END), 0)`
       })
       .from(rfqs);
     

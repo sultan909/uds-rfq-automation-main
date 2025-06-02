@@ -56,7 +56,7 @@ interface RfqListItem {
   customerName: string
   createdAt: string
   updatedAt: string
-  status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "COMPLETED"
+  status: "NEW" | "DRAFT" | "PRICED" | "SENT" | "NEGOTIATING" | "ACCEPTED" | "DECLINED" | "PROCESSED";
   totalBudget: number | null
   itemCount: number
 }
@@ -127,12 +127,16 @@ export default function Dashboard() {
   // Status template for PrimeReact Tag component
   const statusBodyTemplate = useCallback((rowData: RfqListItem) => {
     const statusMap = {
-      PENDING: { severity: 'warning' as const, label: 'Pending' },
-      IN_REVIEW: { severity: 'info' as const, label: 'In Review' },
-      APPROVED: { severity: 'success' as const, label: 'Approved' },
-      REJECTED: { severity: 'danger' as const, label: 'Rejected' },
-      COMPLETED: { severity: 'success' as const, label: 'Completed' }
+      NEW: { severity: 'info' as const, label: 'New' },
+      DRAFT: { severity: 'warning' as const, label: 'Draft' },
+      PRICED: { severity: 'success' as const, label: 'Priced' },
+      SENT: { severity: 'info' as const, label: 'Sent' },
+      NEGOTIATING: { severity: 'warning' as const, label: 'Negotiating' },
+      ACCEPTED: { severity: 'success' as const, label: 'Accepted' },
+      DECLINED: { severity: 'danger' as const, label: 'Declined' },
+      PROCESSED: { severity: 'success' as const, label: 'Processed' },
     }
+    
     
     const status = statusMap[rowData.status]
     return <Tag value={status.label} severity={status.severity} />

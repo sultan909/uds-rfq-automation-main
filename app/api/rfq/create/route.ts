@@ -16,6 +16,7 @@ export const POST = async (request: NextRequest) => {
     const rfqNumber = `RFQ-${nanoid(8).toUpperCase()}`;
 
     // Create the RFQ
+    // @ts-ignore
     const [newRfq] = await db.insert(rfqs).values({
       rfqNumber,
       title: `RFQ for ${rfqNumber}`,

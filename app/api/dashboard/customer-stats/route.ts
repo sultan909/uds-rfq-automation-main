@@ -83,7 +83,7 @@ async function calculateRfqsByCustomerType() {
     .innerJoin(customers, eq(rfqs.customerId, customers.id))
     .where(and(
       eq(customers.type, 'DEALER'),
-      sql`${rfqs.status} IN ('APPROVED', 'COMPLETED')`
+      sql`${rfqs.status} IN ('ACCEPTED', 'PROCESSED')`
     ))
     .then(result => result[0]?.count || 0);
 

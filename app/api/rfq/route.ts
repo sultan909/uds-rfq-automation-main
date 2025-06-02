@@ -112,7 +112,7 @@ interface TransformedRfq {
   requestorId: number;
   customerId: number;
   vendorId: number | null;
-  status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "COMPLETED";
+  status: "NEGOTIATING" | "DRAFT" | "ACCEPTED" | "DECLINED" | "PROCESSED" | "SENT"|'NEW'|'PRICED';
   source: string;
   notes: string | null;
   dueDate: Date | null;
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
     
     // Build query conditions
     const conditions = [];
-    if (status) conditions.push(eq(rfqs.status, status as 'PENDING' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'COMPLETED'));
+    if (status) conditions.push(eq(rfqs.status, status as 'NEGOTIATING' | 'DRAFT' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED'));
     if (customerId) conditions.push(eq(rfqs.customerId, parseInt(customerId)));
     if (search) {
       conditions.push(

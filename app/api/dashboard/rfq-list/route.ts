@@ -30,15 +30,15 @@ export async function GET(request: NextRequest) {
         or(
           // Active RFQs
           or(
-            eq(rfqs.status, 'PENDING'),
-            eq(rfqs.status, 'IN_REVIEW')
+            eq(rfqs.status, 'NEGOTIATING'),
+            eq(rfqs.status, 'DRAFT')
           ),
           // Recently completed RFQs
           and(
             or(
-              eq(rfqs.status, 'APPROVED'),
-              eq(rfqs.status, 'COMPLETED'),
-              eq(rfqs.status, 'REJECTED')
+              eq(rfqs.status, 'ACCEPTED'),
+              eq(rfqs.status, 'PROCESSED'),
+              eq(rfqs.status, 'DECLINED')
             ),
             gte(rfqs.createdAt, sql`NOW() - INTERVAL '30 days'`)
           )
@@ -49,11 +49,11 @@ export async function GET(request: NextRequest) {
 
     // Separate active and completed RFQs
     const activeRfqs = rfqList.filter(rfq => 
-      ['PENDING', 'IN_REVIEW'].includes(rfq.status)
+      ['NEGOTIATING', 'DRAFT','SENT','NEW'].includes(rfq.status)
     );
 
     const completedRfqs = rfqList.filter(rfq => 
-      ['APPROVED', 'COMPLETED', 'REJECTED'].includes(rfq.status)
+      ['ACCEPTED', 'PROCESSED', 'DECLINED'].includes(rfq.status)
     );
 
     return NextResponse.json(createSuccessResponse({

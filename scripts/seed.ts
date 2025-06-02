@@ -5,10 +5,11 @@ import * as schema from '../db/schema';
 import { sql } from 'drizzle-orm';
 import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcrypt';
+import { type RfqStatus } from '../db/schema';
 
 // Helper to get a random element from an array
-function getRandomElement<T>(arr: T[]): T {
-  return faker.helpers.arrayElement(arr);
+function getRandomElement<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)];
 }
 
 // Helper function to format dates as ISO strings (YYYY-MM-DD)
@@ -252,34 +253,66 @@ async function main() {
 
     // --- Seed RFQs ---
     console.log('Seeding RFQs...');
-    const rfqStatuses = schema.rfqStatusEnum.enumValues;
-    const rfqSources = ['Email', 'Phone', 'Website', 'Direct Contact'];
-    
-    const rfqsData = [];
+    const rfqsData: Array<{
+      rfqNumber: string;
+      title: string;
+      description: string;
+      requestorId: number;
+      customerId: number;
+      vendorId: number | null;
+      status: RfqStatus;
+      dueDate: string | null;
+      attachments: string[] | null;
+      totalBudget: number | null;
+      approvedBy: number | null;
+      rejectionReason: string | null;
+      source: string;
+      notes: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }> = [];
+
     for (const customer of insertedCustomers) {
-      for (let i = 0; i < 2; i++) { // 2 RFQs per customer
-        const vendor = getRandomElement(insertedVendors);
-        const requestor = getRandomElement(insertedUsers);
-        const status = getRandomElement(rfqStatuses);
-        const approver = status === 'APPROVED' || status === 'COMPLETED' ? 
-                        insertedUsers.find(u => u.role === 'ADMIN' || u.role === 'MANAGER') : null;
-        const futureDays = faker.number.int({ min: 30, max: 180 });
-        rfqsData.push({
-          rfqNumber: `RFQ-${faker.string.numeric(5)}`,
-          title: `RFQ for ${customer.name}`,
-          description: faker.lorem.paragraph(),
-          requestorId: requestor.id,
-          customerId: customer.id,
-          vendorId: vendor.id,
-          status: status,
-          dueDate: getFutureDate(futureDays),
-          attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
-          totalBudget: parseFloat(faker.commerce.price({ min: 1000, max: 50000 })),
-          approvedBy: approver?.id || null,
-          rejectionReason: status === 'REJECTED' ? faker.lorem.sentence() : null,
-          source: getRandomElement(rfqSources),
-          notes: faker.lorem.paragraph()
-        });
+      // Create multiple RFQs per customer with different statuses
+      const statusDistribution: { status: RfqStatus; count: number }[] = [
+        { status: 'NEW', count: 2 },
+        { status: 'DRAFT', count: 2 },
+        { status: 'PRICED', count: 2 },
+        { status: 'SENT', count: 2 },
+        { status: 'NEGOTIATING', count: 1 },
+        { status: 'ACCEPTED', count: 1 },
+        { status: 'DECLINED', count: 1 },
+        { status: 'PROCESSED', count: 1 }
+      ];
+
+      for (const { status, count } of statusDistribution) {
+        for (let i = 0; i < count; i++) {
+          const requestor = getRandomElement(insertedUsers);
+          const vendor = faker.datatype.boolean() ? getRandomElement(insertedVendors) : null;
+          const dueDate = faker.datatype.boolean() ? getFutureDate(30) : null;
+          const totalBudget = faker.datatype.boolean() ? faker.number.float({ min: 1000, max: 10000, precision: 2 }) : null;
+          const approvedBy = status === 'ACCEPTED' || status === 'PROCESSED' ? getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER')).id : null;
+          const rejectionReason = status === 'DECLINED' ? faker.lorem.sentence() : null;
+
+          rfqsData.push({
+            rfqNumber: `RFQ-${faker.string.numeric(5)}`,
+            title: faker.commerce.productName(),
+            description: faker.lorem.paragraph(),
+            requestorId: requestor.id,
+            customerId: customer.id,
+            vendorId: vendor?.id || null,
+            status,
+            dueDate,
+            attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
+            totalBudget,
+            approvedBy,
+            rejectionReason,
+            source: faker.helpers.arrayElement(['Email', 'Phone', 'Website', 'In Person']),
+            notes: faker.datatype.boolean() ? faker.lorem.paragraph() : null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
       }
     }
     
@@ -289,11 +322,25 @@ async function main() {
     // --- Seed RFQ Items ---
     console.log('Seeding RFQ items...');
     
-    const rfqItemsData = [];
+    const rfqItemsData: Array<{
+      rfqId: number;
+      name: string;
+      description: string;
+      quantity: number;
+      unit: string;
+      customerSku: string | null;
+      internalProductId: number;
+      suggestedPrice: number;
+      finalPrice: number | null;
+      currency: string;
+      status: RfqStatus;
+      estimatedPrice: number;
+    }> = [];
+
     for (const rfq of insertedRfqs) {
-      // Add 2-3 items per RFQ, ensure each inventory item is used at least once
+      // Add 2-5 items per RFQ, ensure each inventory item is used at least once
       const usedItems = new Set();
-      const itemCount = faker.number.int({ min: 2, max: 3 });
+      const itemCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < itemCount; i++) {
         let inventoryItem;
         do {
@@ -306,6 +353,13 @@ async function main() {
           sv => sv.customerId === rfq.customerId && 
                insertedSkuMappings.find(sm => sm.id === sv.mappingId)?.standardSku === inventoryItem.sku
         );
+
+        // Set final price based on RFQ status
+        let finalPrice = null;
+        if (['PRICED', 'SENT', 'NEGOTIATING', 'ACCEPTED', 'PROCESSED'].includes(rfq.status)) {
+          finalPrice = parseFloat(faker.commerce.price({ min: costCad * 1.1, max: costCad * 1.5 }));
+        }
+
         rfqItemsData.push({
           rfqId: rfq.id,
           name: inventoryItem.description,
@@ -315,9 +369,9 @@ async function main() {
           customerSku: skuVariation?.variationSku || null,
           internalProductId: inventoryItem.id,
           suggestedPrice: parseFloat(faker.commerce.price({ min: costCad * 1.1, max: costCad * 1.5 })),
-          finalPrice: null,
+          finalPrice,
           currency: 'CAD',
-          status: 'PENDING',
+          status: rfq.status,
           estimatedPrice: parseFloat(faker.commerce.price({ min: costCad * 1.2, max: costCad * 1.8 }))
         });
       }
@@ -328,63 +382,60 @@ async function main() {
 
     // --- Seed Quotations ---
     console.log('Seeding quotations...');
-    
-    const quotationsData = [];
-    for (const rfq of insertedRfqs.filter(r => ['IN_REVIEW', 'APPROVED', 'COMPLETED'].includes(r.status))) {
-      if (!rfq.vendorId) continue; // Skip if no vendor
-      const totalAmount = parseFloat(faker.commerce.price({ min: 5000, max: 50000 }));
-      quotationsData.push({
-        quoteNumber: `Q-${faker.string.numeric(6)}`,
+    const quotationsData = insertedRfqs.map(rfq => {
+      // Find a random admin or manager to be the creator
+      const adminOrManager = getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER'));
+      
+      return {
+        quoteNumber: `Q-${faker.string.numeric(5)}`,
         rfqId: rfq.id,
         customerId: rfq.customerId,
-        vendorId: rfq.vendorId,
-        totalAmount: totalAmount,
-        deliveryTime: `${faker.number.int({ min: 1, max: 4 })} weeks`,
-        validUntil: getFutureDate(faker.number.int({ min: 60, max: 180 })),
+        vendorId: rfq.vendorId || getRandomElement(insertedVendors).id,
+        totalAmount: rfq.totalBudget || faker.number.float({ min: 1000, max: 10000, precision: 2 }),
+        deliveryTime: `${faker.number.int({ min: 1, max: 30 })} days`,
+        validUntil: getFutureDate(30),
         termsAndConditions: faker.lorem.paragraph(),
         attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
-        isSelected: rfq.status === 'COMPLETED',
-        status: rfq.status === 'COMPLETED' ? 'APPROVED' : 'PENDING',
+        isSelected: rfq.status === 'PROCESSED',
+        status: rfq.status === 'PROCESSED' ? 'ACCEPTED' : 'NEW',
         notes: faker.lorem.paragraph(),
-        expiryDate: getFutureDate(faker.number.int({ min: 30, max: 90 })),
-        createdBy: getRandomElement(insertedUsers.filter(u => u.role === 'SALES')).id
-      });
-    }
+        expiryDate: getFutureDate(30),
+        createdBy: adminOrManager.id,
+        createdAt: new Date(rfq.createdAt.getTime() + faker.number.int({ min: 3600000, max: 86400000 })),
+        updatedAt: new Date(rfq.updatedAt.getTime() + faker.number.int({ min: 3600000, max: 86400000 }))
+      };
+    });
     
     const insertedQuotations = await db.insert(schema.quotations).values(quotationsData).returning();
     console.log(`Inserted ${insertedQuotations.length} quotations`);
 
     // --- Seed Quotation Items ---
     console.log('Seeding quotation items...');
-    
-    const quotationItemsData = [];
-    for (const quotation of insertedQuotations) {
-      const rfqItems = insertedRfqItems.filter(item => item.rfqId === quotation.rfqId);
-      
-      for (const rfqItem of rfqItems) {
-        const product = insertedInventoryItems.find(ii => ii.id === rfqItem.internalProductId);
-        if (!product || product.costCad === null) continue;
-        const costCad = product.costCad as number;
+    const quotationItemsData = insertedQuotations.flatMap(quotation => {
+      const rfq = insertedRfqs.find(r => r.id === quotation.rfqId);
+      if (!rfq) return [];
+
+      const rfqItemsForRfq = insertedRfqItems.filter(item => item.rfqId === rfq.id);
+      return rfqItemsForRfq.map(item => {
+        if (!item.internalProductId) return null;
         
-        const unitPrice = parseFloat(faker.commerce.price({ 
-          min: costCad * 1.2, 
-          max: costCad * 1.8 
-        }));
-        const quantity = rfqItem.quantity;
-        const extendedPrice = parseFloat((unitPrice * quantity).toFixed(2));
-        
-        quotationItemsData.push({
+        // Ensure we have a valid unit price
+        const unitPrice = item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0;
+        if (unitPrice <= 0) return null;
+
+        return {
           quotationId: quotation.id,
-          rfqItemId: rfqItem.id,
-          productId: product.id,
-          unitPrice: unitPrice,
-          quantity: quantity,
-          extendedPrice: extendedPrice,
-          currency: 'CAD',
-          description: `Quoted price for ${product.description}`
-        });
-      }
-    }
+          rfqItemId: item.id,
+          productId: item.internalProductId,
+          unitPrice,
+          quantity: item.quantity,
+          extendedPrice: unitPrice * item.quantity,
+          currency: item.currency,
+          createdAt: new Date(quotation.createdAt.getTime() + faker.number.int({ min: 3600000, max: 86400000 })),
+          updatedAt: new Date(quotation.updatedAt.getTime() + faker.number.int({ min: 3600000, max: 86400000 }))
+        };
+      }).filter((item): item is NonNullable<typeof item> => item !== null);
+    });
     
     const insertedQuotationItems = await db.insert(schema.quotationItems).values(quotationItemsData).returning();
     console.log(`Inserted ${insertedQuotationItems.length} quotation items`);
@@ -604,14 +655,14 @@ async function main() {
         details: { rfqNumber: rfq.rfqNumber, customerId: rfq.customerId }
       });
       
-      if (rfq.status !== 'PENDING') {
+      if (rfq.status !== 'NEW') {
         auditLogData.push({
           userId: getRandomElement(insertedUsers).id,
           action: `RFQ_STATUS_CHANGED`,
           entityType: 'RFQ',
           entityId: rfq.id,
           details: { 
-            oldStatus: 'PENDING', 
+            oldStatus: 'NEW', 
             newStatus: rfq.status 
           }
         });

@@ -55,14 +55,18 @@ export default function RfqManagement() {
     'customer.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     source: { value: null, matchMode: FilterMatchMode.CONTAINS },
     status: { value: null, matchMode: FilterMatchMode.EQUALS },
-    createdAt: { value: null, matchMode: FilterMatchMode.DATE_IS }
+    createdAt: { value: null as Date | null, matchMode: FilterMatchMode.DATE_IS }
   })
 
-  const statusOptions = [    { label: 'Pending', value: 'pending' },
-    { label: 'In Review', value: 'in_review' },
-    { label: 'Approved', value: 'approved' },
-    { label: 'Rejected', value: 'rejected' },
-    { label: 'Completed', value: 'completed' }
+  const statusOptions = [
+    { label: 'New', value: 'NEW' },
+    { label: 'Draft', value: 'DRAFT' },
+    { label: 'Priced', value: 'PRICED' },
+    { label: 'Sent', value: 'SENT' },
+    { label: 'Negotiating', value: 'NEGOTIATING' },
+    { label: 'Accepted', value: 'ACCEPTED' },
+    { label: 'Declined', value: 'DECLINED' },
+    { label: 'Processed', value: 'PROCESSED' }
   ]
 
   const sortOptions = [
@@ -142,28 +146,59 @@ export default function RfqManagement() {
   }
   const renderHeader = () => {
     return (
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Dropdown 
-            options={sortOptions} 
-            placeholder="Sort by..." 
-            className="w-40"
-          />
-        </div>
-        <div className="flex gap-2 items-center">
-          <span className="p-input-icon-left">
-            <i className="pi pi-search" />
-            <InputText 
-              value={globalFilterValue} 
-              onChange={onGlobalFilterChange} 
-              placeholder="Global Search..." 
-              className="w-64"
-            />
-          </span>
-          <Button onClick={handleSearch}>Search</Button>
-          <Button asChild>
-            <a href="/rfq-management/new">New RFQ</a>
-          </Button>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
+          {/* Left side - Sort and Date controls */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <i className="pi pi-sort-alt text-muted-foreground" />
+              <Dropdown 
+                options={sortOptions} 
+                placeholder="Sort by..." 
+                className="w-[200px] border rounded-md"
+                panelClassName="min-w-[200px]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <i className="pi pi-calendar text-muted-foreground" />
+              <Calendar 
+                value={filters.createdAt.value} 
+                onChange={(e) => {
+                  let _filters = { ...filters };
+                  _filters.createdAt.value = e.value || null;
+                  setFilters(_filters);
+                }}
+                placeholder="Filter by date"
+                className="w-[200px] border rounded-md"
+                showIcon
+                dateFormat="dd/mm/yy"
+              />
+            </div>
+          </div>
+
+          {/* Right side - Search and Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <i className="pi pi-search" />
+              </span>
+              <InputText 
+                value={globalFilterValue} 
+                onChange={onGlobalFilterChange} 
+                placeholder="Search RFQs by number, customer, or source..."
+                className="w-full sm:w-[400px] pl-9 h-10 border rounded-md bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+            <div className="flex gap-2">
+             
+              <Button asChild className="gap-2 h-10 px-4">
+                <a href="/rfq-management/new">
+                  <i className="pi pi-plus" />
+                  New RFQ
+                </a>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -171,11 +206,14 @@ export default function RfqManagement() {
 
   const statusBodyTemplate = (rowData: RfqData) => {
     const statusMap = {
-      pending: { severity: 'warning', label: 'Pending' },
-      in_review: { severity: 'info', label: 'In Review' },
-      approved: { severity: 'success', label: 'Approved' },
-      rejected: { severity: 'danger', label: 'Rejected' },
-      completed: { severity: 'success', label: 'Completed' }
+      new: { severity: 'info', label: 'New' },
+      draft: { severity: 'warning', label: 'Draft' },
+      priced: { severity: 'success', label: 'Priced' },
+      sent: { severity: 'info', label: 'Sent' },
+      negotiating: { severity: 'warning', label: 'Negotiating' },
+      accepted: { severity: 'success', label: 'Accepted' },
+      declined: { severity: 'danger', label: 'Declined' },
+      processed: { severity: 'success', label: 'Processed' }
     }
     
     const status = statusMap[rowData.status.toLowerCase() as keyof typeof statusMap]
@@ -277,11 +315,14 @@ export default function RfqManagement() {
               <Tabs defaultValue="all" onValueChange={setSelectedTab}>
                 <TabsList className="mb-4">
                   <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="pending">Pending</TabsTrigger>
-                  <TabsTrigger value="in_review">In Review</TabsTrigger>
-                  <TabsTrigger value="approved">Approved</TabsTrigger>
-                  <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                  <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsTrigger value="new">New</TabsTrigger>
+                  <TabsTrigger value="draft">Draft</TabsTrigger>
+                  <TabsTrigger value="priced">Priced</TabsTrigger>
+                  <TabsTrigger value="sent">Sent</TabsTrigger>
+                  <TabsTrigger value="negotiating">Negotiating</TabsTrigger>
+                  <TabsTrigger value="accepted">Accepted</TabsTrigger>
+                  <TabsTrigger value="declined">Declined</TabsTrigger>
+                  <TabsTrigger value="processed">Processed</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={selectedTab} className="m-0">

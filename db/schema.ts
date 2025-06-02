@@ -2,8 +2,20 @@ import { pgTable, serial, varchar, text, timestamp, boolean, integer, pgEnum, re
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 
+// Define the RFQ status type
+export type RfqStatus = 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'NEGOTIATING' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED';
+
 // Enums - Only create if they don't exist
-export const rfqStatusEnum = pgEnum('rfq_status', ['PENDING', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED']);
+export const rfqStatusEnum = pgEnum('rfq_status', [
+  'NEW',
+  'DRAFT',
+  'PRICED',
+  'SENT',
+  'NEGOTIATING',
+  'ACCEPTED',
+  'DECLINED',
+  'PROCESSED'
+]);
 export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'MANAGER', 'EMPLOYEE', 'SALES']);
 export const customerTypeEnum = pgEnum('customer_type', ['WHOLESALER', 'DEALER', 'RETAILER', 'DIRECT']);
 
@@ -79,7 +91,7 @@ export const rfqs = pgTable('rfqs', {
   requestorId: integer('requestor_id').references(() => users.id).notNull(),
   customerId: integer('customer_id').references(() => customers.id).notNull(),
   vendorId: integer('vendor_id').references(() => vendors.id),
-  status: rfqStatusEnum('status').default('PENDING').notNull(),
+  status: rfqStatusEnum('status').default('NEW').notNull(),
   dueDate: date('due_date'),
   attachments: jsonb('attachments').$type<string[]>(),
   totalBudget: real('total_budget'),
