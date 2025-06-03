@@ -99,6 +99,7 @@ export const rfqs = pgTable('rfqs', {
   rejectionReason: text('rejection_reason'),
   source: varchar('source', { length: 100 }).notNull(),
   notes: text('notes'),
+  currentVersionId: integer('current_version_id').references(() => quotationVersions.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -116,11 +117,17 @@ export const rfqsRelations = relations(rfqs, ({ one, many }) => ({
     fields: [rfqs.vendorId],
     references: [vendors.id],
   }),
+  currentVersion: one(quotationVersions, {
+    fields: [rfqs.currentVersionId],
+    references: [quotationVersions.id],
+  }),
   items: many(rfqItems),
   quotations: many(quotations),
   comments: many(comments),
   history: many(auditLog, { relationName: 'rfqHistory' }),
   versions: many(quotationVersions),
+  communications: many(negotiationCommunications),
+  skuHistory: many(skuNegotiationHistory),
 }));
 
 // RFQ Items Table
@@ -551,21 +558,52 @@ export const quotationVersions = pgTable('quotation_versions', {
   id: serial('id').primaryKey(),
   rfqId: integer('rfq_id').notNull(),
   versionNumber: integer('version_number').notNull(),
+  entryType: varchar('entry_type', { length: 20 }).notNull().default('internal_quote'), // 'internal_quote' | 'customer_feedback' | 'counter_offer'
   status: varchar('status', { length: 20 }).notNull().default('NEW'),
   estimatedPrice: integer('estimated_price').notNull(),
   finalPrice: integer('final_price').notNull(),
   changes: text('changes'),
+  notes: text('notes'),
   createdBy: varchar('created_by', { length: 100 }).notNull(),
+  submittedByUserId: integer('submitted_by_user_id').references(() => users.id),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const quotationVersionItems = pgTable('quotation_version_items', {
+  id: serial('id').primaryKey(),
+  versionId: integer('version_id').references(() => quotationVersions.id).notNull(),
+  skuId: integer('sku_id').references(() => inventoryItems.id).notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: real('unit_price').notNull(),
+  totalPrice: real('total_price').notNull(), // We'll calculate this in the application
+  comment: text('comment'), // Optional negotiation note per SKU
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const quotationVersionItemsRelations = relations(quotationVersionItems, ({ one }) => ({
+  version: one(quotationVersions, {
+    fields: [quotationVersionItems.versionId],
+    references: [quotationVersions.id],
+  }),
+  sku: one(inventoryItems, {
+    fields: [quotationVersionItems.skuId],
+    references: [inventoryItems.id],
+  }),
+}));
 
 export const quotationVersionsRelations = relations(quotationVersions, ({ one, many }) => ({
   rfq: one(rfqs, {
     fields: [quotationVersions.rfqId],
     references: [rfqs.id],
   }),
+  submittedByUser: one(users, {
+    fields: [quotationVersions.submittedByUserId],
+    references: [users.id],
+  }),
   responses: many(customerResponses),
+  items: many(quotationVersionItems),
 }));
 
 export const customerResponses = pgTable('customer_responses', {
@@ -584,29 +622,78 @@ export const customerResponsesRelations = relations(customerResponses, ({ one })
   }),
 }));
 
-// Item Quotation Versions Table
-export const itemQuotationVersions = pgTable('item_quotation_versions', {
+// Negotiation Communications Table (Manual Entry)
+export const negotiationCommunications = pgTable('negotiation_communications', {
   id: serial('id').primaryKey(),
-  rfqItemId: integer('rfq_item_id').references(() => rfqItems.id).notNull(),
-  versionNumber: integer('version_number').notNull(),
-  status: varchar('status', { length: 20 }).notNull().default('NEW'),
-  estimatedPrice: real('estimated_price').notNull(),
-  finalPrice: real('final_price').notNull(),
-  changes: text('changes'),
-  createdBy: varchar('created_by', { length: 100 }).notNull(),
-  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
-  customerResponse: jsonb('customer_response').$type<{
-    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
-    comments: string;
-    requestedChanges?: string;
-    respondedAt: string;
-  }>(),
+  rfqId: integer('rfq_id').references(() => rfqs.id).notNull(),
+  versionId: integer('version_id').references(() => quotationVersions.id),
+  communicationType: varchar('communication_type', { length: 20 }).notNull(), // 'EMAIL', 'PHONE_CALL', 'MEETING', 'INTERNAL_NOTE'
+  direction: varchar('direction', { length: 10 }).notNull(), // 'OUTBOUND', 'INBOUND'
+  subject: varchar('subject', { length: 255 }),
+  content: text('content').notNull(),
+  contactPerson: varchar('contact_person', { length: 255 }),
+  communicationDate: timestamp('communication_date').notNull(),
+  followUpRequired: boolean('follow_up_required').default(false),
+  followUpDate: timestamp('follow_up_date'),
+  followUpCompleted: boolean('follow_up_completed').default(false),
+  followUpCompletedAt: timestamp('follow_up_completed_at'),
+  enteredByUserId: integer('entered_by_user_id').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const itemQuotationVersionsRelations = relations(itemQuotationVersions, ({ one }) => ({
-  rfqItem: one(rfqItems, {
-    fields: [itemQuotationVersions.rfqItemId],
-    references: [rfqItems.id],
+export const negotiationCommunicationsRelations = relations(negotiationCommunications, ({ one }) => ({
+  rfq: one(rfqs, {
+    fields: [negotiationCommunications.rfqId],
+    references: [rfqs.id],
+  }),
+  version: one(quotationVersions, {
+    fields: [negotiationCommunications.versionId],
+    references: [quotationVersions.id],
+  }),
+  enteredByUser: one(users, {
+    fields: [negotiationCommunications.enteredByUserId],
+    references: [users.id],
+  }),
+}));
+
+// SKU-Level Negotiation History Table
+export const skuNegotiationHistory = pgTable('sku_negotiation_history', {
+  id: serial('id').primaryKey(),
+  rfqId: integer('rfq_id').references(() => rfqs.id).notNull(),
+  skuId: integer('sku_id').references(() => inventoryItems.id).notNull(),
+  versionId: integer('version_id').references(() => quotationVersions.id),
+  communicationId: integer('communication_id').references(() => negotiationCommunications.id),
+  changeType: varchar('change_type', { length: 20 }).notNull(), // 'PRICE_CHANGE', 'QUANTITY_CHANGE', 'BOTH'
+  oldQuantity: integer('old_quantity'),
+  newQuantity: integer('new_quantity'),
+  oldUnitPrice: real('old_unit_price'),
+  newUnitPrice: real('new_unit_price'),
+  changeReason: text('change_reason'),
+  changedBy: varchar('changed_by', { length: 20 }).default('CUSTOMER').notNull(), // 'CUSTOMER', 'INTERNAL'
+  enteredByUserId: integer('entered_by_user_id').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const skuNegotiationHistoryRelations = relations(skuNegotiationHistory, ({ one }) => ({
+  rfq: one(rfqs, {
+    fields: [skuNegotiationHistory.rfqId],
+    references: [rfqs.id],
+  }),
+  sku: one(inventoryItems, {
+    fields: [skuNegotiationHistory.skuId],
+    references: [inventoryItems.id],
+  }),
+  version: one(quotationVersions, {
+    fields: [skuNegotiationHistory.versionId],
+    references: [quotationVersions.id],
+  }),
+  communication: one(negotiationCommunications, {
+    fields: [skuNegotiationHistory.communicationId],
+    references: [negotiationCommunications.id],
+  }),
+  enteredByUser: one(users, {
+    fields: [skuNegotiationHistory.enteredByUserId],
+    references: [users.id],
   }),
 }));

@@ -19,100 +19,40 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  MessageSquare,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { rfqApi, customerApi, inventoryApi } from "@/lib/api-client";
+import { rfqApi, customerApi, inventoryApi, negotiationApi } from "@/lib/api-client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/spinner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
-import { TableCustomizer } from "@/components/table-customizer";
-import { VersionCreationModal } from "@/components/version-creation-modal";
-import { VersionStatusManager } from "@/components/version-status-manager";
-import { CustomerResponseModal } from "@/components/customer-response-modal";
-import { ItemVersionModal } from '@/components/modals/item-version-modal';
-import { CreateItemVersionModal } from '@/components/modals/create-item-version-modal';
-import { Input } from "@/components/ui/input";
+import { EditableItemsTable } from "@/components/editable-items-table";
+import { NegotiationTab } from "@/components/negotiation-tab";
+import type { CreateQuotationRequest, QuotationVersionWithItems } from "@/lib/types/quotation";
+import type { 
+  RfqStatus, 
+  TabName, 
+  InventoryData, 
+  InventoryResponse, 
+  HistoryItem, 
+  HistoryState, 
+  MainCustomer,
+  Customer
+} from "@/lib/types/rfq-tabs";
 
-// Add these type definitions at the top of the file, after the imports
-interface InventoryData {
-  id: number;
-  sku: string;
-  mpn: string;
-  brand: string;
-  description: string;
-  quantityOnHand: number;
-  quantityReserved: number;
-  warehouseLocation: string;
-  lowStockThreshold: number;
-  costCad?: number;
-  costUsd?: number;
-  marketPrice?: number;
-  marketSource?: string;
-  marketLastUpdated?: string;
-  competitorPrice?: number;
-  marketTrend?: string;
-}
+// Import the new tab components
+import {
+  PricingTab,
+  InventoryTab,
+  MarketDataTab,
+  SettingsTab,
+  HistoryTab,
+  QuotationHistoryTab,
+  ExportTab
+} from "@/components/rfq-tabs";
 
-interface ApiResponse<T> {
-  success: boolean;
-  data: T | null;
-  error: string | null;
-}
-
-interface HistoryItem {
-  sku: string;
-  lastTransaction: string;
-  customer: string;
-  lastPrice: number;
-  lastQuantity: number;
-  totalQuantity: number;
-  avgPrice: number;
-  trend: string;
-  mainCustomerHistory?: {
-    [customerId: string]: {
-      lastTransaction: string;
-      lastPrice: number;
-      lastQuantity: number;
-      totalQuantity: number;
-      avgPrice: number;
-      trend: string;
-    }
-  }
-}
-
-interface HistoryState {
-  history: HistoryItem[];
-}
-
-interface SalesHistoryResponse {
-  success: boolean;
-  data: {
-    history: Array<{
-      type: string;
-      date: string;
-      customerName: string;
-      unitPrice: number;
-      quantity: number;
-      priceTrend?: string;
-      sku: string;
-    }>;
-    customerName?: string;
-  };
-}
-
-// Add these column definitions at the top of the file
+// Column definitions
 const ITEMS_COLUMNS = [
   { id: 'sku', label: 'SKU' },
   { id: 'description', label: 'Description' },
@@ -131,7 +71,6 @@ const PRICING_COLUMNS = [
   { id: 'cost', label: 'Cost' },
   { id: 'margin', label: 'Margin' }
 ];
-
 const INVENTORY_COLUMNS = [
   { id: 'sku', label: 'SKU' },
   { id: 'onHand', label: 'On Hand' },
@@ -159,25 +98,6 @@ const SETTINGS_COLUMNS = [
   { id: 'actions', label: 'Actions' }
 ];
 
-// Add new interface for quotation history
-interface QuotationVersion {
-  versionNumber: number;
-  status: 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
-  estimatedPrice: number;
-  finalPrice: number;
-  changes: string;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  customerResponse?: {
-    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
-    comments: string;
-    requestedChanges?: string;
-    respondedAt: string;
-  };
-}
-
-// Add new columns for quotation history
 const QUOTATION_HISTORY_COLUMNS = [
   { id: 'version', label: 'Version' },
   { id: 'status', label: 'Status' },
@@ -188,27 +108,6 @@ const QUOTATION_HISTORY_COLUMNS = [
   { id: 'createdAt', label: 'Created At' },
   { id: 'customerResponse', label: 'Customer Response' }
 ];
-
-// Add type for tab names
-type TabName = 'items' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings' | 'quotation-history';
-
-// Add this interface near the top with other interfaces
-interface InventoryResponse {
-  id: number;
-  sku: string;
-  description: string;
-  stock: number;
-  costCad: number;
-  costUsd: number;
-  quantityOnHand: number;
-  quantityReserved: number;
-  warehouseLocation: string;
-  lowStockThreshold: number;
-  lastSaleDate: string | null;
-}
-
-// Add this near the top with other interfaces
-type RfqStatus = 'PENDING' | 'IN_PROGRESS' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED';
 
 // Add this interface near the top of the file with other interfaces
 interface RfqData {
@@ -254,7 +153,7 @@ export default function RfqDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ period: '3months', type: 'all' });
-  const [mainCustomers, setMainCustomers] = useState<Array<{ id: number; name: string }>>([]);
+  const [mainCustomers, setMainCustomers] = useState<MainCustomer[]>([]);
   const [historyColumns, setHistoryColumns] = useState([
     { id: 'sku', label: 'SKU' },
     { id: 'lastTransaction', label: 'Last Transaction' },
@@ -265,7 +164,7 @@ export default function RfqDetail({
     { id: 'avgPrice', label: 'Average Price' },
     { id: 'trend', label: 'Price Trend' }
   ]);
-  const [history, setHistory] = useState<{ history: HistoryItem[] }>({ history: [] });
+  const [history, setHistory] = useState<HistoryState>({ history: [] });
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyStats, setHistoryStats] = useState<any>(null);
@@ -288,21 +187,17 @@ export default function RfqDetail({
   });
 
   // Add state for quotation history
-  const [quotationHistory, setQuotationHistory] = useState<QuotationVersion[]>([]);
+  const [quotationHistory, setQuotationHistory] = useState<QuotationVersionWithItems[]>([]);
   const [quotationHistoryLoading, setQuotationHistoryLoading] = useState(true);
+
+  // Add state for negotiation
+  const [negotiationHistory, setNegotiationHistory] = useState<any[]>([]);
+  const [negotiationHistoryLoading, setNegotiationHistoryLoading] = useState(true);
 
   // Add state for modals
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<QuotationVersion | null>(null);
-
-  // Add state for per-SKU versioning
-  const [itemVersions, setItemVersions] = useState<Record<string, ItemVersion[]>>({});
-  const [versionModalSku, setVersionModalSku] = useState<string | null>(null);
-  const [isItemVersionModalOpen, setIsItemVersionModalOpen] = useState(false);
-  const [isItemResponseModalOpen, setIsItemResponseModalOpen] = useState(false);
-  const [selectedItemVersion, setSelectedItemVersion] = useState<ItemVersion | null>(null);
-  const [isCreateItemVersionModalOpen, setIsCreateItemVersionModalOpen] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<QuotationVersionWithItems | null>(null);
 
   // Ensure we have the correct data structure
   const rfq = rfqData?.data || rfqData;
@@ -507,615 +402,15 @@ export default function RfqDetail({
   };
 
   useEffect(() => {
-    const fetchMainCustomers = async () => {
-      try {
-        const response = await customerApi.list({ main_customer: 'true' });
-        if (response.success && response.data) {
-          const customers = response.data as Array<{ id: number; name: string }>;
-          setMainCustomers(customers);
-          const mainCustomerColumns = customers.map(customer => ({
-            id: `mainCustomer_${customer.id}`,
-            label: `${customer.name} History`
-          }));
-          setHistoryColumns(prev => [...prev, ...mainCustomerColumns]);
-          // Ensure main customer columns are always visible
-          setVisibleColumns(prev => ({
-            ...prev,
-            history: [...prev.history, ...mainCustomerColumns.map(col => col.id)]
-          }));
-        } else {
-          console.error('Failed to fetch main customers:', response.error);
-          toast.error('Failed to fetch main customers');
-        }
-      } catch (error) {
-        console.error('Error fetching main customers:', error);
-        toast.error('Failed to fetch main customers');
-      }
-    };
-
-    fetchMainCustomers();
-  }, []);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!rfqData?.customer?.id || !items?.length || !mainCustomers?.length) return;
-
-      try {
-        setHistoryLoading(true);
-
-        const mainCustomerMap = new Map<number, string>(
-          mainCustomers.map(c => [c.id, c.name])
-        );
-
-        const historyPromises = items.map(async (item: any) => {
-          const itemSku = item.customerSku || item.inventory?.sku;
-          const itemId = item.inventory?.id;
-          if (!itemSku || !itemId) return null;
-
-          try {
-            const inventoryHistory = await inventoryApi.getHistory(itemId, { period: filters.period });
-            console.log(`🧾 Inventory history for item ${itemId}:`, inventoryHistory);
-
-            // @ts-ignore
-            if (inventoryHistory.success && inventoryHistory.data?.transactions) {
-              // @ts-ignore
-              const transactions = inventoryHistory.data.transactions.filter((tx: any) => tx.type === 'sale');
-              console.log("transcations", transactions);
-
-              const transactionsByCustomer: Record<number, any[]> = {};
-
-              transactions.forEach((tx: any) => {
-                const customerId = tx.customerId;
-                if (!customerId) return;
-                if (!transactionsByCustomer[customerId]) {
-                  transactionsByCustomer[customerId] = [];
-                }
-                transactionsByCustomer[customerId].push(tx);
-              });
-
-              const mainCustomerHistory: any[] = [];
-              const otherCustomerHistory: any[] = [];
-
-              Object.entries(transactionsByCustomer).forEach(([customerIdStr, customerTxs]) => {
-                const customerId = Number(customerIdStr);
-                const isMainCustomer = mainCustomerMap.has(customerId);
-                const customerName =
-                  mainCustomerMap.get(customerId) ||
-                  customerTxs[0]?.customerName || // fallback to first transaction name
-                  `Customer ${customerId}`;
-
-                const sortedTxs = [...customerTxs].sort((a, b) =>
-                  new Date(b.date).getTime() - new Date(a.date).getTime()
-                );
-
-                const lastTx = sortedTxs[0];
-                const totalQuantity = customerTxs.reduce((sum, tx) => sum + (tx.quantity || 0), 0);
-                const totalPrice = customerTxs.reduce((sum, tx) => sum + (tx.unitPrice * (tx.quantity || 0)), 0);
-                const avgPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
-                const historyEntry = {
-                  itemId: itemId,
-                  sku: itemSku,
-                  description: item.description || item.name || 'N/A',
-                  customerId,
-                  customer: customerName || `Customer ${customerId}`,
-                  lastTransaction: lastTx.date,
-                  lastPrice: lastTx.price,
-                  lastQuantity: lastTx.quantity || 0,
-                  totalQuantity,
-                  avgPrice,
-                };
-
-                if (isMainCustomer) {
-                  mainCustomerHistory.push(historyEntry);
-                } else {
-                  otherCustomerHistory.push(historyEntry);
-                }
-              });
-
-              return {
-                itemId: itemId,
-                sku: itemSku,
-                description: item.description || item.name || 'N/A',
-                mainCustomerHistory,
-                otherCustomerHistory,
-              };
-            }
-
-            return null;
-          } catch (error) {
-            console.error(`❌ Error fetching history for item ${itemSku}:`, error);
-            return null;
-          }
-        });
-
-        const results = await Promise.all(historyPromises);
-        const validResults = results.filter(Boolean);
-
-        // Flatten main and other customer data across all items
-
-
-
-        setHistory({
-          history: validResults
-        });
-
-      } catch (err) {
-        console.error('❌ Error in fetchHistory:', err);
-        setHistoryError("An error occurred while loading history data");
-        toast.error("An error occurred while loading history data");
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-
-    fetchHistory();
-  }, [rfqData?.customer?.id, items, filters.period, mainCustomers]);
-
-  useEffect(() => {
-    const fetchInventoryData = async () => {
-      try {
-        if (!rfqData?.items?.length) return;
-
-        const inventoryData = await Promise.all(
-          rfqData.items.map(async (item: any) => {
-            try {
-              // If item already has inventory data from creation, use it
-              if (item.inventory) {
-                return {
-                  ...item,
-                  inventory: item.inventory
-                };
-              }
-
-              // Otherwise fetch from API
-              if (item.internalProductId) {
-                const [inventoryResponse, historyResponse] = await Promise.all([
-                  inventoryApi.get(item.internalProductId),
-                  inventoryApi.getHistory(item.internalProductId, { period: 'all' })
-                ]);
-
-                if (inventoryResponse.success && inventoryResponse.data) {
-                  const inventoryData = inventoryResponse.data as InventoryResponse;
-                  const historyData = historyResponse.success ? historyResponse.data : null;
-
-                  return {
-                    ...item,
-                    inventory: {
-                      id: inventoryData.id,
-                      sku: inventoryData.sku,
-                      description: inventoryData.description,
-                      stock: inventoryData.stock,
-                      costCad: inventoryData.costCad,
-                      costUsd: inventoryData.costUsd,
-                      quantityOnHand: inventoryData.quantityOnHand,
-                      quantityReserved: inventoryData.quantityReserved,
-                      warehouseLocation: inventoryData.warehouseLocation,
-                      lowStockThreshold: inventoryData.lowStockThreshold,
-                      lastSaleDate: inventoryData.lastSaleDate
-                    },
-                    history: historyData
-                  };
-                }
-              }
-
-              return item;
-            } catch (err) {
-              console.error('Error processing item:', err);
-              return item;
-            }
-          })
-        );
-
-        setSkuDetails(inventoryData.reduce((acc: Record<string, InventoryData>, item) => {
-          acc[item.id] = item.inventory;
-          return acc;
-        }, {}));
-      } catch (err) {
-        console.error('Error in fetchInventoryData:', err);
-        toast.error('Failed to fetch inventory data');
-      }
-    };
-
-    fetchInventoryData();
-  }, [rfqData?.items]);
-
-  useEffect(() => {
-    console.log('Current skuDetails:', skuDetails);
-  }, [skuDetails]);
-
-  // Enhanced Sales History Export - Matching the History Tab Display Structure
-
-  const exportToExcel = () => {
-    try {
-      // Validate rfqData exists and has required properties
-      if (!rfqData) {
-        throw new Error('No RFQ data available');
-      }
-
-      // Helper function to safely access customer history data
-      // @ts-ignore
-      const getCustomerHistoryData = (salesHistory, customerId) => {
-        try {
-          const mainCustomerHistory = salesHistory[0]?.mainCustomerHistory;
-          if (!mainCustomerHistory) return null;
-
-          // Handle both array and object formats
-          if (Array.isArray(mainCustomerHistory)) {
-            return mainCustomerHistory.find(h => h.customerId === customerId);
-          } else {
-            return mainCustomerHistory[customerId];
-          }
-        } catch (error) {
-          console.warn('Error accessing customer history:', error);
-          return null;
-        }
-      };
-
-      // Helper function to get other customer history
-      // @ts-ignore
-      const getOtherCustomerHistory = (salesHistory) => {
-        try {
-          return salesHistory[0]?.otherCustomerHistory || [];
-        } catch (error) {
-          console.warn('Error accessing other customer history:', error);
-          return [];
-        }
-      };
-
-      // Create Pricing History Sheet (matches Pricing History tab)
-      const createPricingHistorySheet = () => {
-        const headers = [
-          'SKU',
-          ...mainCustomers.map(customer => `${customer.name} - Last Price`),
-          ...mainCustomers.map(customer => `${customer.name} - Last Date`),
-          ...mainCustomers.map(customer => `${customer.name} - Trend`),
-          'Other Customers - Last Price',
-          'Other Customers - Customer Name',
-          'Other Customers - Last Date',
-          'Other Customers - Trend'
-        ];
-        // @ts-ignore
-
-        const rows = rfqData.items?.map((item) => {
-          const itemSku = item.customerSku || item.inventory?.sku || 'N/A';
-          const salesHistory = history.history.filter((h) => h.sku === itemSku);
-
-          if (salesHistory.length === 0) {
-            return [itemSku, ...Array(headers.length - 1).fill('No history')];
-          }
-
-          const otherCustomerHistory = getOtherCustomerHistory(salesHistory);
-          const row = [itemSku];
-
-          // Add main customer last prices
-          mainCustomers.forEach(customer => {
-            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
-            row.push(customerHistory ? formatCurrency(customerHistory.lastPrice || 0) : 'No history');
-          });
-
-          // Add main customer last dates
-          mainCustomers.forEach(customer => {
-            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
-            row.push(customerHistory && customerHistory.lastTransaction
-              ? new Date(customerHistory.lastTransaction).toLocaleDateString()
-              : 'N/A');
-          });
-
-          // Add main customer trends
-          mainCustomers.forEach(customer => {
-            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
-            const trend = customerHistory?.trend;
-            row.push(trend === 'up' ? '↑' : trend === 'down' ? '↓' : 'neutral');
-          });
-
-          // Add other customers data
-          if (otherCustomerHistory.length > 0) {
-            const otherCustomer = otherCustomerHistory[0];
-            row.push(formatCurrency(otherCustomer.lastPrice || 0));
-            row.push(otherCustomer.customer || 'N/A');
-            row.push(otherCustomer.lastTransaction
-              ? new Date(otherCustomer.lastTransaction).toLocaleDateString()
-              : 'N/A');
-            row.push(otherCustomer.trend === 'up' ? '↑' : otherCustomer.trend === 'down' ? '↓' : 'neutral');
-          } else {
-            row.push('No history', 'N/A', 'N/A', 'neutral');
-          }
-
-          return row;
-        }) || [];
-
-        return [headers, ...rows];
-      };
-
-      // Create Quantity History Sheet (matches Quantity History tab)
-      const createQuantityHistorySheet = () => {
-        const headers = [
-          'SKU',
-          ...mainCustomers.map(customer => `${customer.name} - Last Qty`),
-          ...mainCustomers.map(customer => `${customer.name} - Total Qty`),
-          ...mainCustomers.map(customer => `${customer.name} - Last Date`),
-          'Other Customers - Last Qty',
-          'Other Customers - Total Qty',
-          'Other Customers - Customer Name',
-          'Other Customers - Last Date',
-          'Total Quantity (All Customers)'
-        ];
-        // @ts-ignore
-
-        const rows = rfqData.items?.map((item) => {
-          const itemSku = item.customerSku || item.inventory?.sku || 'N/A';
-          const salesHistory = history.history.filter((h) => h.sku === itemSku);
-
-          if (salesHistory.length === 0) {
-            return [itemSku, ...Array(headers.length - 1).fill('No history')];
-          }
-
-          const otherCustomerHistory = getOtherCustomerHistory(salesHistory);
-          const row = [itemSku];
-          let totalQuantity = 0;
-
-          // Add main customer last quantities
-          mainCustomers.forEach(customer => {
-            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
-            row.push(customerHistory?.lastQuantity || 0);
-          });
-
-          // Add main customer total quantities
-          mainCustomers.forEach(customer => {
-            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
-            const totalQty = customerHistory?.totalQuantity || 0;
-            totalQuantity += totalQty;
-            row.push(totalQty);
-          });
-
-          // Add main customer last dates
-          mainCustomers.forEach(customer => {
-            const customerHistory = getCustomerHistoryData(salesHistory, customer.id);
-            row.push(customerHistory && customerHistory.lastTransaction
-              ? new Date(customerHistory.lastTransaction).toLocaleDateString()
-              : 'N/A');
-          });
-
-          // Add other customers data
-          if (otherCustomerHistory.length > 0) {
-            const otherCustomer = otherCustomerHistory[0];
-            const otherQty = otherCustomer.totalQuantity || 0;
-            totalQuantity += otherQty;
-
-            row.push(otherCustomer.lastQuantity || 0);
-            row.push(otherQty);
-            row.push(otherCustomer.customer || 'N/A');
-            row.push(otherCustomer.lastTransaction
-              ? new Date(otherCustomer.lastTransaction).toLocaleDateString()
-              : 'N/A');
-          } else {
-            row.push('0', '0', 'N/A', 'N/A');
-          }
-
-          // Add total quantity across all customers
-          row.push(totalQuantity.toString());
-
-          return row;
-        }) || [];
-
-        return [headers, ...rows];
-      };
-
-      // Create Sales History Summary (original simple format for reference)
-      const createSalesHistorySummary = () => {
-        return [
-          ['SKU', 'Date', 'Customer', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
-          // @ts-ignore
-
-          ...rfqData.items?.flatMap((item) => {
-            const itemSku = item.customerSku || item.inventory?.sku;
-            const salesHistory = history.history.filter((h) => h.sku === itemSku);
-
-            if (salesHistory.length === 0) {
-              return [];
-            }
-
-            const lastSale = salesHistory[0];
-            return [
-              itemSku,
-              lastSale?.lastTransaction ? new Date(lastSale.lastTransaction).toLocaleDateString() : 'N/A',
-              lastSale?.customer || 'N/A',
-              lastSale?.lastQuantity || 'N/A',
-              formatCurrency(lastSale?.lastPrice || 0),
-              formatCurrency((lastSale?.lastPrice || 0) * (lastSale?.lastQuantity || 0)),
-              lastSale?.trend === 'up' ? '↑' : lastSale?.trend === 'down' ? '↓' : 'neutral'
-            ];
-          }) || []
-        ];
-      };
-
-      // Prepare the enhanced export data
-      const exportData = {
-        'RFQ Summary': [
-          ['RFQ Number', rfqData.rfqNumber || 'N/A'],
-          ['Date Received', rfqData.createdAt ? new Date(rfqData.createdAt).toLocaleDateString() : 'N/A'],
-          ['Source', rfqData.source || 'N/A'],
-          ['Status', rfqData.status || 'N/A'],
-          ['Due Date', rfqData.dueDate ? new Date(rfqData.dueDate).toLocaleDateString() : 'N/A'],
-          ['Total Budget', formatCurrency(
-            currency === "CAD"
-              ? (rfqData.totalBudget || 0)
-              : convertCurrency(rfqData.totalBudget || 0, "CAD")
-          )],
-        ],
-        'Customer Information': [
-          ['Name', rfqData.customer?.name || 'N/A'],
-          ['Type', rfqData.customer?.type || 'N/A'],
-          ['Email', rfqData.customer?.email || 'N/A'],
-          ['Phone', rfqData.customer?.phone || 'N/A'],
-          ['Address', rfqData.customer?.address || 'N/A'],
-          ['Contact Person', rfqData.customer?.contactPerson || 'N/A'],
-        ],
-        'SKU Details': [
-          ['SKU', 'Description', 'Quantity', 'Unit', 'Requested Price', 'Suggested Price', 'Market Price', 'Cost', 'Margin', 'Status', 'On Hand', 'Reserved', 'Available', 'Location'],
-          ...rfqData.items?.map((item: any) => {
-            const inventoryData = skuDetails[item.id];
-            const quantityOnHand = inventoryData?.quantityOnHand || 0;
-            const quantityReserved = inventoryData?.quantityReserved || 0;
-            const available = quantityOnHand - quantityReserved;
-            const margin = item.suggestedPrice && item.inventory?.costCad
-              ? ((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)
-              : 'N/A';
-
-            return [
-              item.customerSku || item.inventory?.sku || 'N/A',
-              item.description || item.inventory?.description || 'N/A',
-              item.quantity || 'N/A',
-              item.unit || 'EA',
-              formatCurrency(item.estimatedPrice || 0),
-              formatCurrency(item.suggestedPrice || 0),
-              formatCurrency(item.inventory?.marketPrice || 0),
-              formatCurrency(item.inventory?.costCad || 0),
-              margin + '%',
-              item.status || 'N/A',
-              quantityOnHand,
-              quantityReserved,
-              available,
-              inventoryData?.warehouseLocation || 'N/A'
-            ];
-          }) || [],
-        ],
-        // Enhanced Sales History - matches the History tab display
-        'Sales History - Pricing': createPricingHistorySheet(),
-        'Sales History - Quantity': createQuantityHistorySheet(),
-        'Sales History - Summary': createSalesHistorySummary(),
-        'Purchase History': [
-          ['SKU', 'Date', 'Vendor', 'Quantity', 'Unit Price', 'Total Amount', 'Status'],
-          ...rfqData.items?.flatMap((item: any) => {
-            const purchaseHistory = inventoryHistory[item.id]?.transactions?.filter((t: any) =>
-              t.type === 'purchase'
-            ) || [];
-
-            return purchaseHistory.map((purchase: any) => [
-              item.customerSku || item.inventory?.sku || 'N/A',
-              purchase.date ? new Date(purchase.date).toLocaleDateString() : 'N/A',
-              purchase.vendorName || 'N/A',
-              purchase.quantity || 'N/A',
-              formatCurrency(purchase.price || 0),
-              formatCurrency(purchase.totalAmount || 0),
-              purchase.status || 'N/A'
-            ]);
-          }) || [],
-        ],
-        'Market Data': [
-          ['SKU', 'Market Price', 'Source', 'Last Updated', 'Competitor Price', 'Price Trend'],
-          ...rfqData.items?.map((item: any) => [
-            item.customerSku || item.inventory?.sku || 'N/A',
-            formatCurrency(item.inventory?.marketPrice || 0),
-            item.inventory?.marketSource || 'N/A',
-            item.inventory?.marketLastUpdated
-              ? new Date(item.inventory.marketLastUpdated).toLocaleDateString()
-              : 'N/A',
-            formatCurrency(item.inventory?.competitorPrice || 0),
-            item.inventory?.marketTrend || 'N/A'
-          ]) || [],
-        ]
-      };
-
-      // Log export data for debugging
-      console.log('🚀 Export data prepared:', {
-        sheets: Object.keys(exportData),
-        pricingHistoryRows: exportData['Sales History - Pricing']?.length,
-        quantityHistoryRows: exportData['Sales History - Quantity']?.length,
-        mainCustomers: mainCustomers.map(c => c.name),
-        historyData: history.history.length
-      });
-
-      // Ensure all sheets are valid arrays and handle empty data
-      Object.entries(exportData).forEach(([sheetName, data]) => {
-        if (!Array.isArray(data)) {
-          console.error(`Invalid data for sheet ${sheetName}:`, data);
-          // @ts-ignore
-          exportData[sheetName] = [['No data available']];
-        } else {
-          // Ensure each row is an array and handle empty data
-          // @ts-ignore
-
-          exportData[sheetName] = data.length > 0
-            ? data.map(row => Array.isArray(row) ? row : [row])
-            : [['No data available']];
-        }
-      });
-
-      // Create a new workbook
-      const wb = XLSX.utils.book_new();
-
-      // Add each section as a separate worksheet
-      Object.entries(exportData).forEach(([sheetName, data]) => {
-        try {
-          // Skip empty sheets
-          if (!data || data.length === 0) {
-            console.warn(`Skipping empty sheet: ${sheetName}`);
-            return;
-          }
-
-          const ws = XLSX.utils.aoa_to_sheet(
-            (data as string[][]).filter(row => Array.isArray(row))
-          );
-
-          // Auto-fit column widths with better handling
-          // @ts-ignore
-          const colWidths = data[0].map((_, index: any) => {
-            const maxLength = Math.max(
-              ...data.map(row => {
-                const cellValue = (row[index]?.toString() || '').length;
-                return Math.min(Math.max(cellValue, 10), 50); // Min width 10, max width 50
-              })
-            );
-            return { wch: maxLength + 2 }; // Add padding
-          });
-
-          ws['!cols'] = colWidths;
-          XLSX.utils.book_append_sheet(wb, ws, sheetName);
-
-          console.log(`✅ Sheet created: ${sheetName} with ${data.length} rows`);
-        } catch (sheetError) {
-          console.error(`Error processing sheet ${sheetName}:`, sheetError);
-          // Create an error sheet instead of failing the entire export
-          // @ts-ignore
-          const errorWs = XLSX.utils.aoa_to_sheet([['Error processing this sheet', sheetError.message]]);
-          XLSX.utils.book_append_sheet(wb, errorWs, `${sheetName}_ERROR`);
-        }
-      });
-
-      // Check if workbook has any sheets
-      if (wb.SheetNames.length === 0) {
-        throw new Error('No valid data to export');
-      }
-
-      // Generate and download the Excel file
-      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      });
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `RFQ_${rfqData.rfqNumber || 'export'}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('RFQ data exported successfully with enhanced sales history');
-    } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      toast.error(`Failed to export RFQ data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (id) {
+      fetchNegotiationHistory();
     }
-  };
-
+  }, [id]);
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
       const response = await rfqApi.update(id, {
         status: newStatus
       });
-
       if (response.success) {
         toast.success(`RFQ status updated to ${newStatus}`);
         // Refresh RFQ data
@@ -1186,13 +481,6 @@ export default function RfqDetail({
     }
   };
 
-  console.log('Rendering with RFQ:', {
-    rfqData,
-    rfq,
-    items,
-    skuDetails
-  });
-
   const handleColumnToggle = (tab: TabName, columnId: string) => {
     // Don't allow toggling off main customer columns in history tab
     if (tab === 'history' && columnId.startsWith('mainCustomer_')) {
@@ -1206,13 +494,11 @@ export default function RfqDetail({
         : [...prev[tab], columnId]
     }));
   };
-
   // Add useEffect to fetch quotation history
   useEffect(() => {
     const fetchQuotationHistory = async () => {
       try {
         setQuotationHistoryLoading(true);
-        // TODO: Replace with actual API call
         const response = await rfqApi.getQuotationHistory(id);
         if (response.success && response.data) {
           setQuotationHistory(response.data);
@@ -1231,13 +517,107 @@ export default function RfqDetail({
   }, [id]);
 
   // Add handlers for version management
-  const handleCreateVersion = async (data: {
-    estimatedPrice: number;
-    finalPrice: number;
-    changes: string;
+  const handleCreateQuotation = async (items: any[]) => {
+    try {
+      const quotationData: CreateQuotationRequest = {
+        entryType: 'internal_quote',
+        notes: 'Created from Items tab',
+        items: items
+      };
+
+      const response = await rfqApi.createQuotation(id, quotationData);
+      if (response.success) {
+        toast.success('Quotation created successfully');
+        // Refresh quotation history
+        const historyResponse = await rfqApi.getQuotationHistory(id);
+        if (historyResponse.success && historyResponse.data) {
+          setQuotationHistory(historyResponse.data);
+        }
+        // Refresh RFQ data
+        const updatedRfq = await rfqApi.getById(id);
+        if (updatedRfq.success && updatedRfq.data) {
+          setRfqData(updatedRfq.data);
+        }
+      } else {
+        toast.error(response.error || 'Failed to create quotation');
+      }
+    } catch (error) {
+      console.error('Error creating quotation:', error);
+      toast.error('Failed to create quotation');
+    }
+  };
+
+  const handleCreateSkuChange = async (itemId: number, changes: {
+    oldQuantity: number;
+    newQuantity: number;
+    oldUnitPrice: number;
+    newUnitPrice: number;
+    changeReason: string;
   }) => {
     try {
-      const response = await rfqApi.createVersion(id, data);
+      const item = items.find(i => i.id === itemId);
+      if (!item) {
+        throw new Error('Item not found');
+      }
+
+      const skuId = item.internalProductId || item.inventory?.id;
+      if (!skuId) {
+        throw new Error('SKU ID not found');
+      }
+
+      let changeType = 'BOTH';
+      if (changes.oldQuantity === changes.newQuantity) {
+        changeType = 'PRICE_CHANGE';
+      } else if (changes.oldUnitPrice === changes.newUnitPrice) {
+        changeType = 'QUANTITY_CHANGE';
+      }
+
+      const skuChangeData = {
+        rfqId: parseInt(id),
+        skuId: skuId,
+        versionId: quotationHistory[0]?.id,
+        changeType,
+        oldQuantity: changes.oldQuantity,
+        newQuantity: changes.newQuantity,
+        oldUnitPrice: changes.oldUnitPrice,
+        newUnitPrice: changes.newUnitPrice,
+        changeReason: changes.changeReason,
+        changedBy: 'INTERNAL'
+      };
+
+      const response = await negotiationApi.createSkuChange(id, skuChangeData);
+      if (response.success) {
+        // Refresh negotiation history
+        await fetchNegotiationHistory();
+      } else {
+        throw new Error(response.error || 'Failed to record SKU change');
+      }
+    } catch (error) {
+      console.error('Error creating SKU change:', error);
+      throw error;
+    }
+  };
+
+  const fetchNegotiationHistory = async () => {
+    try {
+      setNegotiationHistoryLoading(true);
+      const response = await negotiationApi.getSkuHistory(id);
+      if (response.success) {
+        setNegotiationHistory(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching negotiation history:', error);
+    } finally {
+      setNegotiationHistoryLoading(false);
+    }
+  };
+  const handleCreateVersion = async (data: {
+    entryType: any;
+    notes?: string;
+    items: any[];
+  }) => {
+    try {
+      const response = await rfqApi.createQuotation(id, data);
       if (response.success) {
         toast.success('Version created successfully');
         // Refresh quotation history
@@ -1311,34 +691,6 @@ export default function RfqDetail({
     } finally {
       setIsResponseModalOpen(false);
       setSelectedVersion(null);
-    }
-  };
-
-  const handleRecordItemResponse = async (data: {
-    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
-    comments: string;
-    requestedChanges?: string;
-  }) => {
-    if (!versionModalSku || !selectedItemVersion) return;
-
-    try {
-      const response = await rfqApi.recordItemCustomerResponse(
-        id,
-        versionModalSku,
-        selectedItemVersion.versionNumber,
-        data
-      );
-
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to record response');
-      }
-
-      setIsItemResponseModalOpen(false);
-      setSelectedItemVersion(null);
-      toast.success('Response recorded successfully');
-    } catch (error) {
-      console.error('Error recording response:', error);
-      toast.error('Failed to record response');
     }
   };
 
@@ -1521,10 +873,14 @@ export default function RfqDetail({
           </div>
 
           <Tabs defaultValue="items" className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="items">
                 <FileText className="mr-2 h-4 w-4" />
                 Items
+              </TabsTrigger>
+              <TabsTrigger value="negotiation">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Negotiation
               </TabsTrigger>
               <TabsTrigger value="pricing">
                 <Tag className="mr-2 h-4 w-4" />
@@ -1557,822 +913,109 @@ export default function RfqDetail({
             </TabsList>
 
             <TabsContent value="items" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>SKU Items</CardTitle>
-                    <TableCustomizer
-                      columns={ITEMS_COLUMNS}
-                      visibleColumns={visibleColumns.items}
-                      onColumnToggle={(columnId) => handleColumnToggle('items', columnId)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {ITEMS_COLUMNS.map(column =>
-                          visibleColumns.items.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                        <TableHead>Version History</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => (
-                        <TableRow key={item.id}>
-                          {visibleColumns.items.includes('sku') && (
-                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('description') && (
-                            <TableCell>{item.description || item.inventory?.description}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('quantity') && (
-                            <TableCell>{item.quantity}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('unitPrice') && (
-                            <TableCell>
-                              <Input
-                                type="number"
-                                value={item.finalPrice || item.suggestedPrice || 0}
-                                onChange={(e) => {
-                                  const value = parseFloat(e.target.value);
-                                  // Update local state immediately for responsive UI
-                                  setRfqData((prev) => {
-                                    if (!prev) return null;
-                                    return {
-                                      ...prev,
-                                      items: prev.items.map((i: any) => 
-                                        i.id === item.id 
-                                          ? { ...i, finalPrice: value }
-                                          : i
-                                      )
-                                    };
-                                  });
-                                }}
-                                onBlur={(e) => handleUnitPriceChange(item.id, parseFloat(e.target.value), e)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleUnitPriceChange(item.id, parseFloat(e.currentTarget.value), e);
-                                  }
-                                }}
-                                className="w-24"
-                              />
-                            </TableCell>
-                          )}
-                          {visibleColumns.items.includes('total') && (
-                            <TableCell>{formatCurrency((item.finalPrice || item.suggestedPrice || 0) * item.quantity)}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('status') && (
-                            <TableCell>
-                              <Select
-                                value={item.status}
-                                onValueChange={(newStatus: RfqStatus) => handleItemStatusChange(item.id, newStatus)}
-                              >
-                                <SelectTrigger className="w-[140px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="NEW">New</SelectItem>
-                                  <SelectItem value="DRAFT">Draft</SelectItem>
-                                  <SelectItem value="PRICED">Priced</SelectItem>
-                                  <SelectItem value="SENT">Sent</SelectItem>
-                                  <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
-                                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                                  <SelectItem value="DECLINED">Declined</SelectItem>
-                                  <SelectItem value="PROCESSED">Processed</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          )}
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const sku = item.customerSku || item.inventory?.sku;
-                                setVersionModalSku(sku);
-                                setIsItemVersionModalOpen(true);
-                              }}
-                            >
-                              View Versions
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+              <EditableItemsTable
+                items={items}
+                onSaveQuotation={handleCreateQuotation}
+                isEditable={true}
+                rfqStatus={rfq?.status}
+                negotiationHistory={negotiationHistory}
+                onCreateSkuChange={handleCreateSkuChange}
+              />
+              {renderPagination()}
+            </TabsContent>
 
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
-              {/* Per-SKU Version History Modal */}
-              {isItemVersionModalOpen && versionModalSku && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                  <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl p-6 relative">
-                    <button
-                      className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => setIsItemVersionModalOpen(false)}
-                    >
-                      ×
-                    </button>
-                    <h2 className="text-lg font-bold mb-4">Version History for {versionModalSku}</h2>
-                    <Button onClick={() => setIsCreateItemVersionModalOpen(true)} className="mb-4">
-                      Create New Version
-                    </Button>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Version</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Estimated Price</TableHead>
-                          <TableHead>Final Price</TableHead>
-                          <TableHead>Changes</TableHead>
-                          <TableHead>Created By</TableHead>
-                          <TableHead>Created At</TableHead>
-                          <TableHead>Customer Response</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(itemVersions[versionModalSku] || []).map((version: ItemVersion) => (
-                          <TableRow key={version.versionNumber}>
-                            <TableCell>v{version.versionNumber}</TableCell>
-                            <TableCell>{version.status}</TableCell>
-                            <TableCell>{formatCurrency(version.estimatedPrice)}</TableCell>
-                            <TableCell>{formatCurrency(version.finalPrice)}</TableCell>
-                            <TableCell>{version.changes}</TableCell>
-                            <TableCell>{version.createdBy}</TableCell>
-                            <TableCell>{new Date(version.createdAt).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              {version.customerResponse ? (
-                                <div>
-                                  <Badge>{version.customerResponse.status}</Badge>
-                                  <div className="text-xs">{version.customerResponse.comments}</div>
-                                </div>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedItemVersion(version);
-                                    setIsItemResponseModalOpen(true);
-                                  }}
-                                >
-                                  Record Response
-                                </Button>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {/* Example: Status change actions */}
-                              <Select
-                                value={version.status}
-                                onValueChange={async (newStatus) => {
-                                  // Call API to update status
-                                  await rfqApi.updateItemVersionStatus(id, versionModalSku, version.versionNumber, newStatus);
-                                }}
-                              >
-                                <SelectTrigger className="w-[120px]">
-                                  <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="NEW">New</SelectItem>
-                                  <SelectItem value="DRAFT">Draft</SelectItem>
-                                  <SelectItem value="PRICED">Priced</SelectItem>
-                                  <SelectItem value="SENT">Sent</SelectItem>
-                                  <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
-                                  <SelectItem value="DECLINED">Declined</SelectItem>
-                                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                                  <SelectItem value="PROCESSED">Processed</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    {/* Create Version Modal for SKU */}
-                    <VersionCreationModal
-                      isOpen={isCreateItemVersionModalOpen}
-                      onClose={() => setIsCreateItemVersionModalOpen(false)}
-                      onSubmit={async (data) => {
-                        await rfqApi.createItemVersion(id, versionModalSku, data);
-                        setIsCreateItemVersionModalOpen(false);
-                      }}
-                      currentPrice={rfq?.totalBudget}
-                    />
-                    {/* Record Response Modal for SKU Version */}
-                    <CustomerResponseModal
-                      isOpen={isItemResponseModalOpen}
-                      onClose={() => {
-                        setIsItemResponseModalOpen(false);
-                        setSelectedItemVersion(null);
-                      }}
-                      onSubmit={handleRecordItemResponse}
-                    />
-                  </div>
-                </div>
-              )}
+            <TabsContent value="negotiation" className="m-0">
+              <NegotiationTab
+                rfqId={parseInt(id)}
+                rfqStatus={rfq?.status || 'NEW'}
+                currentVersion={quotationHistory[0]}
+              />
             </TabsContent>
 
             <TabsContent value="pricing" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Pricing Analysis</CardTitle>
-                    <TableCustomizer
-                      columns={PRICING_COLUMNS}
-                      visibleColumns={visibleColumns.pricing}
-                      onColumnToggle={(columnId) => handleColumnToggle('pricing', columnId)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {PRICING_COLUMNS.map(column =>
-                          visibleColumns.pricing.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => (
-                        <TableRow key={item.id}>
-                          {visibleColumns.pricing.includes('sku') && (
-                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          )}
-                          {visibleColumns.pricing.includes('requestedPrice') && (
-                            <TableCell>{formatCurrency(item.estimatedPrice || 0)}</TableCell>
-                          )}
-                          {visibleColumns.pricing.includes('suggestedPrice') && (
-                            <TableCell>{formatCurrency(item.suggestedPrice || 0)}</TableCell>
-                          )}
-                          {visibleColumns.pricing.includes('marketPrice') && (
-                            <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
-                          )}
-                          {visibleColumns.pricing.includes('cost') && (
-                            <TableCell>{formatCurrency(item.inventory?.costCad || 0)}</TableCell>
-                          )}
-                          {visibleColumns.pricing.includes('margin') && (
-                            <TableCell>
-                              {item.suggestedPrice && item.inventory?.costCad
-                                ? `${((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)}%`
-                                : 'N/A'}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
+              <PricingTab
+                items={items}
+                visibleColumns={visibleColumns.pricing}
+                onColumnToggle={(columnId) => handleColumnToggle('pricing', columnId)}
+                renderPagination={renderPagination}
+                formatCurrency={formatCurrency}
+              />
             </TabsContent>
 
             <TabsContent value="inventory" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Inventory Status</CardTitle>
-                    <TableCustomizer
-                      columns={INVENTORY_COLUMNS}
-                      visibleColumns={visibleColumns.inventory}
-                      onColumnToggle={(columnId) => handleColumnToggle('inventory', columnId)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {INVENTORY_COLUMNS.map(column =>
-                          visibleColumns.inventory.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => {
-                        const inventoryData = skuDetails[item.id];
-                        return (
-                          <TableRow key={item.id}>
-                            {visibleColumns.inventory.includes('sku') && (
-                              <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                            )}
-                            {visibleColumns.inventory.includes('onHand') && (
-                              <TableCell>{inventoryData?.quantityOnHand || 0}</TableCell>
-                            )}
-                            {visibleColumns.inventory.includes('reserved') && (
-                              <TableCell>{inventoryData?.quantityReserved || 0}</TableCell>
-                            )}
-                            {visibleColumns.inventory.includes('available') && (
-                              <TableCell>
-                                {(inventoryData?.quantityOnHand || 0) - (inventoryData?.quantityReserved || 0)}
-                              </TableCell>
-                            )}
-                            {visibleColumns.inventory.includes('location') && (
-                              <TableCell>{inventoryData?.warehouseLocation || 'N/A'}</TableCell>
-                            )}
-                            {visibleColumns.inventory.includes('status') && (
-                              <TableCell>
-                                <Badge variant={
-                                  (inventoryData?.quantityOnHand || 0) > (inventoryData?.lowStockThreshold || 0)
-                                    ? 'default'
-                                    : 'destructive'
-                                }>
-                                  {(inventoryData?.quantityOnHand || 0) > (inventoryData?.lowStockThreshold || 0)
-                                    ? 'In Stock'
-                                    : 'Low Stock'}
-                                </Badge>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
+              <InventoryTab
+                items={items}
+                visibleColumns={visibleColumns.inventory}
+                onColumnToggle={(columnId) => handleColumnToggle('inventory', columnId)}
+                renderPagination={renderPagination}
+                formatCurrency={formatCurrency}
+                skuDetails={skuDetails}
+              />
             </TabsContent>
 
             <TabsContent value="history" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Sales History</CardTitle>
-                    <div className="flex items-center gap-4">
-                      <Select
-                        value={filters.period}
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, period: value }))}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select period" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="3months">Last 3 Months</SelectItem>
-                          <SelectItem value="6months">Last 6 Months</SelectItem>
-                          <SelectItem value="12months">Last 12 Months</SelectItem>
-                          <SelectItem value="all">All Time</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <TableCustomizer
-                        columns={historyColumns}
-                        visibleColumns={visibleColumns.history}
-                        onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="pricing" className="w-full">
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="pricing">Pricing History</TabsTrigger>
-                      <TabsTrigger value="quantity">Quantity History</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="pricing">
-                      {historyLoading ? (
-                        <div className="flex justify-center items-center py-4">
-                          <Spinner size={32} />
-                        </div>
-                      ) : historyError ? (
-                        <div className="text-red-500 text-center py-4">{historyError}</div>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>SKU</TableHead>
-                              {mainCustomers.map(customer => (
-                                <TableHead key={customer.id}>{customer.name}</TableHead>
-                              ))}
-                              <TableHead>Other Customers</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {items.map((item: any) => {
-                              const itemSku = item.customerSku || item.inventory?.sku;
-                              const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
-                              // @ts-ignore
-                              const otherCustomerHistory = salesHistory[0]?.otherCustomerHistory
-
-                              if (salesHistory.length === 0) {
-                                return null;
-                              }
-
-                              return (
-                                <TableRow key={item.id}>
-                                  <TableCell>{itemSku}</TableCell>
-                                  {mainCustomers.map(customer => {
-                                    const te = salesHistory[0]?.mainCustomerHistory
-                                    // @ts-ignore
-                                    const customerHistory = te.filter((t) => t.customerId === customer.id)
-
-                                    return (
-                                      <TableCell key={customer.id}>
-                                        {customerHistory.length > 0 ? (
-                                          <div className="space-y-1">
-                                            <div>Last Price: {formatCurrency(customerHistory[0]?.lastPrice || 0)}</div>
-                                            <div>Last Date: {new Date(customerHistory[0]?.lastTransaction).toLocaleDateString()}</div>
-                                            <Badge variant={customerHistory.trend === 'up' ? 'default' : 'destructive'}>
-                                              {customerHistory.trend === 'up' ? '↑' : '↓'}
-                                            </Badge>
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground">No history</span>
-                                        )}
-                                      </TableCell>
-                                    );
-                                  })}
-                                  <TableCell>
-                                    {otherCustomerHistory.length > 0 ? (
-                                      <div className="space-y-1">
-                                        <div>Last Price: {formatCurrency(otherCustomerHistory[0].lastPrice || 0)}</div>
-                                        <div>Customer: {otherCustomerHistory[0].customer}</div>
-                                        <div>Last Date: {new Date(otherCustomerHistory[0].lastTransaction).toLocaleDateString()}</div>
-                                        <Badge variant={otherCustomerHistory[0].trend === 'up' ? 'default' : 'destructive'}>
-                                          {otherCustomerHistory[0].trend === 'up' ? '↑' : '↓'}
-                                        </Badge>
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground">No history</span>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="quantity">
-                      {historyLoading ? (
-                        <div className="flex justify-center items-center py-4">
-                          <Spinner size={32} />
-                        </div>
-                      ) : historyError ? (
-                        <div className="text-red-500 text-center py-4">{historyError}</div>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>SKU</TableHead>
-                              {mainCustomers.map(customer => (
-                                <TableHead key={customer.id}>{customer.name}</TableHead>
-                              ))}
-                              <TableHead>Other Customers</TableHead>
-                              <TableHead>Total Quantity</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {items.map((item: any) => {
-                              const itemSku = item.customerSku || item.inventory?.sku;
-                              const salesHistory = history.history.filter((h) => h.sku === itemSku) as HistoryItem[];
-                              // @ts-ignore
-                              const otherCustomerHistory = salesHistory[0]?.otherCustomerHistory
-
-                              if (salesHistory.length === 0) {
-                                return null;
-                              }
-
-                              let totalQuantity = 0;
-
-                              // Get sales from non-main customers
-                              const otherCustomerSales = salesHistory.filter(h =>
-                                !mainCustomers.some(mc => mc.name === h.customer)
-                              );
-
-                              return (
-                                <TableRow key={item.id}>
-                                  <TableCell>{itemSku}</TableCell>
-                                  {mainCustomers.map(customer => {
-                                    const customerHistory = salesHistory[0]?.mainCustomerHistory?.[customer.id];
-                                    if (customerHistory) {
-                                      totalQuantity += customerHistory.totalQuantity;
-                                    }
-                                    return (
-                                      <TableCell key={customer.id}>
-                                        {customerHistory ? (
-                                          <div className="space-y-1">
-                                            <div>Last Qty: {customerHistory.lastQuantity}</div>
-                                            <div>Total Qty: {customerHistory.totalQuantity}</div>
-                                            <div>Last Date: {new Date(customerHistory.lastTransaction).toLocaleDateString()}</div>
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground">No history</span>
-                                        )}
-                                      </TableCell>
-                                    );
-                                  })}
-                                  <TableCell>
-                                    {otherCustomerHistory.length > 0 ? (
-                                      <div className="space-y-1">
-                                        <div>Last Qty: {otherCustomerHistory[0].lastQuantity}</div>
-                                        <div>Total Qty: {otherCustomerHistory[0].totalQuantity}</div>
-                                        <div>Customer: {otherCustomerHistory[0].customer}</div>
-                                        <div>Last Date: {new Date(otherCustomerHistory[0].lastTransaction).toLocaleDateString()}</div>
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground">No history</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="font-semibold">
-                                    {totalQuantity + (otherCustomerSales.length > 0 ? otherCustomerSales[0].totalQuantity : 0)}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
+              <HistoryTab
+                items={items}
+                visibleColumns={visibleColumns.history}
+                onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
+                renderPagination={renderPagination}
+                formatCurrency={formatCurrency}
+                history={history}
+                historyLoading={historyLoading}
+                historyError={historyError}
+                mainCustomers={mainCustomers}
+                filters={filters}
+                onFiltersChange={setFilters}
+                historyColumns={historyColumns}
+              />
             </TabsContent>
 
             <TabsContent value="market" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Market Data</CardTitle>
-                    <TableCustomizer
-                      columns={MARKET_COLUMNS}
-                      visibleColumns={visibleColumns.market}
-                      onColumnToggle={(columnId) => handleColumnToggle('market', columnId)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {MARKET_COLUMNS.map(column =>
-                          visibleColumns.market.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => (
-                        <TableRow key={item.id}>
-                          {visibleColumns.market.includes('sku') && (
-                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          )}
-                          {visibleColumns.market.includes('marketPrice') && (
-                            <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
-                          )}
-                          {visibleColumns.market.includes('source') && (
-                            <TableCell>{item.inventory?.marketSource || 'N/A'}</TableCell>
-                          )}
-                          {visibleColumns.market.includes('lastUpdated') && (
-                            <TableCell>
-                              {item.inventory?.marketLastUpdated
-                                ? new Date(item.inventory.marketLastUpdated).toLocaleDateString()
-                                : 'N/A'}
-                            </TableCell>
-                          )}
-                          {visibleColumns.market.includes('competitorPrice') && (
-                            <TableCell>{formatCurrency(item.inventory?.competitorPrice || 0)}</TableCell>
-                          )}
-                          {visibleColumns.market.includes('priceTrend') && (
-                            <TableCell>
-                              <Badge variant={item.inventory?.marketTrend === 'up' ? 'default' : 'destructive'}>
-                                {item.inventory?.marketTrend === 'up' ? '↑' : '↓'}
-                              </Badge>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
+              <MarketDataTab
+                items={items}
+                visibleColumns={visibleColumns.market}
+                onColumnToggle={(columnId) => handleColumnToggle('market', columnId)}
+                renderPagination={renderPagination}
+                formatCurrency={formatCurrency}
+              />
             </TabsContent>
 
             <TabsContent value="settings" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>SKU Settings</CardTitle>
-                    <TableCustomizer
-                      columns={SETTINGS_COLUMNS}
-                      visibleColumns={visibleColumns.settings}
-                      onColumnToggle={(columnId) => handleColumnToggle('settings', columnId)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {SETTINGS_COLUMNS.map(column =>
-                          visibleColumns.settings.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => (
-                        <TableRow key={item.id}>
-                          {visibleColumns.settings.includes('sku') && (
-                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          )}
-                          {visibleColumns.settings.includes('status') && (
-                            <TableCell>
-                              <Select
-                                value={item.status}
-                                onValueChange={(value) => handleStatusChange(value as RfqStatus)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="PENDING">Pending</SelectItem>
-                                  <SelectItem value="APPROVED">Approved</SelectItem>
-                                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          )}
-                          {visibleColumns.settings.includes('currency') && (
-                            <TableCell>{item.currency}</TableCell>
-                          )}
-                          {visibleColumns.settings.includes('unit') && (
-                            <TableCell>{item.unit}</TableCell>
-                          )}
-                          {visibleColumns.settings.includes('notes') && (
-                            <TableCell>{item.notes || 'N/A'}</TableCell>
-                          )}
-                          {visibleColumns.settings.includes('actions') && (
-                            <TableCell>
-                              <Button variant="outline" size="sm" onClick={() => handleEditItem(item.id)}>
-                                Edit
-                              </Button>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
+              <SettingsTab
+                items={items}
+                visibleColumns={visibleColumns.settings}
+                onColumnToggle={(columnId) => handleColumnToggle('settings', columnId)}
+                renderPagination={renderPagination}
+                formatCurrency={formatCurrency}
+                onStatusChange={handleStatusChange}
+                onEditItem={handleEditItem}
+              />
             </TabsContent>
 
             <TabsContent value="quotation-history" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Quotation History</CardTitle>
-                    <div className="flex gap-2">
-                      <Button onClick={() => setIsVersionModalOpen(true)}>
-                        Create New Version
-                      </Button>
-                      <TableCustomizer
-                        columns={QUOTATION_HISTORY_COLUMNS}
-                        visibleColumns={visibleColumns['quotation-history']}
-                        onColumnToggle={(columnId) => handleColumnToggle('quotation-history', columnId)}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {quotationHistoryLoading ? (
-                    <div className="flex justify-center items-center py-4">
-                      <Spinner size={32} />
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {QUOTATION_HISTORY_COLUMNS.map(column =>
-                            visibleColumns['quotation-history'].includes(column.id) && (
-                              <TableHead key={column.id}>{column.label}</TableHead>
-                            )
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {quotationHistory.map((version) => (
-                          <TableRow key={version.versionNumber}>
-                            {visibleColumns['quotation-history'].includes('version') && (
-                              <TableCell>v{version.versionNumber}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('status') && (
-                              <TableCell>
-                                <VersionStatusManager
-                                  currentStatus={version.status}
-                                  versionId={version.versionNumber}
-                                  rfqId={id}
-                                  onStatusChange={(newStatus) => {
-                                    const updatedHistory = quotationHistory.map(v =>
-                                      v.versionNumber === version.versionNumber
-                                        ? { ...v, status: newStatus }
-                                        : v
-                                    );
-                                    // @ts-ignore
-                                    setQuotationHistory(updatedHistory);
-                                  }}
-                                />
-                              </TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('estimatedPrice') && (
-                              <TableCell>{formatCurrency(version.estimatedPrice || 0)}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('finalPrice') && (
-                              <TableCell>{formatCurrency(version.finalPrice || 0)}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('changes') && (
-                              <TableCell>{version.changes}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('createdBy') && (
-                              <TableCell>{version.createdBy}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('createdAt') && (
-                              <TableCell>
-                                {new Date(version.createdAt).toLocaleDateString()}
-                              </TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('customerResponse') && (
-                              <TableCell>
-                                {version.customerResponse ? (
-                                  <div className="space-y-1">
-                                    <Badge variant={
-                                      version.customerResponse.status === 'ACCEPTED' ? 'default' :
-                                        version.customerResponse.status === 'DECLINED' ? 'destructive' :
-                                          'secondary'
-                                    }>
-                                      {version.customerResponse.status}
-                                    </Badge>
-                                    {version.customerResponse.comments && (
-                                      <p className="text-sm text-muted-foreground">
-                                        {version.customerResponse.comments}
-                                      </p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedVersion(version);
-                                      setIsResponseModalOpen(true);
-                                    }}
-                                  >
-                                    Record Response
-                                  </Button>
-                                )}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              <VersionCreationModal
-                isOpen={isVersionModalOpen}
-                onClose={() => setIsVersionModalOpen(false)}
-                onSubmit={handleCreateVersion}
-                currentPrice={rfq?.totalBudget}
-              />
-
-              <CustomerResponseModal
-                isOpen={isResponseModalOpen}
-                onClose={() => {
+              <QuotationHistoryTab
+                quotationHistory={quotationHistory}
+                items={items}
+                isVersionModalOpen={isVersionModalOpen}
+                isResponseModalOpen={isResponseModalOpen}
+                selectedVersion={selectedVersion}
+                onOpenVersionModal={() => setIsVersionModalOpen(true)}
+                onCloseVersionModal={() => setIsVersionModalOpen(false)}
+                onOpenResponseModal={(version) => {
+                  setSelectedVersion(version);
+                  setIsResponseModalOpen(true);
+                }}
+                onCloseResponseModal={() => {
                   setIsResponseModalOpen(false);
                   setSelectedVersion(null);
                 }}
-                onSubmit={handleRecordResponse}
+                onCreateVersion={handleCreateVersion}
+                onRecordResponse={handleRecordResponse}
               />
             </TabsContent>
 
             <TabsContent value="export" className="m-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Export RFQ</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" onClick={exportToExcel}>
-                    Export RFQ Data
-                  </Button>
-                </CardContent>
-              </Card>
+              <ExportTab onExportToExcel={exportToExcel} />
             </TabsContent>
           </Tabs>
         </div>
@@ -2444,5 +1087,3 @@ rfqApi.createItemVersion = async (rfqId: string, sku: string, data: {
     };
   }
 };
-
-
