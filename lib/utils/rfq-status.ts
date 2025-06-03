@@ -78,7 +78,15 @@ export function getStatusTransitionRules(currentStatus: RfqStatus): StatusTransi
         nextPossibleStatuses: []
       };
   }
-}    case 'DRAFT': return 'Draft in progress';
+}
+
+/**
+ * Get display-friendly status descriptions
+ */
+export function getStatusDescription(status: RfqStatus): string {
+  switch (status) {
+    case 'NEW': return 'New RFQ received';
+    case 'DRAFT': return 'Draft in progress';
     case 'PRICED': return 'Pricing completed';
     case 'SENT': return 'Sent to customer';
     case 'NEGOTIATING': return 'Under negotiation';
@@ -146,33 +154,4 @@ export function canCreateVersion(rfqStatus: RfqStatus): boolean {
 export function canEditItems(rfqStatus: RfqStatus): boolean {
   const rules = getStatusTransitionRules(rfqStatus);
   return rules.canEdit;
-}
-
-/**
- * Get user-friendly status descriptions
- */
-export function getStatusDescription(status: RfqStatus): string {
-  switch (status) {
-    case 'NEW': return 'New request received';
-    case 'DRAFT': return 'Draft in progress';
-    case 'PRICED': return 'Pricing completed';
-    case 'SENT': return 'Sent to customer';
-    case 'NEGOTIATING': return 'Under negotiation';
-    case 'ACCEPTED': return 'Accepted by customer';
-    case 'DECLINED': return 'Declined by customer';
-    case 'PROCESSED': return 'Processed and completed';
-    default: return status;
-  }
-}
-
-/**
- * Get entry type descriptions
- */
-export function getEntryTypeDescription(entryType: QuotationEntryType): string {
-  switch (entryType) {
-    case 'internal_quote': return 'Internal Quote';
-    case 'customer_feedback': return 'Customer Feedback';
-    case 'counter_offer': return 'Counter Offer';
-    default: return entryType;
-  }
 }

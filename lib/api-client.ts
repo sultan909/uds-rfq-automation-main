@@ -15,10 +15,23 @@ class ApiError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ message: "An error occurred" }));
-    throw new ApiError(response.status, error.message || "An error occurred");
+    let errorMessage = "An error occurred";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (parseError) {
+      // If we can't parse the response, use the status text
+      errorMessage = response.statusText || `HTTP ${response.status}`;
+    }
+    
+    console.error(`API Error: ${response.status} ${response.statusText}`, {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      message: errorMessage
+    });
+    
+    throw new ApiError(response.status, errorMessage);
   }
   return response.json();
 }
@@ -266,4 +279,49 @@ export const vendorApi = {
     apiFetch(`/api/vendors/${id}`, {
       method: "DELETE",
     }),
+};
+
+// Negotiation API endpoints
+export const negotiationApi = {
+  // Communication endpoints
+  getCommunications: (rfqId: string) => 
+    apiFetch(`/api/rfq/${rfqId}/communications`),
+  createCommunication: (rfqId: string, data: any) =>
+    apiFetch(`/api/rfq/${rfqId}/communications`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getCommunication: (communicationId: string) =>
+    apiFetch(`/api/communications/${communicationId}`),
+  updateCommunication: (communicationId: string, data: any) =>
+    apiFetch(`/api/communications/${communicationId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteCommunication: (communicationId: string) =>
+    apiFetch(`/api/communications/${communicationId}`, {
+      method: "DELETE",
+    }),
+  completeFollowUp: (communicationId: string, completed: boolean = true) =>
+    apiFetch(`/api/communications/${communicationId}/follow-up`, {
+      method: "PUT",
+      body: JSON.stringify({ followUpCompleted: completed }),
+    }),
+
+  // SKU change history endpoints
+  getSkuHistory: (rfqId: string) =>
+    apiFetch(`/api/rfq/${rfqId}/sku-history`),
+  createSkuChange: (rfqId: string, data: any) =>
+    apiFetch(`/api/rfq/${rfqId}/sku-changes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getSkuChangesByItem: (rfqId: string, skuId: string) =>
+    apiFetch(`/api/rfq/${rfqId}/sku/${skuId}/history`),
+
+  // Negotiation analytics
+  getNegotiationSummary: (rfqId: string) =>
+    apiFetch(`/api/rfq/${rfqId}/negotiation-summary`),
+  getCommunicationSummary: (rfqId: string) =>
+    apiFetch(`/api/rfq/${rfqId}/communication-summary`),
 };

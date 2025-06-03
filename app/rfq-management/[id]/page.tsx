@@ -19,11 +19,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  MessageSquare,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { rfqApi, customerApi, inventoryApi } from "@/lib/api-client";
+import { rfqApi, customerApi, inventoryApi, negotiationApi } from "@/lib/api-client";
 import { toast } from "sonner";
 import { Spinner } from "@/components/spinner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,6 +43,7 @@ import { VersionCreationModal } from "@/components/version-creation-modal";
 import { VersionStatusManager } from "@/components/version-status-manager";
 import { CustomerResponseModal } from "@/components/customer-response-modal";
 import { EditableItemsTable } from "@/components/editable-items-table";
+import { NegotiationTab } from "@/components/negotiation-tab";
 import { QuotationHistoryTable } from "@/components/quotation-history-table";
 import type { CreateQuotationRequest, QuotationVersionWithItems } from "@/lib/types/quotation";
 
@@ -257,6 +259,10 @@ export default function RfqDetail({
   const [quotationHistory, setQuotationHistory] = useState<QuotationVersionWithItems[]>([]);
   const [quotationHistoryLoading, setQuotationHistoryLoading] = useState(true);
 
+  // Add state for negotiation
+  const [negotiationHistory, setNegotiationHistory] = useState<any[]>([]);
+  const [negotiationHistoryLoading, setNegotiationHistoryLoading] = useState(true);
+
   // Add state for modals
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
@@ -307,6 +313,13 @@ export default function RfqDetail({
       fetchRfqData();
     }
   }, [id, currentPage, itemsPerPage]);
+
+  // Fetch negotiation history
+  useEffect(() => {
+    if (id) {
+      fetchNegotiationHistory();
+    }
+  }, [id]);
 
   // Add debug render
   if (rfqData) {
@@ -857,6 +870,34 @@ export default function RfqDetail({
             formatCurrency(item.inventory?.competitorPrice || 0),
             item.inventory?.marketTrend || 'N/A'
           ]) || [],
+        ],
+        'Negotiation Communications': [
+          ['Date', 'Type', 'Direction', 'Subject', 'Contact Person', 'Content', 'Follow-up Required', 'Follow-up Date', 'Follow-up Completed'],
+          ...communications?.map((comm: any) => [
+            new Date(comm.communicationDate).toLocaleDateString(),
+            comm.communicationType,
+            comm.direction,
+            comm.subject || 'N/A',
+            comm.contactPerson || 'N/A',
+            comm.content?.substring(0, 100) + (comm.content?.length > 100 ? '...' : ''),
+            comm.followUpRequired ? 'Yes' : 'No',
+            comm.followUpDate ? new Date(comm.followUpDate).toLocaleDateString() : 'N/A',
+            comm.followUpCompleted ? 'Yes' : 'No'
+          ]) || [],
+        ],
+        'SKU Negotiation Changes': [
+          ['Date', 'SKU', 'Change Type', 'Old Quantity', 'New Quantity', 'Old Price', 'New Price', 'Reason', 'Changed By'],
+          ...negotiationHistory?.map((change: any) => [
+            new Date(change.createdAt).toLocaleDateString(),
+            change.sku?.sku || 'N/A',
+            change.changeType,
+            change.oldQuantity || 'N/A',
+            change.newQuantity || 'N/A',
+            change.oldUnitPrice ? formatCurrency(change.oldUnitPrice) : 'N/A',
+            change.newUnitPrice ? formatCurrency(change.newUnitPrice) : 'N/A',
+            change.changeReason || 'No reason provided',
+            change.changedBy
+          ]) || [],
         ]
       };
 
@@ -1102,6 +1143,71 @@ export default function RfqDetail({
     }
   };
 
+  const handleCreateSkuChange = async (itemId: number, changes: {
+    oldQuantity: number;
+    newQuantity: number;
+    oldUnitPrice: number;
+    newUnitPrice: number;
+    changeReason: string;
+  }) => {
+    try {
+      const item = items.find(i => i.id === itemId);
+      if (!item) {
+        throw new Error('Item not found');
+      }
+
+      const skuId = item.internalProductId || item.inventory?.id;
+      if (!skuId) {
+        throw new Error('SKU ID not found');
+      }
+
+      let changeType = 'BOTH';
+      if (changes.oldQuantity === changes.newQuantity) {
+        changeType = 'PRICE_CHANGE';
+      } else if (changes.oldUnitPrice === changes.newUnitPrice) {
+        changeType = 'QUANTITY_CHANGE';
+      }
+
+      const skuChangeData = {
+        rfqId: parseInt(id),
+        skuId: skuId,
+        versionId: quotationHistory[0]?.id,
+        changeType,
+        oldQuantity: changes.oldQuantity,
+        newQuantity: changes.newQuantity,
+        oldUnitPrice: changes.oldUnitPrice,
+        newUnitPrice: changes.newUnitPrice,
+        changeReason: changes.changeReason,
+        changedBy: 'INTERNAL'
+      };
+
+      const response = await negotiationApi.createSkuChange(id, skuChangeData);
+      if (response.success) {
+        // Refresh negotiation history
+        await fetchNegotiationHistory();
+      } else {
+        throw new Error(response.error || 'Failed to record SKU change');
+      }
+    } catch (error) {
+      console.error('Error creating SKU change:', error);
+      throw error;
+    }
+  };
+
+  const fetchNegotiationHistory = async () => {
+    try {
+      setNegotiationHistoryLoading(true);
+      const response = await negotiationApi.getSkuHistory(id);
+      if (response.success) {
+        setNegotiationHistory(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching negotiation history:', error);
+    } finally {
+      setNegotiationHistoryLoading(false);
+    }
+  };
+
   const handleCreateVersion = async (data: {
     entryType: any;
     notes?: string;
@@ -1332,10 +1438,14 @@ export default function RfqDetail({
           </div>
 
           <Tabs defaultValue="items" className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="items">
                 <FileText className="mr-2 h-4 w-4" />
                 Items
+              </TabsTrigger>
+              <TabsTrigger value="negotiation">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Negotiation
               </TabsTrigger>
               <TabsTrigger value="pricing">
                 <Tag className="mr-2 h-4 w-4" />
@@ -1373,8 +1483,18 @@ export default function RfqDetail({
                 onSaveQuotation={handleCreateQuotation}
                 isEditable={true}
                 rfqStatus={rfq?.status}
+                negotiationHistory={negotiationHistory}
+                onCreateSkuChange={handleCreateSkuChange}
               />
               {renderPagination()}
+            </TabsContent>
+
+            <TabsContent value="negotiation" className="m-0">
+              <NegotiationTab
+                rfqId={parseInt(id)}
+                rfqStatus={rfq?.status || 'NEW'}
+                currentVersion={quotationHistory[0]}
+              />
             </TabsContent>
 
             <TabsContent value="pricing" className="m-0">

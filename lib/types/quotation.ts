@@ -4,6 +4,14 @@ export type QuotationEntryType = 'internal_quote' | 'customer_feedback' | 'count
 
 export type QuotationVersionStatus = 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'NEGOTIATING' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED';
 
+export type NegotiationCommunicationType = 'EMAIL' | 'PHONE_CALL' | 'MEETING' | 'INTERNAL_NOTE';
+
+export type NegotiationDirection = 'OUTBOUND' | 'INBOUND';
+
+export type SkuChangeType = 'PRICE_CHANGE' | 'QUANTITY_CHANGE' | 'BOTH';
+
+export type ChangedBy = 'CUSTOMER' | 'INTERNAL';
+
 export interface QuotationVersion {
   id: number;
   rfqId: number;
@@ -49,6 +57,7 @@ export interface CustomerResponse {
   requestedChanges?: string;
   respondedAt: Date;
 }
+
 export interface CreateQuotationRequest {
   entryType: QuotationEntryType;
   notes?: string;
@@ -71,4 +80,108 @@ export interface QuotationHistoryResponse {
 
 export interface QuotationVersionWithItems extends QuotationVersion {
   items: QuotationItem[];
+}
+
+// New Negotiation Types
+
+export interface NegotiationCommunication {
+  id: number;
+  rfqId: number;
+  versionId?: number;
+  communicationType: NegotiationCommunicationType;
+  direction: NegotiationDirection;
+  subject?: string;
+  content: string;
+  contactPerson?: string;
+  communicationDate: Date;
+  followUpRequired: boolean;
+  followUpDate?: Date;
+  followUpCompleted?: boolean;
+  followUpCompletedAt?: Date;
+  enteredByUserId: number;
+  createdAt: Date;
+  updatedAt: Date;
+  // Relations
+  rfq?: any;
+  version?: QuotationVersion;
+  enteredByUser?: any;
+}
+
+export interface SkuNegotiationHistory {
+  id: number;
+  rfqId: number;
+  skuId: number;
+  versionId?: number;
+  communicationId?: number;
+  changeType: SkuChangeType;
+  oldQuantity?: number;
+  newQuantity?: number;
+  oldUnitPrice?: number;
+  newUnitPrice?: number;
+  changeReason?: string;
+  changedBy: ChangedBy;
+  enteredByUserId: number;
+  createdAt: Date;
+  // Relations
+  rfq?: any;
+  sku?: {
+    id: number;
+    sku: string;
+    description: string;
+  };
+  version?: QuotationVersion;
+  communication?: NegotiationCommunication;
+  enteredByUser?: any;
+}
+
+export interface CreateCommunicationRequest {
+  rfqId: number;
+  versionId?: number;
+  communicationType: NegotiationCommunicationType;
+  direction: NegotiationDirection;
+  subject?: string;
+  content: string;
+  contactPerson?: string;
+  communicationDate: Date;
+  followUpRequired: boolean;
+  followUpDate?: Date;
+}
+
+export interface CreateSkuChangeRequest {
+  rfqId: number;
+  skuId: number;
+  versionId?: number;
+  communicationId?: number;
+  changeType: SkuChangeType;
+  oldQuantity?: number;
+  newQuantity?: number;
+  oldUnitPrice?: number;
+  newUnitPrice?: number;
+  changeReason?: string;
+  changedBy: ChangedBy;
+}
+
+export interface NegotiationSummary {
+  totalCommunications: number;
+  totalSkuChanges: number;
+  pendingFollowUps: number;
+  lastCommunicationDate?: Date;
+  negotiationDuration: number; // days
+}
+
+export interface ItemWithNegotiationHistory {
+  id: number;
+  customerSku?: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  comment?: string;
+  status?: string;
+  inventory?: {
+    id: number;
+    sku: string;
+    description: string;
+  };
+  negotiationHistory: SkuNegotiationHistory[];
+  hasActiveNegotiation: boolean;
 }

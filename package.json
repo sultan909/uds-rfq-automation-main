@@ -13,7 +13,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:drop": "tsx scripts/drop.ts",
-    "db:check": "tsx scripts/check-db.ts"
+    "db:check": "tsx scripts/check-db.ts",
+    "db:setup": "tsx scripts/setup-db.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.3.1",
