@@ -41,6 +41,9 @@ import { TableCustomizer } from "@/components/table-customizer";
 import { VersionCreationModal } from "@/components/version-creation-modal";
 import { VersionStatusManager } from "@/components/version-status-manager";
 import { CustomerResponseModal } from "@/components/customer-response-modal";
+import { EditableItemsTable } from "@/components/editable-items-table";
+import { QuotationHistoryTable } from "@/components/quotation-history-table";
+import type { CreateQuotationRequest, QuotationVersionWithItems } from "@/lib/types/quotation";
 
 // Add these type definitions at the top of the file, after the imports
 interface InventoryData {
@@ -251,13 +254,13 @@ export default function RfqDetail({
   });
 
   // Add state for quotation history
-  const [quotationHistory, setQuotationHistory] = useState<QuotationVersion[]>([]);
+  const [quotationHistory, setQuotationHistory] = useState<QuotationVersionWithItems[]>([]);
   const [quotationHistoryLoading, setQuotationHistoryLoading] = useState(true);
 
   // Add state for modals
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<QuotationVersion | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<QuotationVersionWithItems | null>(null);
 
   // Ensure we have the correct data structure
   const rfq = rfqData?.data || rfqData;
@@ -1069,13 +1072,43 @@ export default function RfqDetail({
   }, [id]);
 
   // Add handlers for version management
+  const handleCreateQuotation = async (items: any[]) => {
+    try {
+      const quotationData: CreateQuotationRequest = {
+        entryType: 'internal_quote',
+        notes: 'Created from Items tab',
+        items: items
+      };
+
+      const response = await rfqApi.createQuotation(id, quotationData);
+      if (response.success) {
+        toast.success('Quotation created successfully');
+        // Refresh quotation history
+        const historyResponse = await rfqApi.getQuotationHistory(id);
+        if (historyResponse.success && historyResponse.data) {
+          setQuotationHistory(historyResponse.data);
+        }
+        // Refresh RFQ data
+        const updatedRfq = await rfqApi.getById(id);
+        if (updatedRfq.success && updatedRfq.data) {
+          setRfqData(updatedRfq.data);
+        }
+      } else {
+        toast.error(response.error || 'Failed to create quotation');
+      }
+    } catch (error) {
+      console.error('Error creating quotation:', error);
+      toast.error('Failed to create quotation');
+    }
+  };
+
   const handleCreateVersion = async (data: {
-    estimatedPrice: number;
-    finalPrice: number;
-    changes: string;
+    entryType: any;
+    notes?: string;
+    items: any[];
   }) => {
     try {
-      const response = await rfqApi.createVersion(id, data);
+      const response = await rfqApi.createQuotation(id, data);
       if (response.success) {
         toast.success('Version created successfully');
         // Refresh quotation history
@@ -1335,60 +1368,13 @@ export default function RfqDetail({
             </TabsList>
 
             <TabsContent value="items" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>SKU Items</CardTitle>
-                    <TableCustomizer
-                      columns={ITEMS_COLUMNS}
-                      visibleColumns={visibleColumns.items}
-                      onColumnToggle={(columnId) => handleColumnToggle('items', columnId)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {ITEMS_COLUMNS.map(column =>
-                          visibleColumns.items.includes(column.id) && (
-                            <TableHead key={column.id}>{column.label}</TableHead>
-                          )
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item: any) => (
-                        <TableRow key={item.id}>
-                          {visibleColumns.items.includes('sku') && (
-                            <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('description') && (
-                            <TableCell>{item.description || item.inventory?.description}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('quantity') && (
-                            <TableCell>{item.quantity}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('unitPrice') && (
-                            <TableCell>{formatCurrency(item.finalPrice || item.suggestedPrice || 0)}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('total') && (
-                            <TableCell>{formatCurrency((item.finalPrice || item.suggestedPrice || 0) * item.quantity)}</TableCell>
-                          )}
-                          {visibleColumns.items.includes('status') && (
-                            <TableCell>
-                              <Badge variant={item.status === 'APPROVED' ? 'default' : 'destructive'}>
-                                {item.status}
-                              </Badge>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {renderPagination()}
-                </CardContent>
-              </Card>
+              <EditableItemsTable
+                items={items}
+                onSaveQuotation={handleCreateQuotation}
+                isEditable={true}
+                rfqStatus={rfq?.status}
+              />
+              {renderPagination()}
             </TabsContent>
 
             <TabsContent value="pricing" className="m-0">
@@ -1846,123 +1832,28 @@ export default function RfqDetail({
             </TabsContent>
 
             <TabsContent value="quotation-history" className="m-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Quotation History</CardTitle>
-                    <div className="flex gap-2">
-                      <Button onClick={() => setIsVersionModalOpen(true)}>
-                        Create New Version
-                      </Button>
-                      <TableCustomizer
-                        columns={QUOTATION_HISTORY_COLUMNS}
-                        visibleColumns={visibleColumns['quotation-history']}
-                        onColumnToggle={(columnId) => handleColumnToggle('quotation-history', columnId)}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {quotationHistoryLoading ? (
-                    <div className="flex justify-center items-center py-4">
-                      <Spinner size={32} />
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {QUOTATION_HISTORY_COLUMNS.map(column =>
-                            visibleColumns['quotation-history'].includes(column.id) && (
-                              <TableHead key={column.id}>{column.label}</TableHead>
-                            )
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {quotationHistory.map((version) => (
-                          <TableRow key={version.versionNumber}>
-                            {visibleColumns['quotation-history'].includes('version') && (
-                              <TableCell>v{version.versionNumber}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('status') && (
-                              <TableCell>
-                                <VersionStatusManager
-                                  currentStatus={version.status}
-                                  versionId={version.versionNumber}
-                                  rfqId={id}
-                                  onStatusChange={(newStatus) => {
-                                    const updatedHistory = quotationHistory.map(v =>
-                                      v.versionNumber === version.versionNumber
-                                        ? { ...v, status: newStatus }
-                                        : v
-                                    );
-                                    // @ts-ignore
-                                    setQuotationHistory(updatedHistory);
-                                  }}
-                                />
-                              </TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('estimatedPrice') && (
-                              <TableCell>{formatCurrency(version.estimatedPrice || 0)}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('finalPrice') && (
-                              <TableCell>{formatCurrency(version.finalPrice || 0)}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('changes') && (
-                              <TableCell>{version.changes}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('createdBy') && (
-                              <TableCell>{version.createdBy}</TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('createdAt') && (
-                              <TableCell>
-                                {new Date(version.createdAt).toLocaleDateString()}
-                              </TableCell>
-                            )}
-                            {visibleColumns['quotation-history'].includes('customerResponse') && (
-                              <TableCell>
-                                {version.customerResponse ? (
-                                  <div className="space-y-1">
-                                    <Badge variant={
-                                      version.customerResponse.status === 'ACCEPTED' ? 'default' :
-                                        version.customerResponse.status === 'DECLINED' ? 'destructive' :
-                                          'secondary'
-                                    }>
-                                      {version.customerResponse.status}
-                                    </Badge>
-                                    {version.customerResponse.comments && (
-                                      <p className="text-sm text-muted-foreground">
-                                        {version.customerResponse.comments}
-                                      </p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedVersion(version);
-                                      setIsResponseModalOpen(true);
-                                    }}
-                                  >
-                                    Record Response
-                                  </Button>
-                                )}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Quotation History</h3>
+                  <Button onClick={() => setIsVersionModalOpen(true)}>
+                    Create New Version
+                  </Button>
+                </div>
+                
+                <QuotationHistoryTable
+                  versions={quotationHistory}
+                  onRecordResponse={(version) => {
+                    setSelectedVersion(version);
+                    setIsResponseModalOpen(true);
+                  }}
+                />
+              </div>
 
               <VersionCreationModal
                 isOpen={isVersionModalOpen}
                 onClose={() => setIsVersionModalOpen(false)}
                 onSubmit={handleCreateVersion}
-                currentPrice={rfq?.totalBudget}
+                currentItems={items}
               />
 
               <CustomerResponseModal

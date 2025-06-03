@@ -1,57 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { quotationVersions, customerResponses, quotationVersionItems, inventoryItems } from '@/db/schema';
+import { rfqs, quotationVersions, quotationVersionItems, rfqItems } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import type { CreateQuotationRequest } from '@/lib/types/quotation';
-
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const versions = await db.query.quotationVersions.findMany({
-      where: eq(quotationVersions.rfqId, parseInt(params.id)),
-      orderBy: [desc(quotationVersions.versionNumber)],
-      with: {
-        responses: true,
-        items: {
-          with: {
-            sku: {
-              columns: {
-                id: true,
-                sku: true,
-                description: true,
-                mpn: true,
-                brand: true,
-              }
-            }
-          }
-        },
-        submittedByUser: {
-          columns: {
-            id: true,
-            name: true,
-            email: true,
-          }
-        }
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: versions,
-    });
-  } catch (error) {
-    console.error('Error fetching quotation versions:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch quotation versions',
-      },
-      { status: 500 }
-    );
-  }
-}
+import { getNextRfqStatus, canCreateVersion, canEditItems } from '@/lib/utils/rfq-status';
 
 export async function POST(
   request: Request,
@@ -63,6 +15,50 @@ export async function POST(
 
     const rfqId = parseInt(params.id);
 
+    // Validate RFQ exists and is in a valid state for editing
+    const rfq = await db.query.rfqs.findFirst({
+      where: eq(rfqs.id, rfqId),
+    });
+
+    if (!rfq) {
+      return NextResponse.json(
+        { success: false, error: 'RFQ not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if RFQ is in an editable state
+    if (!canCreateVersion(rfq.status as any)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Cannot create quotation for RFQ in ${rfq.status} state` 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate items
+    if (!items || items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No items provided for quotation' },
+        { status: 400 }
+      );
+    }
+
+    // Validate each item
+    for (const item of items) {
+      if (!item.skuId || item.quantity <= 0 || item.unitPrice < 0) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Invalid item data: all items must have valid SKU ID, positive quantity, and non-negative price' 
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Get the latest version number
     const latestVersion = await db.query.quotationVersions.findFirst({
       where: eq(quotationVersions.rfqId, rfqId),
@@ -70,8 +66,9 @@ export async function POST(
     });
 
     // Calculate total prices
-    const totalEstimatedPrice = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const totalFinalPrice = totalEstimatedPrice; // Can be adjusted later
+    const totalEstimatedPrice = items.reduce((sum, item) => 
+      sum + (item.quantity * item.unitPrice), 0
+    );
 
     // Create the new version
     const [newVersion] = await db.insert(quotationVersions).values({
@@ -79,14 +76,13 @@ export async function POST(
       versionNumber: (latestVersion?.versionNumber || 0) + 1,
       entryType,
       status: 'NEW',
-      estimatedPrice: totalEstimatedPrice,
-      finalPrice: totalFinalPrice,
-      changes: '', // Will be calculated based on item differences
+      estimatedPrice: Math.round(totalEstimatedPrice),
+      finalPrice: Math.round(totalEstimatedPrice),
+      changes: `Created from Items tab with ${items.length} items`,
       notes,
       createdBy: 'System', // TODO: Get from auth context
       submittedByUserId: null, // TODO: Get from auth context
     }).returning();
-
     // Insert quotation items
     if (items.length > 0) {
       const quotationItemsData = items.map(item => ({
@@ -101,19 +97,16 @@ export async function POST(
       await db.insert(quotationVersionItems).values(quotationItemsData);
     }
 
-    // Update RFQ status if needed
-    if (entryType === 'internal_quote') {
-      // Update RFQ status to NEGOTIATING if it was SENT
-      await db.execute(`
-        UPDATE rfqs 
-        SET status = CASE 
-          WHEN status = 'SENT' THEN 'NEGOTIATING'
-          ELSE status 
-        END,
-        current_version_id = ${newVersion.id}
-        WHERE id = ${rfqId}
-      `);
-    }
+    // Update RFQ status and current version
+    const newStatus = getNextRfqStatus(rfq.status as any, entryType);
+
+    await db.update(rfqs)
+      .set({
+        status: newStatus,
+        currentVersionId: newVersion.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(rfqs.id, rfqId));
 
     // Fetch the complete version with items for response
     const completeVersion = await db.query.quotationVersions.findFirst({
@@ -140,13 +133,13 @@ export async function POST(
       data: completeVersion,
     });
   } catch (error) {
-    console.error('Error creating quotation version:', error);
+    console.error('Error creating quotation:', error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to create quotation version',
+        error: 'Failed to create quotation',
       },
       { status: 500 }
     );
   }
-} 
+}

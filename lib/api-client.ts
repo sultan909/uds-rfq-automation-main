@@ -108,6 +108,20 @@ export const rfqApi = {
       return { success: false, error: 'Failed to fetch quotation history' };
     }
   },
+  createQuotation: async (rfqId: string, quotationData: any) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/quotation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quotationData),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating quotation:', error);
+      return { success: false, error: 'Failed to create quotation' };
+    }
+  },
   createVersion: async (rfqId: string, versionData: any) => {
     try {
       const response = await fetch(`/api/rfq/${rfqId}/versions`, {

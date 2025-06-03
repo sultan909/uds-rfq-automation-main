@@ -99,6 +99,7 @@ export const rfqs = pgTable('rfqs', {
   rejectionReason: text('rejection_reason'),
   source: varchar('source', { length: 100 }).notNull(),
   notes: text('notes'),
+  currentVersionId: integer('current_version_id').references(() => quotationVersions.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -115,6 +116,10 @@ export const rfqsRelations = relations(rfqs, ({ one, many }) => ({
   vendor: one(vendors, {
     fields: [rfqs.vendorId],
     references: [vendors.id],
+  }),
+  currentVersion: one(quotationVersions, {
+    fields: [rfqs.currentVersionId],
+    references: [quotationVersions.id],
   }),
   items: many(rfqItems),
   quotations: many(quotations),
@@ -550,21 +555,52 @@ export const quotationVersions = pgTable('quotation_versions', {
   id: serial('id').primaryKey(),
   rfqId: integer('rfq_id').notNull(),
   versionNumber: integer('version_number').notNull(),
+  entryType: varchar('entry_type', { length: 20 }).notNull().default('internal_quote'), // 'internal_quote' | 'customer_feedback' | 'counter_offer'
   status: varchar('status', { length: 20 }).notNull().default('NEW'),
   estimatedPrice: integer('estimated_price').notNull(),
   finalPrice: integer('final_price').notNull(),
   changes: text('changes'),
+  notes: text('notes'),
   createdBy: varchar('created_by', { length: 100 }).notNull(),
+  submittedByUserId: integer('submitted_by_user_id').references(() => users.id),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const quotationVersionItems = pgTable('quotation_version_items', {
+  id: serial('id').primaryKey(),
+  versionId: integer('version_id').references(() => quotationVersions.id).notNull(),
+  skuId: integer('sku_id').references(() => inventoryItems.id).notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: real('unit_price').notNull(),
+  totalPrice: real('total_price').notNull(), // We'll calculate this in the application
+  comment: text('comment'), // Optional negotiation note per SKU
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const quotationVersionItemsRelations = relations(quotationVersionItems, ({ one }) => ({
+  version: one(quotationVersions, {
+    fields: [quotationVersionItems.versionId],
+    references: [quotationVersions.id],
+  }),
+  sku: one(inventoryItems, {
+    fields: [quotationVersionItems.skuId],
+    references: [inventoryItems.id],
+  }),
+}));
 
 export const quotationVersionsRelations = relations(quotationVersions, ({ one, many }) => ({
   rfq: one(rfqs, {
     fields: [quotationVersions.rfqId],
     references: [rfqs.id],
   }),
+  submittedByUser: one(users, {
+    fields: [quotationVersions.submittedByUserId],
+    references: [users.id],
+  }),
   responses: many(customerResponses),
+  items: many(quotationVersionItems),
 }));
 
 export const customerResponses = pgTable('customer_responses', {
