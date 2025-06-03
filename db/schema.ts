@@ -158,7 +158,7 @@ export const rfqItemsRelations = relations(rfqItems, ({ one, many }) => ({
     fields: [rfqItems.internalProductId],
     references: [inventoryItems.id],
   }),
-  versions: many(itemQuotationVersions),
+  versions: many(quotationVersions),
 }));
 
 // Quotations Table
