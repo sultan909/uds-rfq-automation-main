@@ -1,27 +1,32 @@
 # Active Context
 
 ## Current Work Focus
-- Implementing and refining customer and inventory management UI, including detail, edit, and history pages.
-- Improving sidebar UX: collapsible layout, toggle button placement, and tooltips for navigation clarity.
-- Added quote creation workflow: Create Quote page, navigation from RFQ Management and RFQ Detail, and Add New RFQ button.
-- Refactored SKU mapping management: reusable dialog for editing, batch update/delete, and customer autocomplete.
+- Documentation and architecture standardization following stability milestone
+- Establishing consistent component and development patterns
+- Updating project planning and memory bank to reflect current state
+- Preparing for next development phase with established best practices
 
 ## Recent Changes
-- Added customer view, edit, and history pages with seamless navigation.
-- Implemented SKU item history on inventory detail page.
-- Enhanced sidebar: fixed toggle overlap, increased collapsed width, and added tooltips for collapsed nav items.
-- Implemented Create Quote page for RFQs, accessible from both RFQ Management and RFQ Detail pages.
-- Added 'Add New RFQ' button next to the search button on the RFQ Management page.
-- SKU mapping dialog refactored: now supports full CRUD, customer autocomplete, and backend PUT integration.
-- AllMappings and RecentlyAdded tabs use the shared dialog and backend sync.
+- **DOCUMENTATION UPDATE**: Updated PLANNING.md to reflect current project status and Phase 2 progress (80% complete)
+- **STANDARDS ESTABLISHED**: Added comprehensive table component guidelines to .cursorrules
+- **ARCHITECTURE PATTERNS**: Documented shadcn/ui as standard table library with PrimeReact as exception case
+- **PROJECT INTELLIGENCE**: Enhanced .cursorrules with table implementation patterns and data safety requirements
+- **MEMORY BANK SYNC**: Updated all memory bank files to reflect current stable state
+- **CRITICAL MILESTONE DOCUMENTED**: Application stability restoration and error handling patterns established
+- Enhanced error handling patterns now serve as template for future development
+- Currency formatting system established as robust foundation for financial displays
 
 ## Next Steps
-- Further refine UI/UX based on feedback.
-- Continue implementing PRD features and improving accessibility.
-- Monitor and optimize backend-frontend sync for SKU mapping.
+- Begin Phase 3 planning for integrations (QuickBooks, email parsing, marketplace connectors)
+- Apply established patterns to remaining components requiring table implementations
+- Continue implementing PRD features with established error handling standards
+- Enhance data validation at API level using documented patterns
+- Expand table component ecosystem following shadcn/ui standards
 
 ## Active Decisions and Considerations
-- Prioritizing user experience and accessibility in navigation and data management.
-- Ensuring all new features are discoverable and easy to use.
-- Centralizing quote and SKU mapping management for streamlined RFQ workflows.
-- Using full replacement (PUT) for SKU mapping updates to ensure backend consistency. 
+- **STANDARD ESTABLISHED**: shadcn/ui Table components as primary choice for all tables
+- **EXCEPTION CRITERIA**: PrimeReact only for advanced features (virtual scrolling, tree tables) with approval
+- **CONSISTENCY PRIORITY**: Maintaining uniform table implementation across application
+- **PATTERN INHERITANCE**: All new financial components must follow established error handling patterns
+- **DOCUMENTATION FIRST**: All architectural decisions must be documented in .cursorrules and memory bank
+- **PHASE-BASED DEVELOPMENT**: Clear milestone tracking with 80% Phase 2 completion achieved 

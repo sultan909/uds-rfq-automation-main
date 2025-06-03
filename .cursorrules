@@ -1,0 +1,111 @@
+# UDS RFQ Project Intelligence
+
+## Critical Error Handling Patterns
+
+### Currency Formatting Safety
+- **ALWAYS** use fallback values (|| 0) when passing numeric data to formatCurrency()
+- Example: `formatCurrency(version.estimatedPrice || 0)` 
+- The formatCurrency function now handles NaN/null/undefined internally, but defensive coding is still required
+- Never pass raw API data directly to formatCurrency without validation
+
+### Financial Data Display Patterns
+- All table cells displaying financial data must have null checks
+- Pattern: `{item.field ? formatCurrency(item.field) : formatCurrency(0)}`
+- Better pattern: `{formatCurrency(item.field || 0)}`
+- Never trust API data to be complete or valid
+
+### React Component Safety
+- Financial displays are high-risk for NaN errors that crash React
+- Always implement defensive programming for numeric displays
+- Use fallback patterns consistently across all financial components
+
+## Table Component Standards
+
+### Primary Table Library: shadcn/ui
+- **STANDARD**: Use shadcn/ui Table components for all table implementations
+- **Components**: Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+- **Established Pattern**: All existing tables (RFQ Detail, Customer Management, Inventory) use shadcn/ui
+- **Customization**: Use TableCustomizer component for column visibility management
+- **Styling**: Consistent with Tailwind CSS and project design system
+
+### Table Implementation Patterns
+- Always implement server-side pagination with page/pageSize parameters
+- Each table should have customizable column visibility via TableCustomizer
+- Use consistent loading states with Spinner component
+- Implement fallback patterns for empty data states
+- Follow established patterns from RFQ Detail page (8 tabs example)
+
+### When to Consider Alternatives
+- **Advanced Features**: Only consider PrimeReact DataTable for complex requirements not available in shadcn/ui
+- **Specific Needs**: Virtual scrolling, advanced filtering, tree tables, or complex data manipulation
+- **Migration**: If switching from shadcn/ui, ensure consistency across the entire application
+- **Approval Required**: Any deviation from shadcn/ui standard requires architectural discussion
+
+### Table Data Safety
+- All table cells must handle null/undefined data gracefully
+- Financial cells must use formatCurrency with fallback values
+- Implement proper loading and error states for all tables
+- Use TypeScript interfaces for table data structure
+
+## RFQ Management Page Architecture
+
+### Key Components Structure
+- RFQ Detail page uses complex tabbed interface with 8 main tabs
+- Each tab has its own table with customizable column visibility
+- Heavy use of TypeScript interfaces for type safety
+- Currency context provides centralized formatting
+
+### Data Flow Patterns
+- API responses use pagination with meta.pagination structure
+- Items are nested within rfq.items array
+- Inventory data is fetched separately and mapped to skuDetails state
+- History data requires complex customer mapping logic
+
+### Table Implementation Pattern
+- All tables use shadcn/ui Table components
+- TableCustomizer component manages column visibility
+- Pagination is server-side with page/pageSize parameters
+- Each tab maintains its own visibleColumns state
+
+## State Management Patterns
+
+### Currency Context Usage
+- Global currency state with CAD/USD toggle
+- formatCurrency, convertCurrency, and exchange rate management
+- Context provides error-safe formatting for entire application
+
+### Pagination State
+- currentPage, itemsPerPage, totalItems, totalPages
+- Server-side pagination with API calls on page change
+- Pagination UI shows "Showing X to Y of Z items"
+
+## API Integration Patterns
+
+### Error Handling
+- All API calls wrapped in try/catch with toast notifications
+- Success responses checked for response.success property
+- Error states displayed with user-friendly messages
+
+### Data Fetching
+- useEffect hooks for initial data loading
+- Separate loading states for different data sections
+- Conditional rendering based on loading/error states
+
+## Excel Export Implementation
+- Uses XLSX library for multi-sheet workbook creation
+- Complex data transformation for sales history matching UI display
+- Handles empty data gracefully with fallback messages
+- Auto-fit column widths with min/max constraints
+
+## User Preferences & Customization
+- Table column visibility stored in component state
+- Filter preferences for time periods (3months, 6months, etc.)
+- Tab-specific customization preserved during navigation
+
+## Known Gotchas
+- NaN values in financial data will crash React - always use fallbacks
+- Pagination data structure varies between API endpoints
+- Customer history data structure is complex nested arrays/objects
+- Excel export requires careful error handling for empty data sets
+- Currency conversion needs null checks for exchange rates
+- **TABLE CONSISTENCY**: Always use shadcn/ui Table components unless specific advanced features require PrimeReact 

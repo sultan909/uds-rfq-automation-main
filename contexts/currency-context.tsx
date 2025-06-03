@@ -40,6 +40,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }
 
   const formatCurrency = (amount: number): string => {
+    // Handle NaN, null, undefined, or invalid numbers
+    if (amount == null || isNaN(amount) || !isFinite(amount)) {
+      amount = 0;
+    }
+    
     if (currency === "CAD") {
       return `$${amount.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
     } else {

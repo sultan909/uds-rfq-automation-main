@@ -1262,8 +1262,8 @@ export default function RfqDetail({
                       <span className="font-medium">
                         {formatCurrency(
                           currency === "CAD"
-                            ? rfq.totalBudget
-                            : convertCurrency(rfq.totalBudget, "CAD")
+                            ? (rfq.totalBudget || 0)
+                            : convertCurrency(rfq.totalBudget || 0, "CAD")
                         )}
                       </span>
                     </div>
@@ -1592,7 +1592,7 @@ export default function RfqDetail({
                                       <TableCell key={customer.id}>
                                         {customerHistory.length > 0 ? (
                                           <div className="space-y-1">
-                                            <div>Last Price: {formatCurrency(customerHistory[0]?.lastPrice)}</div>
+                                            <div>Last Price: {formatCurrency(customerHistory[0]?.lastPrice || 0)}</div>
                                             <div>Last Date: {new Date(customerHistory[0]?.lastTransaction).toLocaleDateString()}</div>
                                             <Badge variant={customerHistory.trend === 'up' ? 'default' : 'destructive'}>
                                               {customerHistory.trend === 'up' ? '↑' : '↓'}
@@ -1607,7 +1607,7 @@ export default function RfqDetail({
                                   <TableCell>
                                     {otherCustomerHistory.length > 0 ? (
                                       <div className="space-y-1">
-                                        <div>Last Price: {formatCurrency(otherCustomerHistory[0].lastPrice)}</div>
+                                        <div>Last Price: {formatCurrency(otherCustomerHistory[0].lastPrice || 0)}</div>
                                         <div>Customer: {otherCustomerHistory[0].customer}</div>
                                         <div>Last Date: {new Date(otherCustomerHistory[0].lastTransaction).toLocaleDateString()}</div>
                                         <Badge variant={otherCustomerHistory[0].trend === 'up' ? 'default' : 'destructive'}>
@@ -1903,10 +1903,10 @@ export default function RfqDetail({
                               </TableCell>
                             )}
                             {visibleColumns['quotation-history'].includes('estimatedPrice') && (
-                              <TableCell>{formatCurrency(version.estimatedPrice)}</TableCell>
+                              <TableCell>{formatCurrency(version.estimatedPrice || 0)}</TableCell>
                             )}
                             {visibleColumns['quotation-history'].includes('finalPrice') && (
-                              <TableCell>{formatCurrency(version.finalPrice)}</TableCell>
+                              <TableCell>{formatCurrency(version.finalPrice || 0)}</TableCell>
                             )}
                             {visibleColumns['quotation-history'].includes('changes') && (
                               <TableCell>{version.changes}</TableCell>
