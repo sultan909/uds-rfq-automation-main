@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,9 @@ import { TableCustomizer } from "@/components/table-customizer";
 import { VersionCreationModal } from "@/components/version-creation-modal";
 import { VersionStatusManager } from "@/components/version-status-manager";
 import { CustomerResponseModal } from "@/components/customer-response-modal";
+import { ItemVersionModal } from '@/components/modals/item-version-modal';
+import { CreateItemVersionModal } from '@/components/modals/create-item-version-modal';
+import { Input } from "@/components/ui/input";
 
 // Add these type definitions at the top of the file, after the imports
 interface InventoryData {
@@ -116,7 +119,8 @@ const ITEMS_COLUMNS = [
   { id: 'quantity', label: 'Quantity' },
   { id: 'unitPrice', label: 'Unit Price' },
   { id: 'total', label: 'Total' },
-  { id: 'status', label: 'Status' }
+  { id: 'status', label: 'Status' },
+  { id: 'versions', label: 'Versions' }  // Add this line
 ];
 
 const PRICING_COLUMNS = [
@@ -206,14 +210,47 @@ interface InventoryResponse {
 // Add this near the top with other interfaces
 type RfqStatus = 'PENDING' | 'IN_PROGRESS' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED';
 
+// Add this interface near the top of the file with other interfaces
+interface RfqData {
+  items: Array<{
+    id: string;
+    finalPrice: number | null;
+    suggestedPrice: number | null;
+    customerSku: string | null;
+    inventory?: {
+      sku: string;
+    };
+    [key: string]: any;
+  }>;
+  [key: string]: any;
+}
+
+// Add this interface near the top with other interfaces
+interface ItemVersion {
+  versionNumber: number;
+  status: 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+  estimatedPrice: number;
+  finalPrice: number;
+  changes: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  customerResponse?: {
+    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+    comments: string;
+    requestedChanges?: string;
+    respondedAt: string;
+  };
+}
+
 export default function RfqDetail({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
+  const { id } = React.use(params);
   const { currency, formatCurrency, convertCurrency } = useCurrency();
-  const [rfqData, setRfqData] = useState<any>(null);
+  const [rfqData, setRfqData] = useState<RfqData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ period: '3months', type: 'all' });
@@ -259,9 +296,132 @@ export default function RfqDetail({
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<QuotationVersion | null>(null);
 
+  // Add state for per-SKU versioning
+  const [itemVersions, setItemVersions] = useState<Record<string, ItemVersion[]>>({});
+  const [versionModalSku, setVersionModalSku] = useState<string | null>(null);
+  const [isItemVersionModalOpen, setIsItemVersionModalOpen] = useState(false);
+  const [isItemResponseModalOpen, setIsItemResponseModalOpen] = useState(false);
+  const [selectedItemVersion, setSelectedItemVersion] = useState<ItemVersion | null>(null);
+  const [isCreateItemVersionModalOpen, setIsCreateItemVersionModalOpen] = useState(false);
+
   // Ensure we have the correct data structure
   const rfq = rfqData?.data || rfqData;
   const items = rfq?.items || [];
+
+  const handleUnitPriceChange = async (itemId: string, newPrice: number, event?: React.KeyboardEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>) => {
+    // If it's a keyboard event and not Enter key, just update the local state
+    if (event && 'key' in event && event.key !== 'Enter') {
+      return;
+    }
+
+    try {
+      const item: any = items.find((i: any) => i.id === itemId);
+      if (!item) {
+        toast.error('Item not found');
+        return;
+      }
+
+      const sku = item.customerSku || item.inventory?.sku;
+      if (!sku) {
+        toast.error('Item SKU not found');
+        return;
+      }
+
+      if (isNaN(newPrice)) {
+        toast.error('Invalid price value');
+        return;
+      }
+
+      console.log('Updating price:', { sku, newPrice });
+      
+      const response = await fetch(`/api/rfq/${id}/items/${sku}/price`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ price: newPrice })
+      });
+
+      const result = await response.json();
+      console.log('Price update response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update price');
+      }
+
+      if (result.success) {
+        toast.success('Price updated successfully');
+        // Update the local state immediately for better UX
+        setRfqData((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            items: prev.items.map((i: any) => 
+              i.id === itemId 
+                ? { ...i, finalPrice: newPrice }
+                : i
+            )
+          };
+        });
+        // Then refresh the full RFQ data
+        const updatedRfq = await rfqApi.getById(id);
+        if (updatedRfq.success && updatedRfq.data) {
+          setRfqData(updatedRfq.data as RfqData);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to update price');
+      }
+    } catch (error) {
+      console.error('Error updating price:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update price');
+    }
+  };
+
+  const handleItemStatusChange = async (itemId: string, newStatus: RfqStatus) => {
+    try {
+      const item: any = items.find((i: any) => i.id === itemId);
+      if (!item) {
+        toast.error('Item not found');
+        return;
+      }
+
+      const sku = item.customerSku || item.inventory?.sku;
+      if (!sku) {
+        toast.error('Item SKU not found');
+        return;
+      }
+
+      console.log('Updating item status:', { sku, newStatus });
+
+      const response = await fetch(`/api/rfq/${id}/items/${sku}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      const result = await response.json();
+      console.log('Status update response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update status');
+      }
+
+      if (result.success) {
+        toast.success('Status updated successfully');
+        // Refresh RFQ data
+        const updatedRfq = await rfqApi.getById(id);
+        if (updatedRfq.success && updatedRfq.data) {
+          setRfqData(updatedRfq.data as RfqData);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update status');
+    }
+  };
 
   // Calculate pagination
   useEffect(() => {
@@ -281,7 +441,7 @@ export default function RfqDetail({
         });
 
         if (response.success && response.data) {
-          setRfqData(response.data);
+          setRfqData(response.data as RfqData);
 
           if (response.meta?.pagination) {
             setTotalItems(response.meta.pagination.totalItems);
@@ -320,7 +480,7 @@ export default function RfqDetail({
         // Refresh RFQ data
         const updatedRfq = await rfqApi.getById(id);
         if (updatedRfq.success && updatedRfq.data) {
-          setRfqData(updatedRfq.data);
+          setRfqData(updatedRfq.data as RfqData);
         }
       }
     } catch (err) {
@@ -338,7 +498,7 @@ export default function RfqDetail({
         // Refresh RFQ data
         const updatedRfq = await rfqApi.getById(id);
         if (updatedRfq.success && updatedRfq.data) {
-          setRfqData(updatedRfq.data);
+          setRfqData(updatedRfq.data as RfqData);
         }
       }
     } catch (err) {
@@ -729,11 +889,11 @@ export default function RfqDetail({
               ? new Date(otherCustomer.lastTransaction).toLocaleDateString()
               : 'N/A');
           } else {
-            row.push(0, 0, 'N/A', 'N/A');
+            row.push('0', '0', 'N/A', 'N/A');
           }
 
           // Add total quantity across all customers
-          row.push(totalQuantity);
+          row.push(totalQuantity.toString());
 
           return row;
         }) || [];
@@ -894,7 +1054,9 @@ export default function RfqDetail({
             return;
           }
 
-          const ws = XLSX.utils.aoa_to_sheet(data);
+          const ws = XLSX.utils.aoa_to_sheet(
+            (data as string[][]).filter(row => Array.isArray(row))
+          );
 
           // Auto-fit column widths with better handling
           // @ts-ignore
@@ -959,7 +1121,7 @@ export default function RfqDetail({
         // Refresh RFQ data
         const updatedRfq = await rfqApi.getById(id);
         if (updatedRfq.success && updatedRfq.data) {
-          setRfqData(updatedRfq.data);
+          setRfqData(updatedRfq.data as RfqData);
         }
       } else {
         toast.error('Failed to update RFQ status');
@@ -1093,6 +1255,38 @@ export default function RfqDetail({
     }
   };
 
+  // Add handler for creating item-specific versions
+  const handleCreateItemVersion = async (data: {
+    estimatedPrice: number;
+    finalPrice: number;
+    changes: string;
+  }) => {
+    if (!versionModalSku) return;
+
+    try {
+      const response = await rfqApi.createItemVersion(id, versionModalSku, data);
+      if (response.success) {
+        toast.success('Item version created successfully');
+        // Close the modal
+        setIsCreateItemVersionModalOpen(false);
+        // Refresh the item versions in the modal
+        const versionsResponse = await rfqApi.getItemVersions(id, versionModalSku);
+        if (versionsResponse.success && versionsResponse.data) {
+          // Update the versions in the modal
+          setItemVersions((prev: Record<string, ItemVersion[]>) => ({
+            ...prev,
+            [versionModalSku]: versionsResponse.data as ItemVersion[]
+          }));
+        }
+      } else {
+        toast.error(response.error || 'Failed to create item version');
+      }
+    } catch (error) {
+      console.error('Error creating item version:', error);
+      toast.error('Failed to create item version');
+    }
+  };
+
   const handleRecordResponse = async (data: {
     status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
     comments: string;
@@ -1117,6 +1311,34 @@ export default function RfqDetail({
     } finally {
       setIsResponseModalOpen(false);
       setSelectedVersion(null);
+    }
+  };
+
+  const handleRecordItemResponse = async (data: {
+    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+    comments: string;
+    requestedChanges?: string;
+  }) => {
+    if (!versionModalSku || !selectedItemVersion) return;
+
+    try {
+      const response = await rfqApi.recordItemCustomerResponse(
+        id,
+        versionModalSku,
+        selectedItemVersion.versionNumber,
+        data
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to record response');
+      }
+
+      setIsItemResponseModalOpen(false);
+      setSelectedItemVersion(null);
+      toast.success('Response recorded successfully');
+    } catch (error) {
+      console.error('Error recording response:', error);
+      toast.error('Failed to record response');
     }
   };
 
@@ -1355,6 +1577,7 @@ export default function RfqDetail({
                             <TableHead key={column.id}>{column.label}</TableHead>
                           )
                         )}
+                        <TableHead>Version History</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1370,25 +1593,189 @@ export default function RfqDetail({
                             <TableCell>{item.quantity}</TableCell>
                           )}
                           {visibleColumns.items.includes('unitPrice') && (
-                            <TableCell>{formatCurrency(item.finalPrice || item.suggestedPrice || 0)}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={item.finalPrice || item.suggestedPrice || 0}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value);
+                                  // Update local state immediately for responsive UI
+                                  setRfqData((prev) => {
+                                    if (!prev) return null;
+                                    return {
+                                      ...prev,
+                                      items: prev.items.map((i: any) => 
+                                        i.id === item.id 
+                                          ? { ...i, finalPrice: value }
+                                          : i
+                                      )
+                                    };
+                                  });
+                                }}
+                                onBlur={(e) => handleUnitPriceChange(item.id, parseFloat(e.target.value), e)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleUnitPriceChange(item.id, parseFloat(e.currentTarget.value), e);
+                                  }
+                                }}
+                                className="w-24"
+                              />
+                            </TableCell>
                           )}
                           {visibleColumns.items.includes('total') && (
                             <TableCell>{formatCurrency((item.finalPrice || item.suggestedPrice || 0) * item.quantity)}</TableCell>
                           )}
                           {visibleColumns.items.includes('status') && (
                             <TableCell>
-                              <Badge variant={item.status === 'APPROVED' ? 'default' : 'destructive'}>
-                                {item.status}
-                              </Badge>
+                              <Select
+                                value={item.status}
+                                onValueChange={(newStatus: RfqStatus) => handleItemStatusChange(item.id, newStatus)}
+                              >
+                                <SelectTrigger className="w-[140px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NEW">New</SelectItem>
+                                  <SelectItem value="DRAFT">Draft</SelectItem>
+                                  <SelectItem value="PRICED">Priced</SelectItem>
+                                  <SelectItem value="SENT">Sent</SelectItem>
+                                  <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
+                                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                                  <SelectItem value="DECLINED">Declined</SelectItem>
+                                  <SelectItem value="PROCESSED">Processed</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </TableCell>
                           )}
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const sku = item.customerSku || item.inventory?.sku;
+                                setVersionModalSku(sku);
+                                setIsItemVersionModalOpen(true);
+                              }}
+                            >
+                              View Versions
+                            </Button>
+                          </TableCell>
                         </TableRow>
+
                       ))}
                     </TableBody>
                   </Table>
                   {renderPagination()}
                 </CardContent>
               </Card>
+              {/* Per-SKU Version History Modal */}
+              {isItemVersionModalOpen && versionModalSku && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                  <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl p-6 relative">
+                    <button
+                      className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                      onClick={() => setIsItemVersionModalOpen(false)}
+                    >
+                      ×
+                    </button>
+                    <h2 className="text-lg font-bold mb-4">Version History for {versionModalSku}</h2>
+                    <Button onClick={() => setIsCreateItemVersionModalOpen(true)} className="mb-4">
+                      Create New Version
+                    </Button>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Version</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Estimated Price</TableHead>
+                          <TableHead>Final Price</TableHead>
+                          <TableHead>Changes</TableHead>
+                          <TableHead>Created By</TableHead>
+                          <TableHead>Created At</TableHead>
+                          <TableHead>Customer Response</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(itemVersions[versionModalSku] || []).map((version: ItemVersion) => (
+                          <TableRow key={version.versionNumber}>
+                            <TableCell>v{version.versionNumber}</TableCell>
+                            <TableCell>{version.status}</TableCell>
+                            <TableCell>{formatCurrency(version.estimatedPrice)}</TableCell>
+                            <TableCell>{formatCurrency(version.finalPrice)}</TableCell>
+                            <TableCell>{version.changes}</TableCell>
+                            <TableCell>{version.createdBy}</TableCell>
+                            <TableCell>{new Date(version.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              {version.customerResponse ? (
+                                <div>
+                                  <Badge>{version.customerResponse.status}</Badge>
+                                  <div className="text-xs">{version.customerResponse.comments}</div>
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedItemVersion(version);
+                                    setIsItemResponseModalOpen(true);
+                                  }}
+                                >
+                                  Record Response
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {/* Example: Status change actions */}
+                              <Select
+                                value={version.status}
+                                onValueChange={async (newStatus) => {
+                                  // Call API to update status
+                                  await rfqApi.updateItemVersionStatus(id, versionModalSku, version.versionNumber, newStatus);
+                                }}
+                              >
+                                <SelectTrigger className="w-[120px]">
+                                  <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NEW">New</SelectItem>
+                                  <SelectItem value="DRAFT">Draft</SelectItem>
+                                  <SelectItem value="PRICED">Priced</SelectItem>
+                                  <SelectItem value="SENT">Sent</SelectItem>
+                                  <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
+                                  <SelectItem value="DECLINED">Declined</SelectItem>
+                                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                                  <SelectItem value="PROCESSED">Processed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {/* Create Version Modal for SKU */}
+                    <VersionCreationModal
+                      isOpen={isCreateItemVersionModalOpen}
+                      onClose={() => setIsCreateItemVersionModalOpen(false)}
+                      onSubmit={async (data) => {
+                        await rfqApi.createItemVersion(id, versionModalSku, data);
+                        setIsCreateItemVersionModalOpen(false);
+                      }}
+                      currentPrice={rfq?.totalBudget}
+                    />
+                    {/* Record Response Modal for SKU Version */}
+                    <CustomerResponseModal
+                      isOpen={isItemResponseModalOpen}
+                      onClose={() => {
+                        setIsItemResponseModalOpen(false);
+                        setSelectedItemVersion(null);
+                      }}
+                      onSubmit={handleRecordItemResponse}
+                    />
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="pricing" className="m-0">
@@ -1990,8 +2377,72 @@ export default function RfqDetail({
           </Tabs>
         </div>
       </div>
+      <ItemVersionModal
+        isOpen={isItemVersionModalOpen}
+        onClose={() => {
+          setIsItemVersionModalOpen(false);
+          setVersionModalSku(null);
+        }}
+        rfqId={id}
+        sku={versionModalSku || ''}
+        onRecordResponse={(version) => {
+          setSelectedItemVersion(version);
+          setIsItemResponseModalOpen(true);
+        }}
+        onCreateVersion={() => setIsCreateItemVersionModalOpen(true)}
+      />
+
+      <CreateItemVersionModal
+        isOpen={isCreateItemVersionModalOpen}
+        onClose={() => setIsCreateItemVersionModalOpen(false)}
+        onSubmit={handleCreateItemVersion}
+        currentPrice={rfq?.totalBudget || 0}
+      />
+
+      <CustomerResponseModal
+        isOpen={isItemResponseModalOpen}
+        onClose={() => {
+          setIsItemResponseModalOpen(false);
+          setSelectedItemVersion(null);
+        }}
+        onSubmit={handleRecordItemResponse}
+      />
     </div>
   );
 }
+
+// Update the API stub for createItemVersion
+rfqApi.createItemVersion = async (rfqId: string, sku: string, data: {
+  estimatedPrice: number;
+  finalPrice: number;
+  changes: string;
+}) => {
+  try {
+    const response = await fetch(`/api/rfq/${rfqId}/items/${sku}/versions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...data,
+        status: 'NEW',
+        createdBy: 'System', // TODO: Get from auth context
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create version');
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error creating item version:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create version'
+    };
+  }
+};
 
 

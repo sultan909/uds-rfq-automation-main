@@ -25,7 +25,7 @@ export const POST = async (request: NextRequest) => {
       customerId,
       source,
       notes,
-      status: 'PENDING',
+      status: 'NEW',
     }).returning();
 
     // Process items to find inventory matches and history

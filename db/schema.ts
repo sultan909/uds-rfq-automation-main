@@ -142,7 +142,7 @@ export const rfqItems = pgTable('rfq_items', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const rfqItemsRelations = relations(rfqItems, ({ one }) => ({
+export const rfqItemsRelations = relations(rfqItems, ({ one, many }) => ({
   rfq: one(rfqs, {
     fields: [rfqItems.rfqId],
     references: [rfqs.id],
@@ -151,6 +151,7 @@ export const rfqItemsRelations = relations(rfqItems, ({ one }) => ({
     fields: [rfqItems.internalProductId],
     references: [inventoryItems.id],
   }),
+  versions: many(itemQuotationVersions),
 }));
 
 // Quotations Table
@@ -580,5 +581,32 @@ export const customerResponsesRelations = relations(customerResponses, ({ one })
   version: one(quotationVersions, {
     fields: [customerResponses.versionId],
     references: [quotationVersions.id],
+  }),
+}));
+
+// Item Quotation Versions Table
+export const itemQuotationVersions = pgTable('item_quotation_versions', {
+  id: serial('id').primaryKey(),
+  rfqItemId: integer('rfq_item_id').references(() => rfqItems.id).notNull(),
+  versionNumber: integer('version_number').notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('NEW'),
+  estimatedPrice: real('estimated_price').notNull(),
+  finalPrice: real('final_price').notNull(),
+  changes: text('changes'),
+  createdBy: varchar('created_by', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  customerResponse: jsonb('customer_response').$type<{
+    status: 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+    comments: string;
+    requestedChanges?: string;
+    respondedAt: string;
+  }>(),
+});
+
+export const itemQuotationVersionsRelations = relations(itemQuotationVersions, ({ one }) => ({
+  rfqItem: one(rfqItems, {
+    fields: [itemQuotationVersions.rfqItemId],
+    references: [rfqItems.id],
   }),
 }));

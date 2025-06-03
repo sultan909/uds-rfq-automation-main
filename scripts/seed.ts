@@ -7,6 +7,8 @@ import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcrypt';
 import { type RfqStatus } from '../db/schema';
 
+type CustomerResponseStatus = 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+
 // Helper to get a random element from an array
 function getRandomElement<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
@@ -198,8 +200,9 @@ async function main() {
       const brand = getRandomElement(brands);
       const category = getRandomElement(categories);
       const costCad = parseFloat(faker.commerce.price({ min: 20, max: 500 }));
+      const sku = `${brand.substring(0, 2).toUpperCase()}-${faker.string.alphanumeric(5).toUpperCase()}`;
       return {
-        sku: `${brand.substring(0, 2).toUpperCase()}-${faker.string.alphanumeric(5).toUpperCase()}`,
+        sku,
         mpn: faker.string.alphanumeric(8).toUpperCase(),
         brand: brand,
         category: category,
@@ -225,7 +228,8 @@ async function main() {
     // --- Seed SKU Mappings ---
     console.log('Seeding SKU mappings...');
     
-    const skuMappingsData = insertedInventoryItems.slice(0, 5).map(item => ({
+    // Create SKU mappings for ALL inventory items
+    const skuMappingsData = insertedInventoryItems.map(item => ({
       standardSku: item.sku,
       standardDescription: item.description
     }));
@@ -237,8 +241,9 @@ async function main() {
     console.log('Seeding SKU variations...');
     
     const skuVariationsData = [];
+    // Create variations for ALL customers and ALL SKU mappings
     for (const mapping of insertedSkuMappings) {
-      for (const customer of insertedCustomers.slice(0, 3)) {
+      for (const customer of insertedCustomers) {
         skuVariationsData.push({
           mappingId: mapping.id,
           customerId: customer.id,
@@ -273,45 +278,48 @@ async function main() {
     }> = [];
 
     for (const customer of insertedCustomers) {
-      // Create multiple RFQs per customer with different statuses
+      // Create fewer RFQs per customer with different statuses
       const statusDistribution: { status: RfqStatus; count: number }[] = [
-        { status: 'NEW', count: 2 },
-        { status: 'DRAFT', count: 2 },
-        { status: 'PRICED', count: 2 },
-        { status: 'SENT', count: 2 },
+        { status: 'NEW', count: 1 },
+        { status: 'DRAFT', count: 1 },
+        { status: 'PRICED', count: 1 },
+        { status: 'SENT', count: 1 },
         { status: 'NEGOTIATING', count: 1 },
         { status: 'ACCEPTED', count: 1 },
         { status: 'DECLINED', count: 1 },
         { status: 'PROCESSED', count: 1 }
       ];
 
-      for (const { status, count } of statusDistribution) {
-        for (let i = 0; i < count; i++) {
-          const requestor = getRandomElement(insertedUsers);
-          const vendor = faker.datatype.boolean() ? getRandomElement(insertedVendors) : null;
-          const dueDate = faker.datatype.boolean() ? getFutureDate(30) : null;
-          const totalBudget = faker.datatype.boolean() ? faker.number.float({ min: 1000, max: 10000, precision: 2 }) : null;
-          const approvedBy = status === 'ACCEPTED' || status === 'PROCESSED' ? getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER')).id : null;
-          const rejectionReason = status === 'DECLINED' ? faker.lorem.sentence() : null;
+      // Only create RFQs for main customers or randomly for other customers
+      if (customer.main_customer || faker.datatype.boolean(0.3)) {
+        for (const { status, count } of statusDistribution) {
+          for (let i = 0; i < count; i++) {
+            const requestor = getRandomElement(insertedUsers);
+            const vendor = faker.datatype.boolean() ? getRandomElement(insertedVendors) : null;
+            const dueDate = faker.datatype.boolean() ? getFutureDate(30) : null;
+            const totalBudget = faker.datatype.boolean() ? faker.number.float({ min: 1000, max: 10000, precision: 2 }) : null;
+            const approvedBy = status === 'ACCEPTED' || status === 'PROCESSED' ? getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER')).id : null;
+            const rejectionReason = status === 'DECLINED' ? faker.lorem.sentence() : null;
 
-          rfqsData.push({
-            rfqNumber: `RFQ-${faker.string.numeric(5)}`,
-            title: faker.commerce.productName(),
-            description: faker.lorem.paragraph(),
-            requestorId: requestor.id,
-            customerId: customer.id,
-            vendorId: vendor?.id || null,
-            status,
-            dueDate,
-            attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
-            totalBudget,
-            approvedBy,
-            rejectionReason,
-            source: faker.helpers.arrayElement(['Email', 'Phone', 'Website', 'In Person']),
-            notes: faker.datatype.boolean() ? faker.lorem.paragraph() : null,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
+            rfqsData.push({
+              rfqNumber: `RFQ-${faker.string.numeric(5)}`,
+              title: faker.commerce.productName(),
+              description: faker.lorem.paragraph(),
+              requestorId: requestor.id,
+              customerId: customer.id,
+              vendorId: vendor?.id || null,
+              status,
+              dueDate,
+              attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
+              totalBudget,
+              approvedBy,
+              rejectionReason,
+              source: faker.helpers.arrayElement(['Email', 'Phone', 'Website', 'In Person']),
+              notes: faker.datatype.boolean() ? faker.lorem.paragraph() : null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+          }
         }
       }
     }
@@ -338,17 +346,21 @@ async function main() {
     }> = [];
 
     for (const rfq of insertedRfqs) {
-      // Add 2-5 items per RFQ, ensure each inventory item is used at least once
+      // Add 1-3 items per RFQ
       const usedItems = new Set();
-      const itemCount = faker.number.int({ min: 2, max: 5 });
-      for (let i = 0; i < itemCount; i++) {
-        let inventoryItem;
-        do {
-          inventoryItem = getRandomElement(insertedInventoryItems);
-        } while (usedItems.has(inventoryItem.id));
+      const itemCount = faker.number.int({ min: 1, max: 3 });
+      
+      // Get all inventory items that haven't been used in this RFQ
+      const availableItems = insertedInventoryItems.filter(item => !usedItems.has(item.id));
+      
+      for (let i = 0; i < itemCount && i < availableItems.length; i++) {
+        const inventoryItem = availableItems[i];
         usedItems.add(inventoryItem.id);
+        
         if (!inventoryItem || inventoryItem.costCad === null) continue;
         const costCad = inventoryItem.costCad as number;
+        
+        // Find the SKU variation for this customer and inventory item
         const skuVariation = insertedSkuVariations.find(
           sv => sv.customerId === rfq.customerId && 
                insertedSkuMappings.find(sm => sm.id === sv.mappingId)?.standardSku === inventoryItem.sku
@@ -415,7 +427,10 @@ async function main() {
       const rfq = insertedRfqs.find(r => r.id === quotation.rfqId);
       if (!rfq) return [];
 
+      // Get all RFQ items for this RFQ
       const rfqItemsForRfq = insertedRfqItems.filter(item => item.rfqId === rfq.id);
+      
+      // Create quotation items for ALL RFQ items
       return rfqItemsForRfq.map(item => {
         if (!item.internalProductId) return null;
         
@@ -439,6 +454,42 @@ async function main() {
     
     const insertedQuotationItems = await db.insert(schema.quotationItems).values(quotationItemsData).returning();
     console.log(`Inserted ${insertedQuotationItems.length} quotation items`);
+
+    // --- Seed Item Quotation Versions ---
+    console.log('Seeding item quotation versions...');
+    
+    const itemQuotationVersionsData = [];
+    // Create versions for ALL quotation items
+    for (const item of insertedQuotationItems) {
+      // Create 1-2 versions per quotation item
+      const numVersions = faker.number.int({ min: 1, max: 2 });
+      for (let i = 1; i <= numVersions; i++) {
+        const estimatedPrice = item.unitPrice * 0.9; // Start with 10% lower than final price
+        const finalPrice = item.unitPrice;
+        const creator = getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER'));
+        const statuses: CustomerResponseStatus[] = ['ACCEPTED', 'DECLINED', 'NEGOTIATING'];
+        itemQuotationVersionsData.push({
+          rfqItemId: item.rfqItemId,
+          versionNumber: i,
+          status: i === 1 ? 'NEW' : 'SENT',
+          estimatedPrice: Math.round(estimatedPrice * 100) / 100,
+          finalPrice: Math.round(finalPrice * 100) / 100,
+          changes: i === 1 ? 'Initial quote' : 'Updated pricing based on market conditions',
+          createdBy: creator.name,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          customerResponse: i === 2 ? {
+            status: getRandomElement(statuses),
+            comments: faker.lorem.sentence(),
+            requestedChanges: faker.datatype.boolean() ? faker.lorem.paragraph() : undefined,
+            respondedAt: new Date().toISOString()
+          } : null
+        });
+      }
+    }
+    
+    const insertedItemQuotationVersions = await db.insert(schema.itemQuotationVersions).values(itemQuotationVersionsData).returning();
+    console.log(`Inserted ${insertedItemQuotationVersions.length} item quotation versions`);
 
     // --- Seed Comments ---
     console.log('Seeding comments...');
