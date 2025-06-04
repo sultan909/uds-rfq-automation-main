@@ -669,7 +669,6 @@ export const skuNegotiationHistory = pgTable('sku_negotiation_history', {
   newQuantity: integer('new_quantity'),
   oldUnitPrice: real('old_unit_price'),
   newUnitPrice: real('new_unit_price'),
-  changeReason: text('change_reason'),
   changedBy: varchar('changed_by', { length: 20 }).default('CUSTOMER').notNull(), // 'CUSTOMER', 'INTERNAL'
   enteredByUserId: integer('entered_by_user_id').references(() => users.id).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

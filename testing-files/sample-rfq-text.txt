@@ -1,0 +1,128 @@
+RFQ Sample Text - Multiple Format Examples
+==========================================
+
+This file contains various text formats that can be parsed by the RFQ text parser.
+You can copy any section below and test the "Paste Text" functionality.
+
+FORMAT 1: Simple SKU - Description format
+------------------------------------------
+PUMP123 - High Pressure Water Pump
+VALVE456 - Ball Valve 2 inch
+MOTOR789 - Electric Motor 5HP
+SENSOR101 - Temperature Sensor Digital
+
+FORMAT 2: SKU with Quantity in Parentheses
+-------------------------------------------
+PUMP123 - High Pressure Water Pump (Qty: 5)
+VALVE456 - Ball Valve 2 inch (Qty: 10)
+MOTOR789 - Electric Motor 5HP (Qty: 2)
+SENSOR101 - Temperature Sensor Digital (Qty: 8)
+
+FORMAT 3: Bullet Points with Units
+-----------------------------------
+• PUMP123 - High Pressure Water Pump (3 units)
+• VALVE456 - Ball Valve 2 inch (15 pcs)
+• MOTOR789 - Electric Motor 5HP (1 ea)
+• SENSOR101 - Temperature Sensor Digital (20 pieces)
+
+FORMAT 4: Numbered List
+-----------------------
+1. PUMP123 - High Pressure Water Pump
+2. VALVE456 - Ball Valve 2 inch
+3. MOTOR789 - Electric Motor 5HP
+4. SENSOR101 - Temperature Sensor Digital
+
+FORMAT 5: SKU with Quantity Mentioned
+--------------------------------------
+PUMP123 High Pressure Water Pump, quantity: 5
+VALVE456 Ball Valve 2 inch, qty: 10
+MOTOR789 Electric Motor 5HP, q: 2
+SENSOR101 Temperature Sensor Digital, quantity: 8
+
+FORMAT 6: SKU with Price
+------------------------
+PUMP123 - High Pressure Water Pump $299.99
+VALVE456 - Ball Valve 2 inch $45.50
+MOTOR789 - Electric Motor 5HP $1250.00
+SENSOR101 - Temperature Sensor Digital $89.99
+
+FORMAT 7: Tab-Separated (Copy with tabs intact)
+------------------------------------------------
+PUMP123	High Pressure Water Pump	5	299.99
+VALVE456	Ball Valve 2 inch	10	45.50
+MOTOR789	Electric Motor 5HP	2	1250.00
+SENSOR101	Temperature Sensor Digital	8	89.99
+
+FORMAT 8: Comma-Separated (CSV-like)
+------------------------------------
+PUMP123,High Pressure Water Pump,5,299.99
+VALVE456,Ball Valve 2 inch,10,45.50
+MOTOR789,Electric Motor 5HP,2,1250.00
+SENSOR101,Temperature Sensor Digital,8,89.99
+
+FORMAT 9: Pipe-Separated Table
+-------------------------------
+SKU | Description | Quantity | Price
+PUMP123 | High Pressure Water Pump | 5 | 299.99
+VALVE456 | Ball Valve 2 inch | 10 | 45.50
+MOTOR789 | Electric Motor 5HP | 2 | 1250.00
+SENSOR101 | Temperature Sensor Digital | 8 | 89.99
+
+FORMAT 10: Mixed Real-World Example
+------------------------------------
+Request for Quote - Industrial Components
+
+PUMP123 - High Pressure Water Pump (Qty: 3)
+• VALVE456 - Ball Valve 2 inch (10 units)
+MOTOR789 Electric Motor 5HP, quantity: 1
+4. SENSOR101 - Temperature Sensor Digital $89.99
+FILTER202 - Oil Filter Large
+- GASKET303 - Rubber Gasket Set (5 pcs)
+
+FORMAT 11: With Headers (Table Format)
+---------------------------------------
+Part Number,Description,Qty,Unit Price
+PUMP123,High Pressure Water Pump,3,299.99
+VALVE456,Ball Valve 2 inch,10,45.50
+MOTOR789,Electric Motor 5HP,1,1250.00
+SENSOR101,Temperature Sensor Digital,5,89.99
+FILTER202,Oil Filter Large,2,65.75
+
+FORMAT 12: Copy-Paste from Email/Document
+------------------------------------------
+Hi John,
+
+We need the following items for our project:
+
+PUMP123 - High Pressure Water Pump (need 3 of these)
+VALVE456 - Ball Valve 2 inch - quantity: 10
+MOTOR789 - Electric Motor 5HP $1,250.00 each (qty: 1)
+SENSOR101 - Temperature Sensor Digital (5 pieces at $89.99)
+
+Please provide pricing and availability.
+
+Thanks,
+Mike
+
+FORMAT 13: Simple List with Dashes
+-----------------------------------
+- PUMP123 - High Pressure Water Pump
+- VALVE456 - Ball Valve 2 inch  
+- MOTOR789 - Electric Motor 5HP
+- SENSOR101 - Temperature Sensor Digital
+
+TESTING INSTRUCTIONS:
+=====================
+1. Copy any section above (just the items, not the headers)
+2. Go to RFQ Management > New RFQ > Manual Entry
+3. Click on the "Paste Text" tab
+4. Paste the copied text into the textarea
+5. Click "Parse Content"
+6. Verify that SKUs, descriptions, quantities, and prices are extracted correctly
+
+Notes:
+- Quantities default to 1 if not specified
+- Prices are optional and will show as null if not provided
+- The system automatically detects and handles various delimiters
+- Duplicate SKUs will be removed automatically
+- Non-standard SKUs (not in inventory) will trigger the SKU mapping detector 

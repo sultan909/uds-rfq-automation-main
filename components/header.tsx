@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DatePicker } from "@/components/date-picker"
@@ -19,12 +19,21 @@ interface HeaderProps {
 
 function CurrencyRateDisplay() {
   const { getUsdToCadRate, isManualRate } = useCurrency();
+  const router = useRouter();
+  
+  const handleClick = () => {
+    router.push('/settings');
+  };
   
   return (
-    <div className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded-md">
+    <button
+      onClick={handleClick}
+      className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded-md hover:bg-muted/50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+      title="Click to open currency settings"
+    >
       1 USD = {getUsdToCadRate().toFixed(2)} CAD
       {isManualRate && <span className="ml-1 text-orange-600">(Manual)</span>}
-    </div>
+    </button>
   );
 }
 

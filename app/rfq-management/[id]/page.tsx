@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,8 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/spinner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
-import { EditableItemsTable } from "@/components/editable-items-table";
-import { NegotiationTab } from "@/components/negotiation-tab";
+import { EditableItemsTable } from "@/components/rfq-tabs/editable-items-table";
+import { NegotiationTab } from "@/components/rfq-tabs/negotiation-tab";
 import type { CreateQuotationRequest, QuotationVersionWithItems } from "@/lib/types/quotation";
 import type { 
   RfqStatus, 
@@ -49,7 +49,8 @@ import {
   SettingsTab,
   HistoryTab,
   QuotationHistoryTab,
-  ExportTab
+  ExportTab,
+  OriginalRequestTab
 } from "@/components/rfq-tabs";
 
 // Column definitions
@@ -70,6 +71,7 @@ const PRICING_COLUMNS = [
   { id: 'cost', label: 'Cost' },
   { id: 'margin', label: 'Margin' }
 ];
+
 const INVENTORY_COLUMNS = [
   { id: 'sku', label: 'SKU' },
   { id: 'onHand', label: 'On Hand' },
@@ -142,23 +144,25 @@ export default function RfqDetail({
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [visibleColumns, setVisibleColumns] = useState({
+  const [visibleColumns, setVisibleColumns] = useState<Record<TabName, string[]>>({
     items: ITEMS_COLUMNS.map(col => col.id),
     pricing: PRICING_COLUMNS.map(col => col.id),
     inventory: INVENTORY_COLUMNS.map(col => col.id),
     history: historyColumns.map(col => col.id),
     market: MARKET_COLUMNS.map(col => col.id),
     settings: SETTINGS_COLUMNS.map(col => col.id),
-    'quotation-history': QUOTATION_HISTORY_COLUMNS.map(col => col.id)
+    'quotation-history': QUOTATION_HISTORY_COLUMNS.map(col => col.id),
+    'original-request': [] // Add this to satisfy the TabName type
   });
 
   // Add state for quotation history
   const [quotationHistory, setQuotationHistory] = useState<QuotationVersionWithItems[]>([]);
   const [quotationHistoryLoading, setQuotationHistoryLoading] = useState(true);
 
-  // Add state for negotiation
+  // IMPROVED: Enhanced state for negotiation with better management
   const [negotiationHistory, setNegotiationHistory] = useState<any[]>([]);
   const [negotiationHistoryLoading, setNegotiationHistoryLoading] = useState(true);
+  const [lastNegotiationRefresh, setLastNegotiationRefresh] = useState<number>(Date.now());
 
   // Add state for modals
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
@@ -181,12 +185,14 @@ export default function RfqDetail({
     const fetchRfqData = async () => {
       try {
         setLoading(true);
+        setError(null); // Clear previous errors
+        
         const response = await rfqApi.getById(id, {
           page: currentPage,
           pageSize: itemsPerPage
         });
 
-        if (response.success && response.data) {
+        if (response?.success && response.data) {
           setRfqData(response.data);
 
           if (response.meta?.pagination) {
@@ -194,13 +200,24 @@ export default function RfqDetail({
             setTotalPages(response.meta.pagination.totalPages);
           }
         } else {
-          setError("Failed to load RFQ data");
-          toast.error("Failed to load RFQ data");
+          const errorMessage = response?.error || "Failed to load RFQ data";
+          setError(errorMessage);
+          toast.error(errorMessage);
         }
-      } catch (err) {
-        console.error('Error fetching RFQ:', err);
-        setError("An error occurred while loading RFQ data");
-        toast.error("An error occurred while loading RFQ data");
+      } catch (err: any) {
+        console.warn('Error fetching RFQ:', err);
+        
+        let errorMessage = "An error occurred while loading RFQ data";
+        if (err?.status === 404) {
+          errorMessage = "RFQ not found";
+        } else if (err?.status === 500) {
+          errorMessage = "Server error loading RFQ data";
+        } else if (err?.message) {
+          errorMessage = `Error loading RFQ: ${err.message}`;
+        }
+        
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -211,17 +228,61 @@ export default function RfqDetail({
     }
   }, [id, currentPage, itemsPerPage]);
 
-  // Fetch negotiation history
-  useEffect(() => {
-    if (id) {
-      fetchNegotiationHistory();
+  // IMPROVED: Better negotiation history fetching with loading state
+  const fetchNegotiationHistory = useCallback(async () => {
+    if (!id) return;
+    
+    try {
+      setNegotiationHistoryLoading(true);
+      setNegotiationHistory([]); // Clear previous data
+      
+      const response = await negotiationApi.getSkuHistory(id);
+      if (response?.success && Array.isArray(response.data)) {
+        setNegotiationHistory(response.data);
+        setLastNegotiationRefresh(Date.now());
+      } else {
+        setNegotiationHistory([]);
+        console.warn('Failed to fetch negotiation history:', response?.error || 'Unknown error');
+        // Only show toast error if it's not a "no data" scenario
+        if (response?.error && !response?.error.includes('not found')) {
+          toast.error('Failed to load negotiation history');
+        }
+      }
+    } catch (error: any) {
+      console.warn('Error fetching negotiation history:', error);
+      setNegotiationHistory([]);
+      
+      // Only show user-facing error for unexpected errors, not 404s
+      if (error?.status === 404) {
+        console.info('No negotiation history found for RFQ:', id);
+      } else if (error?.status === 500) {
+        console.warn('Server error fetching negotiation history:', error.message);
+        toast.error('Server error loading negotiation history. Some features may be limited.');
+      } else {
+        toast.error('Failed to load negotiation history');
+      }
+    } finally {
+      setNegotiationHistoryLoading(false);
     }
   }, [id]);
+
+  // Fetch negotiation history on mount and when ID changes
+  useEffect(() => {
+    // Only fetch negotiation history if we have valid RFQ data
+    if (id && rfqData && !loading) {
+      fetchNegotiationHistory();
+    }
+  }, [fetchNegotiationHistory, rfqData, loading]);
+
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
+      console.log('Attempting to change status to:', newStatus);
       const response = await rfqApi.update(id, {
         status: newStatus
       });
+      
+      console.log('Status update response:', response);
+      
       if (response.success) {
         toast.success(`RFQ status updated to ${newStatus}`);
         // Refresh RFQ data
@@ -230,11 +291,14 @@ export default function RfqDetail({
           setRfqData(updatedRfq.data);
         }
       } else {
-        toast.error('Failed to update RFQ status');
+        const errorMessage = response.error || 'Failed to update RFQ status';
+        console.warn('Status update failed:', errorMessage);
+        toast.error(errorMessage);
       }
     } catch (err) {
-      console.error('Error updating RFQ status:', err);
-      toast.error('Failed to update RFQ status');
+      console.warn('Error updating RFQ status:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      toast.error(`Failed to update RFQ status: ${errorMessage}`);
     }
   };
 
@@ -305,27 +369,44 @@ export default function RfqDetail({
         : [...prev[tab], columnId]
     }));
   };
+
   // Add useEffect to fetch quotation history
   useEffect(() => {
     const fetchQuotationHistory = async () => {
+      if (!id || loading) return; // Don't fetch if still loading main RFQ data
+      
       try {
         setQuotationHistoryLoading(true);
         const response = await rfqApi.getQuotationHistory(id);
-        if (response.success && response.data) {
+        if (response?.success && response.data) {
           setQuotationHistory(response.data);
+        } else {
+          console.warn('Failed to fetch quotation history:', response?.error);
+          setQuotationHistory([]);
+          // Only show error for non-404 cases
+          if (response?.error && !response?.error.includes('not found')) {
+            toast.error('Failed to load quotation history');
+          }
         }
-      } catch (err) {
-        console.error('Error fetching quotation history:', err);
-        toast.error('Failed to load quotation history');
+      } catch (err: any) {
+        console.warn('Error fetching quotation history:', err);
+        setQuotationHistory([]);
+        
+        if (err?.status === 404) {
+          console.info('No quotation history found for RFQ:', id);
+        } else if (err?.status === 500) {
+          console.warn('Server error fetching quotation history:', err.message);
+          toast.error('Server error loading quotation history. Some features may be limited.');
+        } else {
+          toast.error('Failed to load quotation history');
+        }
       } finally {
         setQuotationHistoryLoading(false);
       }
     };
 
-    if (id) {
-      fetchQuotationHistory();
-    }
-  }, [id]);
+    fetchQuotationHistory();
+  }, [id, loading]);
 
   // Add handlers for version management
   const handleCreateQuotation = async (items: any[]) => {
@@ -353,17 +434,17 @@ export default function RfqDetail({
         toast.error(response.error || 'Failed to create quotation');
       }
     } catch (error) {
-      console.error('Error creating quotation:', error);
+      console.warn('Error creating quotation:', error);
       toast.error('Failed to create quotation');
     }
   };
 
+  // IMPROVED: Better SKU change handling with state management
   const handleCreateSkuChange = async (itemId: number, changes: {
     oldQuantity: number;
     newQuantity: number;
     oldUnitPrice: number;
     newUnitPrice: number;
-    changeReason: string;
   }) => {
     try {
       // @ts-ignore
@@ -392,37 +473,35 @@ export default function RfqDetail({
         newQuantity: changes.newQuantity,
         oldUnitPrice: changes.oldUnitPrice,
         newUnitPrice: changes.newUnitPrice,
-        changeReason: changes.changeReason,
         changedBy: 'INTERNAL'
       };
 
       const response = await negotiationApi.createSkuChange(id, skuChangeData);
-      if (response.success) {
-        // Refresh negotiation history
+      if (response?.success) {
+        // Immediately refresh negotiation history
         await fetchNegotiationHistory();
+        toast.success('SKU change recorded successfully');
       } else {
-        throw new Error(response.error || 'Failed to record SKU change');
+        throw new Error(response?.error || 'Failed to record SKU change');
       }
-    } catch (error) {
-      console.error('Error creating SKU change:', error);
-      throw error;
+    } catch (error: any) {
+      console.warn('Error creating SKU change:', error);
+      
+      // Provide more specific error messages based on error type
+      if (error?.status === 500) {
+        toast.error('Server error recording SKU change. Please try again later.');
+      } else if (error?.status === 404) {
+        toast.error('RFQ or SKU not found. Please refresh the page.');
+      } else if (error?.message?.includes('not found')) {
+        toast.error('Item or SKU not found.');
+      } else {
+        toast.error(error?.message || 'Failed to record SKU change');
+      }
+      
+      throw error; // Re-throw for the calling component to handle
     }
   };
 
-  const fetchNegotiationHistory = async () => {
-    try {
-      setNegotiationHistoryLoading(true);
-      const response = await negotiationApi.getSkuHistory(id);
-      if (response.success) {
-        // @ts-ignore
-        setNegotiationHistory(response.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching negotiation history:', error);
-    } finally {
-      setNegotiationHistoryLoading(false);
-    }
-  };
   const handleCreateVersion = async (data: {
     entryType: any;
     notes?: string;
@@ -532,7 +611,7 @@ export default function RfqDetail({
 
       toast.success('RFQ data exported successfully');
     } catch (error) {
-      console.error('Error exporting to Excel:', error);
+      console.warn('Error exporting to Excel:', error);
       toast.error(`Failed to export RFQ data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -555,12 +634,13 @@ export default function RfqDetail({
             ...prev,
             history: [...prev.history, ...mainCustomerColumns.map(col => col.id)]
           }));
+          
         } else {
-          console.error('Failed to fetch main customers:', response.error);
+          console.warn('Failed to fetch main customers:', response.error);
           toast.error('Failed to fetch main customers');
         }
       } catch (error) {
-        console.error('Error fetching main customers:', error);
+        console.warn('Error fetching main customers:', error);
         toast.error('Failed to fetch main customers');
       }
     };
@@ -575,11 +655,105 @@ export default function RfqDetail({
 
       try {
         setHistoryLoading(true);
-        // The complex history fetching logic would go here...
-        // For brevity, I'm just setting an empty history
-        setHistory({ history: [] });
+
+        const mainCustomerMap = new Map<number, string>(
+          mainCustomers.map(c => [c.id, c.name])
+        );
+
+        const historyPromises = items.map(async (item: any) => {
+          const itemSku = item.customerSku || item.inventory?.sku;
+          const itemId = item.inventory?.id;
+          if (!itemSku || !itemId) return null;
+
+          try {
+            const inventoryHistory = await inventoryApi.getHistory(itemId, { period: filters.period });
+            console.log(`🧾 Inventory history for item ${itemId}:`, inventoryHistory);
+
+            // @ts-ignore
+            if (inventoryHistory.success && inventoryHistory.data?.transactions) {
+              // @ts-ignore
+              const transactions = inventoryHistory.data.transactions.filter((tx: any) => tx.type === 'sale');
+              console.log("transcations", transactions);
+
+              const transactionsByCustomer: Record<number, any[]> = {};
+
+              transactions.forEach((tx: any) => {
+                const customerId = tx.customerId;
+                if (!customerId) return;
+                if (!transactionsByCustomer[customerId]) {
+                  transactionsByCustomer[customerId] = [];
+                }
+                transactionsByCustomer[customerId].push(tx);
+              });
+
+              const mainCustomerHistory: any[] = [];
+              const otherCustomerHistory: any[] = [];
+
+              Object.entries(transactionsByCustomer).forEach(([customerIdStr, customerTxs]) => {
+                const customerId = Number(customerIdStr);
+                const isMainCustomer = mainCustomerMap.has(customerId);
+                const customerName =
+                  mainCustomerMap.get(customerId) ||
+                  customerTxs[0]?.customerName || // fallback to first transaction name
+                  `Customer ${customerId}`;
+
+                const sortedTxs = [...customerTxs].sort((a, b) =>
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
+
+                const lastTx = sortedTxs[0];
+                const totalQuantity = customerTxs.reduce((sum, tx) => sum + (tx.quantity || 0), 0);
+                const totalPrice = customerTxs.reduce((sum, tx) => sum + (tx.unitPrice * (tx.quantity || 0)), 0);
+                const avgPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+                const historyEntry = {
+                  itemId: itemId,
+                  sku: itemSku,
+                  description: item.description || item.name || 'N/A',
+                  customerId,
+                  customer: customerName || `Customer ${customerId}`,
+                  lastTransaction: lastTx.date,
+                  lastPrice: lastTx.price,
+                  lastQuantity: lastTx.quantity || 0,
+                  totalQuantity,
+                  avgPrice,
+                };
+
+                if (isMainCustomer) {
+                  mainCustomerHistory.push(historyEntry);
+                } else {
+                  otherCustomerHistory.push(historyEntry);
+                }
+              });
+
+              return {
+                itemId: itemId,
+                sku: itemSku,
+                description: item.description || item.name || 'N/A',
+                mainCustomerHistory,
+                otherCustomerHistory,
+              };
+            }
+
+            return null;
+          } catch (error) {
+            console.warn(`❌ Error fetching history for item ${itemSku}:`, error);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(historyPromises);
+        const validResults = results.filter(Boolean);
+
+        // Flatten main and other customer data across all items
+
+
+
+        setHistory({
+          history: validResults
+        });
+
       } catch (err) {
-        console.error('❌ Error in fetchHistory:', err);
+        console.warn('❌ Error in fetchHistory:', err);
         setHistoryError("An error occurred while loading history data");
         toast.error("An error occurred while loading history data");
       } finally {
@@ -589,7 +763,7 @@ export default function RfqDetail({
 
     fetchHistory();
   }, [rfqData?.customer?.id, items, filters.period, mainCustomers]);
-
+  
   // Add inventory data fetching useEffect (same as original)
   useEffect(() => {
     const fetchInventoryData = async () => {
@@ -638,7 +812,7 @@ export default function RfqDetail({
 
               return item;
             } catch (err) {
-              console.error('Error processing item:', err);
+              console.warn('Error processing item:', err);
               return item;
             }
           })
@@ -649,13 +823,14 @@ export default function RfqDetail({
           return acc;
         }, {}));
       } catch (err) {
-        console.error('Error in fetchInventoryData:', err);
+        console.warn('Error in fetchInventoryData:', err);
         toast.error('Failed to fetch inventory data');
       }
     };
 
     fetchInventoryData();
   }, [rfqData?.items]);
+
   if (loading) {
     return (
       <div className="flex h-screen">
@@ -760,13 +935,14 @@ export default function RfqDetail({
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PENDING">Pending</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="QUOTED">Quoted</SelectItem>
+                        <SelectItem value="NEW">New</SelectItem>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="PRICED">Priced</SelectItem>
+                        <SelectItem value="SENT">Sent</SelectItem>
+                        <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
                         <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                        <SelectItem value="DECLINED">Declined</SelectItem>
+                        <SelectItem value="PROCESSED">Processed</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -816,17 +992,17 @@ export default function RfqDetail({
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => handleStatusChange('COMPLETED')}
-                      disabled={rfq.status === 'COMPLETED'}
+                      onClick={() => handleStatusChange('PROCESSED')}
+                      disabled={rfq.status === 'PROCESSED'}
                     >
-                      Mark as Completed
+                      Mark as Processed
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => handleStatusChange('CANCELLED')}
-                      disabled={rfq.status === 'CANCELLED'}
+                      onClick={() => handleStatusChange('DECLINED')}
+                      disabled={rfq.status === 'DECLINED'}
                     >
-                      Cancel RFQ
+                      Decline RFQ
                     </Button>
                   </div>
                 </div>
@@ -835,10 +1011,14 @@ export default function RfqDetail({
           </div>
 
           <Tabs defaultValue="items" className="w-full">
-            <TabsList className="grid w-full grid-cols-9">
+            <TabsList className="grid w-full grid-cols-10">
               <TabsTrigger value="items">
                 <FileText className="mr-2 h-4 w-4" />
                 Items
+              </TabsTrigger>
+              <TabsTrigger value="original-request">
+                <FileText className="mr-2 h-4 w-4" />
+                Original Request
               </TabsTrigger>
               <TabsTrigger value="negotiation">
                 <MessageSquare className="mr-2 h-4 w-4" />
@@ -882,6 +1062,15 @@ export default function RfqDetail({
                 rfqStatus={rfq?.status}
                 negotiationHistory={negotiationHistory}
                 onCreateSkuChange={handleCreateSkuChange}
+                onRefreshNegotiation={fetchNegotiationHistory}
+              />
+              {renderPagination()}
+            </TabsContent>
+
+            <TabsContent value="original-request" className="m-0">
+              <OriginalRequestTab
+                items={items}
+                formatCurrency={formatCurrency}
               />
               {renderPagination()}
             </TabsContent>

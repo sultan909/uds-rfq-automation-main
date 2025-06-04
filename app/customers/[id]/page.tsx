@@ -159,14 +159,14 @@ export default function CustomerView({
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold">{customer.name}</h2>
-                <p className="text-muted-foreground">
+                <div className="text-muted-foreground">
                   <Badge variant="outline" className="mr-2">
                     {customer.type}
                   </Badge>
                   {customer.region && (
                     <Badge variant="secondary">{customer.region}</Badge>
                   )}
-                </p>
+                </div>
               </div>
               <Button onClick={handleEdit}>Edit Customer</Button>
             </div>
@@ -383,7 +383,7 @@ export default function CustomerView({
                           <TableCell>
                             <Badge
                               variant={
-                                rfq.status === 'COMPLETED' ? 'default' :
+                                rfq.status === 'PROCESSED' ? 'default' :
                                   rfq.status === 'APPROVED' ? 'default' :
                                     rfq.status === 'REJECTED' ? 'destructive' :
                                       'secondary'

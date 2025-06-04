@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Phone, Mail, Users, FileText, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Edit, Phone, Mail, Users, FileText, CheckCircle, Clock, RefreshCw, Loader2 } from 'lucide-react';
 import { useCurrency } from '@/contexts/currency-context';
-import { CommunicationEntryModal } from './communication-entry-modal';
-import { CommunicationEditModal } from './communication-edit-modal';
-import { NegotiationSetup } from './negotiation-setup';
+import { CommunicationEntryModal } from '../communication-entry-modal';
+import { CommunicationEditModal } from '../communication-edit-modal';
+import { NegotiationSetup } from '../negotiation-setup';
 import { negotiationApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import type { 
@@ -35,14 +35,19 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
   const [isLoading, setIsLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
   const [hasDbError, setHasDbError] = useState(false);
+  
+  // NEW: Add refresh state management
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<number>(Date.now());
 
-  useEffect(() => {
-    fetchNegotiationData();
-  }, [rfqId]);
-
-  const fetchNegotiationData = async () => {
+  // IMPROVED: Better data fetching with useCallback for optimization
+  const fetchNegotiationData = useCallback(async (showRefreshIndicator = false) => {
     try {
-      setIsLoading(true);
+      if (showRefreshIndicator) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       
       // Validate rfqId
       if (!rfqId || isNaN(rfqId)) {
@@ -107,26 +112,36 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
       }
 
       // Update state with successful responses
-      if (commResponse.success) {
-        setCommunications(commResponse.data || []);
+      if (commResponse.success && Array.isArray(commResponse.data)) {
+        setCommunications(commResponse.data);
       } else {
         setCommunications([]);
         console.warn('Communications API failed:', commResponse.error);
       }
       
-      if (historyResponse.success) {
-        setSkuHistory(historyResponse.data || []);
+      if (historyResponse.success && Array.isArray(historyResponse.data)) {
+        setSkuHistory(historyResponse.data);
       } else {
         setSkuHistory([]);
         console.warn('SKU History API failed:', historyResponse.error);
       }
       
-      if (summaryResponse.success) {
-        setSummary(summaryResponse.data || null);
+      // Type guard for NegotiationSummary
+      const isNegotiationSummary = (data: any): data is NegotiationSummary => {
+        return data &&
+          typeof data.totalCommunications === 'number' &&
+          typeof data.totalSkuChanges === 'number' &&
+          typeof data.pendingFollowUps === 'number' &&
+          typeof data.negotiationDuration === 'number';
+      };
+      if (summaryResponse.success && isNegotiationSummary(summaryResponse.data)) {
+        setSummary(summaryResponse.data);
       } else {
         setSummary(null);
         console.warn('Summary API failed:', summaryResponse.error);
       }
+
+      setLastRefresh(Date.now());
 
     } catch (error) {
       console.error('Error in fetchNegotiationData:', error);
@@ -137,15 +152,27 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
       setSummary(null);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
+  }, [rfqId]);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchNegotiationData();
+  }, [fetchNegotiationData]);
+
+  // NEW: Manual refresh function
+  const handleRefresh = () => {
+    fetchNegotiationData(true);
   };
 
+  // IMPROVED: Better communication handling with auto-refresh
   const handleAddCommunication = async (data: CreateCommunicationRequest) => {
     try {
       const response = await negotiationApi.createCommunication(rfqId.toString(), data);
       if (response.success) {
         toast.success('Communication added successfully');
-        await fetchNegotiationData(); // Refresh data
+        await fetchNegotiationData(true); // Refresh data after adding
       } else {
         throw new Error(response.error || 'Failed to create communication');
       }
@@ -161,11 +188,11 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
   };
 
   const handleUpdateCommunication = async () => {
-    await fetchNegotiationData(); // Refresh data after update
+    await fetchNegotiationData(true); // Refresh data after update
   };
 
   const handleDeleteCommunication = async () => {
-    await fetchNegotiationData(); // Refresh data after delete
+    await fetchNegotiationData(true); // Refresh data after delete
   };
 
   const handleCompleteFollowUp = async (communicationId: number) => {
@@ -173,7 +200,7 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
       const response = await negotiationApi.completeFollowUp(communicationId.toString(), true);
       if (response.success) {
         toast.success('Follow-up marked as completed');
-        await fetchNegotiationData(); // Refresh data
+        await fetchNegotiationData(true); // Refresh data
       } else {
         throw new Error(response.error || 'Failed to complete follow-up');
       }
@@ -215,7 +242,10 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground">Loading negotiation data...</div>
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="text-muted-foreground">Loading negotiation data...</div>
+        </div>
       </div>
     );
   }
@@ -235,6 +265,34 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
 
   return (
     <div className="space-y-6">
+      {/* Header with refresh button */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Negotiation Management</h2>
+          <p className="text-muted-foreground">
+            Track communications and SKU changes for RFQ #{rfqId}
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Refreshing...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
@@ -291,7 +349,12 @@ export function NegotiationTab({ rfqId, rfqStatus, currentVersion }: Negotiation
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Communication Timeline</CardTitle>
+            <div>
+              <CardTitle>Communication Timeline</CardTitle>
+              <div className="text-sm text-muted-foreground mt-1">
+                Last updated: {new Date(lastRefresh).toLocaleTimeString()}
+              </div>
+            </div>
             <Button onClick={() => setShowAddCommunication(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Communication

@@ -1,0 +1,681 @@
+[
+    {
+        "AllowIPNPayment": false,
+        "AllowOnlinePayment": false,
+        "AllowOnlineCreditCardPayment": false,
+        "AllowOnlineACHPayment": false,
+        "EInvoiceStatus": "Viewed",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "416089",
+        "SyncToken": "5",
+        "MetaData": {
+            "CreateTime": "2025-06-03T10:58:07-07:00",
+            "LastUpdatedTime": "2025-06-04T03:31:53-07:00"
+        },
+        "CustomField": [
+            {
+                "DefinitionId": "1",
+                "Name": "Ship Type",
+                "Type": "StringType",
+                "StringValue": "PICK UP"
+            },
+            {
+                "DefinitionId": "3",
+                "Name": "P.O no.",
+                "Type": "StringType",
+                "StringValue": "94566"
+            }
+        ],
+        "DocNumber": "100653",
+        "TxnDate": "2025-06-03",
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "ExchangeRate": 1,
+        "LinkedTxn": [
+            {
+                "TxnId": "416088",
+                "TxnType": "Estimate"
+            }
+        ],
+        "Line": [
+            {
+                "Id": "1",
+                "LineNum": 1,
+                "Description": "Canon GPR-42 ImageRunner Advance 4045 Black Toner Cartridge, Genuine OEM (4791B003AA) (Damage Box)",
+                "Amount": 60,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416088",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "24109",
+                        "name": "GPR42-D"
+                    },
+                    "UnitPrice": 60,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Id": "2",
+                "LineNum": 2,
+                "Description": "Canon GPR-43 ImageRunner Advance 4225 Black Toner Cartridge, Genuine OEM - Made in Japan (4792B003AA)",
+                "Amount": 480,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416088",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "10382",
+                        "name": "GPR43"
+                    },
+                    "UnitPrice": 80,
+                    "Qty": 6,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Id": "3",
+                "LineNum": 3,
+                "Description": "Canon GPR-43 ImageRunner Advance 4225 Black Toner Cartridge, Genuine OEM (4792B003AA) (Damage Box) - Made in Japan",
+                "Amount": 60,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416088",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "25770",
+                        "name": "GPR43-D"
+                    },
+                    "UnitPrice": 60,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Id": "4",
+                "LineNum": 4,
+                "Description": "Canon GPR-43 ImageRunner Advance 4225 Black Toner Cartridge, Genuine OEM (4792B003AA) (Open Box) - Made in Japan",
+                "Amount": 60,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416088",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "10383",
+                        "name": "GPR43-O"
+                    },
+                    "UnitPrice": 60,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Id": "5",
+                "LineNum": 5,
+                "Description": "Canon GPR57 ImageRunner Advance 4525i Black Toner Cartridge, Genuine OEM (0473C003AA, GPR-57) - Made in Japan",
+                "Amount": 270,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416088",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "13971",
+                        "name": "0473C003"
+                    },
+                    "UnitPrice": 90,
+                    "Qty": 3,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Id": "6",
+                "LineNum": 6,
+                "Description": "Canon GPR-38 Image Runner Advance 6255i Black Toner Cartridge, Genuine OEM (3766B003) - Made in Japan",
+                "Amount": 90,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416088",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "10375",
+                        "name": "GPR38"
+                    },
+                    "UnitPrice": 90,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Amount": 1020,
+                "DetailType": "SubTotalLineDetail",
+                "SubTotalLineDetail": {}
+            }
+        ],
+        "TxnTaxDetail": {
+            "TotalTax": 132.6,
+            "TaxLine": [
+                {
+                    "Amount": 132.6,
+                    "DetailType": "TaxLineDetail",
+                    "TaxLineDetail": {
+                        "TaxRateRef": {
+                            "value": "12"
+                        },
+                        "PercentBased": true,
+                        "TaxPercent": 13,
+                        "NetAmountTaxable": 1020
+                    }
+                }
+            ]
+        },
+        "CustomerRef": {
+            "value": "2869",
+            "name": "Toner Express"
+        },
+        "BillAddr": {
+            "Id": "90373",
+            "Line1": "1680 Courtney Park Dr E Unit 5",
+            "City": "Mississauga",
+            "Country": "Canada",
+            "CountrySubDivisionCode": "ON",
+            "PostalCode": "L5T1R4"
+        },
+        "ShipAddr": {
+            "Id": "90373",
+            "Line1": "1680 Courtney Park Dr E Unit 5",
+            "City": "Mississauga",
+            "Country": "Canada",
+            "CountrySubDivisionCode": "ON",
+            "PostalCode": "L5T1R4"
+        },
+        "SalesTermRef": {
+            "value": "1"
+        },
+        "DueDate": "2025-06-03",
+        "GlobalTaxCalculation": "TaxExcluded",
+        "TotalAmt": 1152.6,
+        "HomeTotalAmt": 1152.6,
+        "PrintStatus": "NotSet",
+        "EmailStatus": "EmailSent",
+        "BillEmail": {
+            "Address": "wendy@tonerexpress.ca"
+        },
+        "Balance": 1152.6,
+        "DeliveryInfo": {
+            "DeliveryType": "Email",
+            "DeliveryTime": "2025-06-03T11:14:07-07:00"
+        }
+    },
+    {
+        "AllowIPNPayment": false,
+        "AllowOnlinePayment": false,
+        "AllowOnlineCreditCardPayment": false,
+        "AllowOnlineACHPayment": false,
+        "EInvoiceStatus": "Viewed",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "416147",
+        "SyncToken": "3",
+        "MetaData": {
+            "CreateTime": "2025-06-03T13:01:02-07:00",
+            "LastUpdatedTime": "2025-06-03T19:33:33-07:00"
+        },
+        "CustomField": [
+            {
+                "DefinitionId": "1",
+                "Name": "Ship Type",
+                "Type": "StringType"
+            },
+            {
+                "DefinitionId": "3",
+                "Name": "P.O no.",
+                "Type": "StringType"
+            }
+        ],
+        "DocNumber": "100672",
+        "TxnDate": "2025-06-03",
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "ExchangeRate": 1,
+        "LinkedTxn": [
+            {
+                "TxnId": "416146",
+                "TxnType": "Estimate"
+            }
+        ],
+        "Line": [
+            {
+                "Id": "1",
+                "LineNum": 1,
+                "Description": "Lexmark MS321DN Black Toner Cartridge, High Yield 15K, Genuine OEM (56F1H00, 56F0H0G, 56F0HA0) - Made in Mexico",
+                "Amount": 425.5,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416146",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "16624",
+                        "name": "56F1H0E"
+                    },
+                    "UnitPrice": 425.5,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "7"
+                    }
+                }
+            },
+            {
+                "Id": "2",
+                "LineNum": 2,
+                "Description": "Lexmark MS810 Maintenance Kit (fuser + roller set), Genuine OEM - Made in China",
+                "Amount": 375,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416146",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "7580",
+                        "name": "40X8420"
+                    },
+                    "UnitPrice": 375,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "7"
+                    }
+                }
+            },
+            {
+                "Id": "3",
+                "LineNum": 3,
+                "Description": "HP LaserJet M454 M479 Black Toner Cartridge, High Yield, Genuine OEM (414X, #414X, #414XC, W2020X) - Made in Japan",
+                "Amount": 398,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416146",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "17000",
+                        "name": "W2020XC"
+                    },
+                    "UnitPrice": 199,
+                    "Qty": 2,
+                    "TaxCodeRef": {
+                        "value": "7"
+                    }
+                }
+            },
+            {
+                "Amount": 1198.5,
+                "DetailType": "SubTotalLineDetail",
+                "SubTotalLineDetail": {}
+            }
+        ],
+        "TxnTaxDetail": {
+            "TotalTax": 59.93,
+            "TaxLine": [
+                {
+                    "Amount": 59.93,
+                    "DetailType": "TaxLineDetail",
+                    "TaxLineDetail": {
+                        "TaxRateRef": {
+                            "value": "15"
+                        },
+                        "PercentBased": true,
+                        "TaxPercent": 5,
+                        "NetAmountTaxable": 1198.5
+                    }
+                }
+            ]
+        },
+        "CustomerRef": {
+            "value": "3102",
+            "name": "LaserPro"
+        },
+        "BillAddr": {
+            "Id": "238356",
+            "Line1": "4435 Boul. Industriel",
+            "City": "Sherbrooke",
+            "Country": "Canada",
+            "CountrySubDivisionCode": "QC",
+            "PostalCode": "J1L2S9"
+        },
+        "ShipAddr": {
+            "Id": "255453",
+            "Line1": "Martin Paré",
+            "Line2": "LaserPro",
+            "Line3": "4435 Boul. Industriel",
+            "Line4": "Sherbrooke QC  J1L2S9"
+        },
+        "SalesTermRef": {
+            "value": "1"
+        },
+        "DueDate": "2025-06-03",
+        "ShipMethodRef": {
+            "value": "UPS® Standard Canada",
+            "name": "UPS® Standard Canada"
+        },
+        "ShipDate": "2025-06-03",
+        "TrackingNum": "1Z8Y58122097023306",
+        "GlobalTaxCalculation": "TaxExcluded",
+        "TotalAmt": 1258.43,
+        "HomeTotalAmt": 1258.43,
+        "PrintStatus": "NotSet",
+        "EmailStatus": "EmailSent",
+        "BillEmail": {
+            "Address": "mpare@laserpro.ca"
+        },
+        "Balance": 1258.43,
+        "DeliveryInfo": {
+            "DeliveryType": "Email",
+            "DeliveryTime": "2025-06-03T13:34:24-07:00"
+        }
+    },
+    {
+        "AllowIPNPayment": false,
+        "AllowOnlinePayment": false,
+        "AllowOnlineCreditCardPayment": false,
+        "AllowOnlineACHPayment": false,
+        "EInvoiceStatus": "Viewed",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "416092",
+        "SyncToken": "3",
+        "MetaData": {
+            "CreateTime": "2025-06-03T11:01:43-07:00",
+            "LastUpdatedTime": "2025-06-03T17:17:58-07:00"
+        },
+        "CustomField": [
+            {
+                "DefinitionId": "1",
+                "Name": "Ship Type",
+                "Type": "StringType",
+                "StringValue": "Blind Ship"
+            },
+            {
+                "DefinitionId": "3",
+                "Name": "P.O no.",
+                "Type": "StringType",
+                "StringValue": "666437-1"
+            }
+        ],
+        "DocNumber": "100655",
+        "TxnDate": "2025-06-03",
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "ExchangeRate": 1,
+        "LinkedTxn": [
+            {
+                "TxnId": "416043",
+                "TxnType": "Estimate"
+            }
+        ],
+        "Line": [
+            {
+                "Id": "1",
+                "LineNum": 1,
+                "Description": "HP M507 M528 toner cartridge, ultra high yield, Genuine OEM (CF289YC, 89Y, 89YC, #89Y, #89YC) - Made in Japan",
+                "Amount": 355,
+                "LinkedTxn": [
+                    {
+                        "TxnId": "416043",
+                        "TxnType": "Estimate"
+                    }
+                ],
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "18334",
+                        "name": "CF289Y"
+                    },
+                    "UnitPrice": 355,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Amount": 355,
+                "DetailType": "SubTotalLineDetail",
+                "SubTotalLineDetail": {}
+            }
+        ],
+        "TxnTaxDetail": {
+            "TotalTax": 46.15,
+            "TaxLine": [
+                {
+                    "Amount": 46.15,
+                    "DetailType": "TaxLineDetail",
+                    "TaxLineDetail": {
+                        "TaxRateRef": {
+                            "value": "12"
+                        },
+                        "PercentBased": true,
+                        "TaxPercent": 13,
+                        "NetAmountTaxable": 355
+                    }
+                }
+            ]
+        },
+        "CustomerRef": {
+            "value": "2483",
+            "name": "Printers Plus - Imaging & Printing Specialists"
+        },
+        "BillAddr": {
+            "Id": "165177",
+            "Line1": "1181 Belanger Ave",
+            "City": "Ottawa",
+            "Country": "Canada",
+            "CountrySubDivisionCode": "ON",
+            "PostalCode": "K1H 1B7"
+        },
+        "ShipAddr": {
+            "Id": "255355",
+            "Line1": "National Focus Distribution",
+            "Line2": "Attn: Scott Webb 705-739-1850",
+            "Line3": "151 Church St",
+            "Line4": "Alliston ON  L9R 1E5",
+            "Line5": "Ottawa ON  K1H 1B7"
+        },
+        "SalesTermRef": {
+            "value": "1"
+        },
+        "DueDate": "2025-06-03",
+        "ShipMethodRef": {
+            "value": "UPS® Standard Canada",
+            "name": "UPS® Standard Canada"
+        },
+        "ShipDate": "2025-06-03",
+        "TrackingNum": "1Z8Y58122090354739",
+        "GlobalTaxCalculation": "TaxExcluded",
+        "TotalAmt": 401.15,
+        "HomeTotalAmt": 401.15,
+        "PrintStatus": "NotSet",
+        "EmailStatus": "EmailSent",
+        "BillEmail": {
+            "Address": "kcarter@printersplus.net,amilne@printersplus.net"
+        },
+        "Balance": 401.15,
+        "DeliveryInfo": {
+            "DeliveryType": "Email",
+            "DeliveryTime": "2025-06-03T13:10:50-07:00"
+        }
+    },
+    {
+        "AllowIPNPayment": false,
+        "AllowOnlinePayment": false,
+        "AllowOnlineCreditCardPayment": false,
+        "AllowOnlineACHPayment": false,
+        "EInvoiceStatus": "Viewed",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "415730",
+        "SyncToken": "2",
+        "MetaData": {
+            "CreateTime": "2025-06-02T06:50:44-07:00",
+            "LastUpdatedTime": "2025-06-03T15:56:42-07:00"
+        },
+        "CustomField": [
+            {
+                "DefinitionId": "1",
+                "Name": "Ship Type",
+                "Type": "StringType",
+                "StringValue": "PICK UP"
+            },
+            {
+                "DefinitionId": "3",
+                "Name": "P.O no.",
+                "Type": "StringType",
+                "StringValue": "Johnny"
+            }
+        ],
+        "DocNumber": "100561",
+        "TxnDate": "2025-06-02",
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "ExchangeRate": 1,
+        "LinkedTxn": [
+            {
+                "TxnId": "415994",
+                "TxnType": "Payment"
+            }
+        ],
+        "Line": [
+            {
+                "Id": "1",
+                "LineNum": 1,
+                "Description": "Lexmark MS331 MX331 Imaging Unit, Genuine OEM",
+                "Amount": 86.25,
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                    "ItemRef": {
+                        "value": "19085",
+                        "name": "55B0ZA0"
+                    },
+                    "UnitPrice": 86.25,
+                    "Qty": 1,
+                    "TaxCodeRef": {
+                        "value": "6"
+                    }
+                }
+            },
+            {
+                "Amount": 86.25,
+                "DetailType": "SubTotalLineDetail",
+                "SubTotalLineDetail": {}
+            }
+        ],
+        "TxnTaxDetail": {
+            "TotalTax": 11.21,
+            "TaxLine": [
+                {
+                    "Amount": 11.21,
+                    "DetailType": "TaxLineDetail",
+                    "TaxLineDetail": {
+                        "TaxRateRef": {
+                            "value": "12"
+                        },
+                        "PercentBased": true,
+                        "TaxPercent": 13,
+                        "NetAmountTaxable": 86.25
+                    }
+                }
+            ]
+        },
+        "CustomerRef": {
+            "value": "17600",
+            "name": "Laser Age"
+        },
+        "BillAddr": {
+            "Id": "166093",
+            "Line1": "24 Holgate Court",
+            "City": "Brampton",
+            "Country": "Canada",
+            "CountrySubDivisionCode": "ON",
+            "PostalCode": "L6Z1S1"
+        },
+        "ShipAddr": {
+            "Id": "166093",
+            "Line1": "24 Holgate Court",
+            "City": "Brampton",
+            "Country": "Canada",
+            "CountrySubDivisionCode": "ON",
+            "PostalCode": "L6Z1S1"
+        },
+        "SalesTermRef": {
+            "value": "1"
+        },
+        "DueDate": "2025-06-02",
+        "GlobalTaxCalculation": "TaxExcluded",
+        "TotalAmt": 97.46,
+        "HomeTotalAmt": 97.46,
+        "PrintStatus": "NotSet",
+        "EmailStatus": "EmailSent",
+        "BillEmail": {
+            "Address": "Johnny@laserage.on.ca"
+        },
+        "Balance": 0,
+        "DeliveryInfo": {
+            "DeliveryType": "Email",
+            "DeliveryTime": "2025-06-02T06:50:53-07:00"
+        }
+    }
+]

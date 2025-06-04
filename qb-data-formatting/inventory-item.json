@@ -1,0 +1,177 @@
+[
+    {
+        "Name": "001R00576",
+        "Description": "Xerox DocuColor 2045, 2060, 6060, 7000, 8000 IBT Belt, Genuine OEM",
+        "Active": true,
+        "FullyQualifiedName": "001R00576",
+        "Taxable": false,
+        "SalesTaxIncluded": false,
+        "UnitPrice": 500,
+        "Type": "Inventory",
+        "IncomeAccountRef": {
+            "value": "84",
+            "name": "Sales of Product Income"
+        },
+        "PurchaseTaxIncluded": false,
+        "PurchaseCost": 0,
+        "ExpenseAccountRef": {
+            "value": "85",
+            "name": "Cost of Goods Sold"
+        },
+        "AssetAccountRef": {
+            "value": "83",
+            "name": "Inventory Asset"
+        },
+        "TrackQtyOnHand": true,
+        "QtyOnHand": 0,
+        "InvStartDate": "2018-01-01",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "15640",
+        "SyncToken": "1",
+        "MetaData": {
+            "CreateTime": "2018-08-02T12:25:41-07:00",
+            "LastUpdatedTime": "2025-01-28T10:32:23-08:00"
+        }
+    },
+    {
+        "Name": "001R00583",
+        "Description": "Xerox 6204 Drum Unit, Genuine OEM",
+        "Active": true,
+        "FullyQualifiedName": "001R00583",
+        "Taxable": false,
+        "SalesTaxIncluded": false,
+        "UnitPrice": 0,
+        "Type": "Inventory",
+        "IncomeAccountRef": {
+            "value": "84",
+            "name": "Sales of Product Income"
+        },
+        "PurchaseTaxIncluded": false,
+        "PurchaseCost": 0,
+        "ExpenseAccountRef": {
+            "value": "85",
+            "name": "Cost of Goods Sold"
+        },
+        "AssetAccountRef": {
+            "value": "83",
+            "name": "Inventory Asset"
+        },
+        "TrackQtyOnHand": true,
+        "QtyOnHand": 0,
+        "InvStartDate": "2017-01-01",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "13923",
+        "SyncToken": "2",
+        "MetaData": {
+            "CreateTime": "2017-08-30T10:04:48-07:00",
+            "LastUpdatedTime": "2022-05-18T13:22:04-07:00"
+        }
+    },
+    {
+        "Name": "001R00593",
+        "Description": "Xerox WorkCentre 7132 7232 7242 IBT Belt Cleaner, Genuine OEM",
+        "Active": true,
+        "FullyQualifiedName": "001R00593",
+        "Taxable": false,
+        "SalesTaxIncluded": false,
+        "UnitPrice": 0,
+        "Type": "Inventory",
+        "IncomeAccountRef": {
+            "value": "32",
+            "name": "Sales"
+        },
+        "PurchaseTaxIncluded": false,
+        "PurchaseCost": 0,
+        "ExpenseAccountRef": {
+            "value": "35",
+            "name": "Inventory A Cost"
+        },
+        "AssetAccountRef": {
+            "value": "13",
+            "name": "Inventory A"
+        },
+        "TrackQtyOnHand": true,
+        "QtyOnHand": 1,
+        "InvStartDate": "2016-08-31",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "6336",
+        "SyncToken": "1",
+        "MetaData": {
+            "CreateTime": "2016-10-01T08:54:22-07:00",
+            "LastUpdatedTime": "2024-11-08T09:21:58-08:00"
+        }
+    },
+    {
+        "Name": "001R00600",
+        "Description": "Xerox WorkCentre 7425 IBT Belt Cleaner, Genuine OEM",
+        "Active": true,
+        "FullyQualifiedName": "001R00600",
+        "Taxable": false,
+        "SalesTaxIncluded": false,
+        "UnitPrice": 40,
+        "Type": "Inventory",
+        "IncomeAccountRef": {
+            "value": "32",
+            "name": "Sales"
+        },
+        "PurchaseTaxIncluded": false,
+        "PurchaseCost": 0,
+        "ExpenseAccountRef": {
+            "value": "35",
+            "name": "Inventory A Cost"
+        },
+        "AssetAccountRef": {
+            "value": "13",
+            "name": "Inventory A"
+        },
+        "TrackQtyOnHand": true,
+        "QtyOnHand": 0,
+        "InvStartDate": "2016-08-31",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "6337",
+        "SyncToken": "2",
+        "MetaData": {
+            "CreateTime": "2016-10-01T08:54:22-07:00",
+            "LastUpdatedTime": "2025-02-19T07:22:14-08:00"
+        }
+    },
+    {
+        "Name": "001R00610",
+        "Description": "Xerox WorkCentre 7120 Transfer Belt, Genuine OEM",
+        "Active": true,
+        "FullyQualifiedName": "001R00610",
+        "Taxable": false,
+        "SalesTaxIncluded": false,
+        "UnitPrice": 165,
+        "Type": "Inventory",
+        "IncomeAccountRef": {
+            "value": "32",
+            "name": "Sales"
+        },
+        "PurchaseTaxIncluded": false,
+        "PurchaseCost": 0,
+        "ExpenseAccountRef": {
+            "value": "35",
+            "name": "Inventory A Cost"
+        },
+        "AssetAccountRef": {
+            "value": "13",
+            "name": "Inventory A"
+        },
+        "TrackQtyOnHand": true,
+        "QtyOnHand": 0,
+        "InvStartDate": "2016-08-31",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "6338",
+        "SyncToken": "3",
+        "MetaData": {
+            "CreateTime": "2016-10-01T08:54:22-07:00",
+            "LastUpdatedTime": "2024-11-08T06:53:21-08:00"
+        }
+    }
+]

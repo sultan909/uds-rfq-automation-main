@@ -76,13 +76,14 @@ export function SettingsTab({
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PENDING">Pending</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="QUOTED">Quoted</SelectItem>
+                        <SelectItem value="NEW">New</SelectItem>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="PRICED">Priced</SelectItem>
+                        <SelectItem value="SENT">Sent</SelectItem>
+                        <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
                         <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                        <SelectItem value="DECLINED">Declined</SelectItem>
+                        <SelectItem value="PROCESSED">Processed</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>

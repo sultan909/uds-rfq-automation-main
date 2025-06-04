@@ -46,6 +46,9 @@ export default function ManualRfqPage() {
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [textParsing, setTextParsing] = useState(false);
+  const [pasteContent, setPasteContent] = useState("");
   const [rfqItems, setRfqItems] = useState<RfqItem[]>([
     {
       id: 1,
@@ -186,22 +189,149 @@ export default function ManualRfqPage() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create RFQ');
+        throw new Error(data.error || `HTTP ${response.status}: Failed to create RFQ`);
       }
 
       if (data.success) {
-        toast.success('RFQ created successfully');
-        // Redirect to RFQ list or detail page
-        window.location.href = '/rfq-management';
+        toast.success(data.message || 'RFQ created successfully');
+        // Redirect to the created RFQ detail page
+        window.location.href = `/rfq-management/${data.data.id}`;
       } else {
         throw new Error(data.error || 'Failed to create RFQ');
       }
     } catch (error) {
       console.error('Error creating RFQ:', error);
-      toast.error(error instanceof Error ? error.message : 'Error creating RFQ');
+      const errorMessage = error instanceof Error ? error.message : 'Error creating RFQ';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset the input
+    event.target.value = '';
+
+    try {
+      setFileUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/rfq/parse-file', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const newItems = data.data.items.map((item: any, index: number) => ({
+          id: Math.max(...rfqItems.map((item) => item.id), 0) + index + 1,
+          sku: item.sku,
+          description: item.description,
+          quantity: item.quantity,
+          price: item.price,
+        }));
+
+        setRfqItems(newItems);
+        
+        // Check for non-standard SKUs
+        const nonStandardSkus = newItems
+          .filter((item: RfqItem) => !inventory.some((inv) => inv.sku === item.sku))
+          .map((item: RfqItem) => item.sku);
+        
+        if (nonStandardSkus.length > 0) {
+          setNonStandardSkus(nonStandardSkus);
+        }
+
+        let message = `Successfully imported ${data.data.totalItems} items`;
+        if (data.data.errors && data.data.errors.length > 0) {
+          message += ` with ${data.data.errors.length} warnings`;
+        }
+        toast.success(message);
+
+        if (data.data.errors && data.data.errors.length > 0) {
+          console.warn('Import warnings:', data.data.errors);
+        }
+      } else {
+        toast.error(data.error || 'Failed to parse file');
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Error uploading file');
+    } finally {
+      setFileUploading(false);
+    }
+  };
+
+  const handleParseText = async () => {
+    if (!pasteContent.trim()) {
+      toast.error('Please enter some text to parse');
+      return;
+    }
+
+    try {
+      setTextParsing(true);
+      const response = await fetch('/api/rfq/parse-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: pasteContent }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const newItems = data.data.items.map((item: any, index: number) => ({
+          id: Math.max(...rfqItems.map((item) => item.id), 0) + index + 1,
+          sku: item.sku,
+          description: item.description,
+          quantity: item.quantity,
+          price: item.price,
+        }));
+
+        setRfqItems(newItems);
+        setPasteContent("");
+        
+        // Check for non-standard SKUs
+        const nonStandardSkus = newItems
+          .filter((item: RfqItem) => !inventory.some((inv) => inv.sku === item.sku))
+          .map((item: RfqItem) => item.sku);
+        
+        if (nonStandardSkus.length > 0) {
+          setNonStandardSkus(nonStandardSkus);
+        }
+
+        let message = `Successfully parsed ${data.data.totalItems} items`;
+        if (data.data.duplicatesRemoved > 0) {
+          message += ` (${data.data.duplicatesRemoved} duplicates removed)`;
+        }
+        toast.success(message);
+      } else {
+        toast.error(data.error || 'Failed to parse text');
+      }
+    } catch (error) {
+      console.error('Error parsing text:', error);
+      toast.error('Error parsing text');
+    } finally {
+      setTextParsing(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    // Create a simple CSV template
+    const csvContent = "SKU,Description,Quantity,Price\nABC123,Sample Product 1,5,10.99\nXYZ789,Sample Product 2,2,25.50";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rfq-template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -210,7 +340,13 @@ export default function ManualRfqPage() {
 
   return (
     <div>
-      {nonStandardSkus.length > 0 && <SkuMappingDetector skus={nonStandardSkus} onMapSkus={handleMapSkus} />}
+      {nonStandardSkus.length > 0 && (
+        <SkuMappingDetector 
+          skus={nonStandardSkus} 
+          customerId={selectedCustomer ? parseInt(selectedCustomer) : undefined}
+          onMapSkus={handleMapSkus} 
+        />
+      )}
 
       <Card className="mb-6">
         <CardHeader>
@@ -394,10 +530,30 @@ export default function ManualRfqPage() {
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 <div className="space-y-2">
                   <div className="text-muted-foreground">Drag and drop your file here, or click to browse</div>
-                  <Input type="file" className="hidden" id="file-upload" />
-                  <Button variant="outline" onClick={() => document.getElementById("file-upload")?.click()}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Browse Files
+                  <Input 
+                    type="file" 
+                    className="hidden" 
+                    id="file-upload" 
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleFileUpload}
+                    disabled={fileUploading}
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => document.getElementById("file-upload")?.click()}
+                    disabled={fileUploading}
+                  >
+                    {fileUploading ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Browse Files
+                      </>
+                    )}
                   </Button>
                   <div className="text-xs text-muted-foreground">Supported formats: CSV, Excel (.xlsx, .xls)</div>
                 </div>
@@ -408,9 +564,12 @@ export default function ManualRfqPage() {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <span className="text-foreground">
                     Download our{" "}
-                    <a href="#" className="text-primary hover:underline">
+                    <button 
+                      onClick={downloadTemplate}
+                      className="text-primary hover:underline cursor-pointer"
+                    >
                       template file
-                    </a>{" "}
+                    </button>{" "}
                     for easy uploading
                   </span>
                 </div>
@@ -422,8 +581,14 @@ export default function ManualRfqPage() {
                 <Label htmlFor="paste-content">Paste RFQ Content</Label>
                 <Textarea
                   id="paste-content"
-                  placeholder="Paste the content of the RFQ here (SKUs, quantities, etc.)"
+                  placeholder="Paste the content of the RFQ here. Supported formats:
+• ABC123 - Product Description (Qty: 5)
+• ABC123	Product Description	5	$10.99
+• 1. ABC123 - Product Description
+• SKU,Description,Quantity,Price"
                   className="min-h-[200px]"
+                  value={pasteContent}
+                  onChange={(e) => setPasteContent(e.target.value)}
                 />
               </div>
 
@@ -434,7 +599,28 @@ export default function ManualRfqPage() {
                 </div>
               </div>
 
-              <Button>Parse Content</Button>
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPasteContent("")}
+                  disabled={!pasteContent.trim()}
+                >
+                  Clear
+                </Button>
+                <Button 
+                  onClick={handleParseText}
+                  disabled={textParsing || !pasteContent.trim()}
+                >
+                  {textParsing ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
+                      Parsing...
+                    </>
+                  ) : (
+                    'Parse Content'
+                  )}
+                </Button>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
