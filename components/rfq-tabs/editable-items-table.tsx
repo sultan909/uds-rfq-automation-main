@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Save, Edit3, X, Check, History, ChevronDown, ChevronUp, Percent } from 'lucide-react';
+import { Save, Edit3, X, Check, History, ChevronDown, ChevronUp, Percent, Loader2 } from 'lucide-react';
 import { useCurrency } from '@/contexts/currency-context';
 import { toast } from 'sonner';
 import type { CreateQuotationItemRequest, SkuNegotiationHistory } from '@/lib/types/quotation';
@@ -42,6 +42,7 @@ interface EditableItemsTableProps {
     newUnitPrice: number;
     changeReason: string;
   }) => Promise<void>;
+  onRefreshNegotiation?: () => Promise<void>; // NEW: callback to refresh negotiation data
 }
 
 export function EditableItemsTable({ 
@@ -50,15 +51,44 @@ export function EditableItemsTable({
   isEditable,
   rfqStatus,
   negotiationHistory = [],
-  onCreateSkuChange
+  onCreateSkuChange,
+  onRefreshNegotiation
 }: EditableItemsTableProps) {
   const { formatCurrency } = useCurrency();
   const [editingItems, setEditingItems] = useState<Record<number, EditableItem>>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showNegotiationHistory, setShowNegotiationHistory] = useState<Record<number, boolean>>({});
-  const [changeReasons, setChangeReasons] = useState<Record<number, string>>({});
+  const [changeReasons, setChangeReasons] = useState<Record<string, string>>({});
   const [isNegotiationMode, setIsNegotiationMode] = useState(false);
+  
+  // NEW: Track SKU change operations
+  const [pendingSkuChanges, setPendingSkuChanges] = useState<Record<string, boolean>>({});
+  const [skuChangeErrors, setSkuChangeErrors] = useState<Record<string, string>>({});
+
+  // NEW: useEffect to refresh local state when negotiationHistory changes
+  useEffect(() => {
+    // Clear any stale error states when history updates
+    setSkuChangeErrors({});
+    // Force re-render of history displays
+    setShowNegotiationHistory(prev => ({ ...prev }));
+  }, [negotiationHistory]);
+
+  // NEW: useEffect to initialize editing state when items change
+  useEffect(() => {
+    if (isEditMode && items.length > 0) {
+      const editingState: Record<number, EditableItem> = {};
+      items.forEach(item => {
+        editingState[item.id] = {
+          ...item,
+          unitPrice: item.unitPrice || 0,
+          quantity: item.quantity || 1,
+          comment: item.comment || ''
+        };
+      });
+      setEditingItems(editingState);
+    }
+  }, [items, isEditMode]);
 
   const handleEditStart = () => {
     setIsEditMode(true);
@@ -78,6 +108,9 @@ export function EditableItemsTable({
   const handleEditCancel = () => {
     setIsEditMode(false);
     setEditingItems({});
+    setChangeReasons({});
+    setPendingSkuChanges({});
+    setSkuChangeErrors({});
   };
 
   const handleItemChange = (itemId: number, field: keyof EditableItem, value: any) => {
@@ -103,6 +136,7 @@ export function EditableItemsTable({
           unitPrice: item.unitPrice,
           comment: item.comment || undefined
         }));
+      
       if (quotationItems.length === 0) {
         toast.error('No valid items found to create quotation');
         return;
@@ -111,6 +145,9 @@ export function EditableItemsTable({
       await onSaveQuotation(quotationItems);
       setIsEditMode(false);
       setEditingItems({});
+      setChangeReasons({});
+      setPendingSkuChanges({});
+      setSkuChangeErrors({});
       toast.success('Quotation saved successfully');
     } catch (error) {
       console.error('Error saving quotation:', error);
@@ -136,37 +173,66 @@ export function EditableItemsTable({
     return getItemNegotiationHistory(itemId).length > 0;
   };
 
-  const handleItemChangeWithReason = async (itemId: number, field: keyof EditableItem, value: any, reason?: string) => {
+  // IMPROVED: Better async handling for SKU changes
+  const handleItemChangeWithReason = useCallback(async (
+    itemId: number, 
+    field: keyof EditableItem, 
+    value: any, 
+    reason?: string
+  ) => {
     const currentItem = items.find(item => item.id === itemId);
     const editingItem = editingItems[itemId];
     
-    if (!currentItem || !editingItem) return;
+    if (!currentItem || !editingItem || !isNegotiationMode || !reason || !onCreateSkuChange) {
+      // Just update local state if not in negotiation mode or no reason provided
+      handleItemChange(itemId, field, value);
+      return;
+    }
 
-    // Update the editing state
-    handleItemChange(itemId, field, value);
+    const changeKey = `${itemId}_${field}`;
+    
+    try {
+      // Set loading state
+      setPendingSkuChanges(prev => ({ ...prev, [changeKey]: true }));
+      setSkuChangeErrors(prev => ({ ...prev, [changeKey]: '' }));
 
-    // If in negotiation mode and we have a reason, track the change
-    if (isNegotiationMode && reason && onCreateSkuChange) {
+      // Update local state first for immediate UI feedback
+      handleItemChange(itemId, field, value);
+
       const oldValue = field === 'quantity' ? currentItem.quantity : currentItem.unitPrice;
       const newValue = value;
       
       if (oldValue !== newValue) {
-        try {
-          await onCreateSkuChange(itemId, {
-            oldQuantity: field === 'quantity' ? oldValue : editingItem.quantity,
-            newQuantity: field === 'quantity' ? newValue : editingItem.quantity,
-            oldUnitPrice: field === 'unitPrice' ? oldValue : editingItem.unitPrice,
-            newUnitPrice: field === 'unitPrice' ? newValue : editingItem.unitPrice,
-            changeReason: reason,
-          });
-          toast.success('Change recorded successfully');
-        } catch (error) {
-          console.error('Error recording change:', error);
-          toast.error('Failed to record change');
+        await onCreateSkuChange(itemId, {
+          oldQuantity: field === 'quantity' ? oldValue : editingItem.quantity,
+          newQuantity: field === 'quantity' ? newValue : editingItem.quantity,
+          oldUnitPrice: field === 'unitPrice' ? oldValue : editingItem.unitPrice,
+          newUnitPrice: field === 'unitPrice' ? newValue : editingItem.unitPrice,
+          changeReason: reason,
+        });
+
+        // Clear the reason after successful change
+        setChangeReasons(prev => ({ ...prev, changeKey: '' }));
+        
+        // Refresh negotiation data if callback provided
+        if (onRefreshNegotiation) {
+          await onRefreshNegotiation();
         }
+
+        toast.success('Change recorded successfully');
       }
+    } catch (error) {
+      console.error('Error recording change:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to record change';
+      setSkuChangeErrors(prev => ({ ...prev, [changeKey]: errorMessage }));
+      toast.error(errorMessage);
+      
+      // Revert local state change on error
+      handleItemChange(itemId, field, field === 'quantity' ? currentItem.quantity : currentItem.unitPrice);
+    } finally {
+      setPendingSkuChanges(prev => ({ ...prev, [changeKey]: false }));
     }
-  };
+  }, [items, editingItems, isNegotiationMode, onCreateSkuChange, onRefreshNegotiation]);
 
   const isValidForEdit = isEditable && ['DRAFT', 'SENT', 'NEGOTIATING'].includes(rfqStatus || '');
 
@@ -175,6 +241,7 @@ export function EditableItemsTable({
   const [bulkChangePercentage, setBulkChangePercentage] = useState('');
   const [bulkChangeReason, setBulkChangeReason] = useState('');
   const [showBulkChangeModal, setShowBulkChangeModal] = useState(false);
+  const [isBulkChanging, setIsBulkChanging] = useState(false);
 
   const handleSelectItem = (itemId: number, selected: boolean) => {
     setSelectedItems(prev => 
@@ -188,35 +255,61 @@ export function EditableItemsTable({
     setSelectedItems(selected ? items.map(item => item.id) : []);
   };
 
+  // IMPROVED: Better bulk change handling
   const applyBulkPriceChange = async (percentage: number, reason: string) => {
     if (!onCreateSkuChange || selectedItems.length === 0) return;
 
     try {
+      setIsBulkChanging(true);
+      let successCount = 0;
+      let errorCount = 0;
+
       for (const itemId of selectedItems) {
         const item = items.find(i => i.id === itemId);
         if (!item) continue;
 
-        const oldPrice = item.unitPrice || 0;
-        const newPrice = oldPrice * (1 + percentage / 100);
+        try {
+          const oldPrice = item.unitPrice || 0;
+          const newPrice = oldPrice * (1 + percentage / 100);
 
-        await onCreateSkuChange(itemId, {
-          oldQuantity: item.quantity,
-          newQuantity: item.quantity,
-          oldUnitPrice: oldPrice,
-          newUnitPrice: newPrice,
-          changeReason: reason,
-        });
+          await onCreateSkuChange(itemId, {
+            oldQuantity: item.quantity,
+            newQuantity: item.quantity,
+            oldUnitPrice: oldPrice,
+            newUnitPrice: newPrice,
+            changeReason: reason,
+          });
 
-        // Update editing state
-        handleItemChange(itemId, 'unitPrice', newPrice);
+          // Update editing state
+          handleItemChange(itemId, 'unitPrice', newPrice);
+          successCount++;
+        } catch (error) {
+          console.error(`Error applying bulk change to item ${itemId}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        // Refresh negotiation data
+        if (onRefreshNegotiation) {
+          await onRefreshNegotiation();
+        }
+        toast.success(`Bulk price change applied to ${successCount} items`);
       }
       
-      toast.success(`Bulk price change applied to ${selectedItems.length} items`);
+      if (errorCount > 0) {
+        toast.error(`Failed to apply changes to ${errorCount} items`);
+      }
+      
       setSelectedItems([]);
       setShowBulkChangeModal(false);
+      setBulkChangePercentage('');
+      setBulkChangeReason('');
     } catch (error) {
       console.error('Error applying bulk change:', error);
       toast.error('Failed to apply bulk changes');
+    } finally {
+      setIsBulkChanging(false);
     }
   };
 
@@ -256,8 +349,13 @@ export function EditableItemsTable({
                     onClick={() => setShowBulkChangeModal(true)}
                     variant="outline"
                     size="sm"
+                    disabled={isBulkChanging}
                   >
-                    <Percent className="h-4 w-4 mr-2" />
+                    {isBulkChanging ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Percent className="h-4 w-4 mr-2" />
+                    )}
                     Bulk Change ({selectedItems.length})
                   </Button>
                 )}
@@ -266,7 +364,11 @@ export function EditableItemsTable({
                   size="sm"
                   disabled={isSaving}
                 >
-                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Save Quotation
                 </Button>
                 <Button 
@@ -285,6 +387,11 @@ export function EditableItemsTable({
         {isEditMode && (
           <div className="text-sm text-muted-foreground">
             Edit quantities, prices, and add comments. Click "Save Quotation" to create a new version with these changes.
+          </div>
+        )}
+        {isNegotiationMode && (
+          <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+            Negotiation Mode: Changes will be tracked and recorded in the negotiation history.
           </div>
         )}
       </CardHeader>
@@ -310,7 +417,8 @@ export function EditableItemsTable({
               <TableHead>History</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>{items.map((item) => {
+          <TableBody>
+            {items.map((item) => {
               const editingItem = editingItems[item.id];
               const displayItem = isEditMode ? editingItem || item : item;
               const history = getItemNegotiationHistory(item.id);
@@ -343,35 +451,55 @@ export function EditableItemsTable({
                     <TableCell>
                       {isEditMode || isNegotiationMode ? (
                         <div className="space-y-2">
-                          <Input
-                            type="number"
-                            value={displayItem.quantity}
-                            onChange={(e) => {
-                              const newValue = parseInt(e.target.value) || 0;
-                              if (isNegotiationMode) {
-                                setChangeReasons(prev => ({ ...prev, [`${item.id}_quantity`]: '' }));
-                              }
-                              handleItemChange(item.id, 'quantity', newValue);
-                            }}
-                            className="w-20"
-                            min="1"
-                          />
-                          {isNegotiationMode && editingItem?.quantity !== item.quantity && (
+                          <div className="flex items-center gap-2">
                             <Input
-                              placeholder="Reason for quantity change..."
-                              value={changeReasons[`${item.id}_quantity`] || ''}
-                              onChange={(e) => setChangeReasons(prev => ({ 
-                                ...prev, 
-                                [`${item.id}_quantity`]: e.target.value 
-                              }))}
-                              className="w-full text-xs"
-                              onBlur={() => {
-                                const reason = changeReasons[`${item.id}_quantity`];
-                                if (reason && reason.trim()) {
-                                  handleItemChangeWithReason(item.id, 'quantity', editingItem?.quantity, reason);
+                              type="number"
+                              value={displayItem.quantity}
+                              onChange={(e) => {
+                                const newValue = parseInt(e.target.value) || 0;
+                                if (isNegotiationMode) {
+                                  setChangeReasons(prev => ({ ...prev, [`${item.id}_quantity`]: '' }));
                                 }
+                                handleItemChange(item.id, 'quantity', newValue);
                               }}
+                              className="w-20"
+                              min="1"
                             />
+                            {pendingSkuChanges[`${item.id}_quantity`] && (
+                              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                            )}
+                          </div>
+                          {isNegotiationMode && editingItem?.quantity !== item.quantity && (
+                            <div className="space-y-1">
+                              <Input
+                                placeholder="Reason for quantity change..."
+                                value={changeReasons[`${item.id}_quantity`] || ''}
+                                onChange={(e) => setChangeReasons(prev => ({ 
+                                  ...prev, 
+                                  [`${item.id}_quantity`]: e.target.value 
+                                }))}
+                                className="w-full text-xs"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const reason = changeReasons[`${item.id}_quantity`];
+                                    if (reason && reason.trim()) {
+                                      handleItemChangeWithReason(item.id, 'quantity', editingItem?.quantity, reason);
+                                    }
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const reason = changeReasons[`${item.id}_quantity`];
+                                  if (reason && reason.trim()) {
+                                    handleItemChangeWithReason(item.id, 'quantity', editingItem?.quantity, reason);
+                                  }
+                                }}
+                              />
+                              {skuChangeErrors[`${item.id}_quantity`] && (
+                                <div className="text-xs text-red-500">
+                                  {skuChangeErrors[`${item.id}_quantity`]}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       ) : (
@@ -383,36 +511,56 @@ export function EditableItemsTable({
                     <TableCell>
                       {isEditMode || isNegotiationMode ? (
                         <div className="space-y-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={displayItem.unitPrice}
-                            onChange={(e) => {
-                              const newValue = parseFloat(e.target.value) || 0;
-                              if (isNegotiationMode) {
-                                setChangeReasons(prev => ({ ...prev, [`${item.id}_price`]: '' }));
-                              }
-                              handleItemChange(item.id, 'unitPrice', newValue);
-                            }}
-                            className="w-28"
-                            min="0"
-                          />
-                          {isNegotiationMode && editingItem?.unitPrice !== item.unitPrice && (
+                          <div className="flex items-center gap-2">
                             <Input
-                              placeholder="Reason for price change..."
-                              value={changeReasons[`${item.id}_price`] || ''}
-                              onChange={(e) => setChangeReasons(prev => ({ 
-                                ...prev, 
-                                [`${item.id}_price`]: e.target.value 
-                              }))}
-                              className="w-full text-xs"
-                              onBlur={() => {
-                                const reason = changeReasons[`${item.id}_price`];
-                                if (reason && reason.trim()) {
-                                  handleItemChangeWithReason(item.id, 'unitPrice', editingItem?.unitPrice, reason);
+                              type="number"
+                              step="0.01"
+                              value={displayItem.unitPrice}
+                              onChange={(e) => {
+                                const newValue = parseFloat(e.target.value) || 0;
+                                if (isNegotiationMode) {
+                                  setChangeReasons(prev => ({ ...prev, [`${item.id}_price`]: '' }));
                                 }
+                                handleItemChange(item.id, 'unitPrice', newValue);
                               }}
+                              className="w-28"
+                              min="0"
                             />
+                            {pendingSkuChanges[`${item.id}_price`] && (
+                              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                            )}
+                          </div>
+                          {isNegotiationMode && editingItem?.unitPrice !== item.unitPrice && (
+                            <div className="space-y-1">
+                              <Input
+                                placeholder="Reason for price change..."
+                                value={changeReasons[`${item.id}_price`] || ''}
+                                onChange={(e) => setChangeReasons(prev => ({ 
+                                  ...prev, 
+                                  [`${item.id}_price`]: e.target.value 
+                                }))}
+                                className="w-full text-xs"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const reason = changeReasons[`${item.id}_price`];
+                                    if (reason && reason.trim()) {
+                                      handleItemChangeWithReason(item.id, 'unitPrice', editingItem?.unitPrice, reason);
+                                    }
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const reason = changeReasons[`${item.id}_price`];
+                                  if (reason && reason.trim()) {
+                                    handleItemChangeWithReason(item.id, 'unitPrice', editingItem?.unitPrice, reason);
+                                  }
+                                }}
+                              />
+                              {skuChangeErrors[`${item.id}_price`] && (
+                                <div className="text-xs text-red-500">
+                                  {skuChangeErrors[`${item.id}_price`]}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       ) : (
@@ -466,25 +614,27 @@ export function EditableItemsTable({
                         <div className="space-y-2">
                           <h4 className="font-semibold text-sm">Negotiation History</h4>
                           <div className="space-y-1">
-                            {history.map((change, idx) => (
-                              <div key={idx} className="text-xs p-2 bg-white rounded border">
-                                <div className="flex justify-between">
-                                  <span className="font-medium">
-                                    {new Date(change.createdAt).toLocaleDateString()} - {change.changeType}
-                                  </span>
-                                  <span className="text-gray-500">{change.changedBy}</span>
+                            {history
+                              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                              .map((change, idx) => (
+                                <div key={idx} className="text-xs p-2 bg-white rounded border">
+                                  <div className="flex justify-between">
+                                    <span className="font-medium">
+                                      {new Date(change.createdAt).toLocaleDateString()} - {change.changeType}
+                                    </span>
+                                    <span className="text-gray-500">{change.changedBy}</span>
+                                  </div>
+                                  {change.oldQuantity !== change.newQuantity && (
+                                    <div>Qty: {change.oldQuantity} → {change.newQuantity}</div>
+                                  )}
+                                  {change.oldUnitPrice !== change.newUnitPrice && (
+                                    <div>Price: {formatCurrency(change.oldUnitPrice || 0)} → {formatCurrency(change.newUnitPrice || 0)}</div>
+                                  )}
+                                  {change.changeReason && (
+                                    <div className="text-gray-600 italic">Reason: {change.changeReason}</div>
+                                  )}
                                 </div>
-                                {change.oldQuantity !== change.newQuantity && (
-                                  <div>Qty: {change.oldQuantity} → {change.newQuantity}</div>
-                                )}
-                                {change.oldUnitPrice !== change.newUnitPrice && (
-                                  <div>Price: {formatCurrency(change.oldUnitPrice || 0)} → {formatCurrency(change.newUnitPrice || 0)}</div>
-                                )}
-                                {change.changeReason && (
-                                  <div className="text-gray-600 italic">Reason: {change.changeReason}</div>
-                                )}
-                              </div>
-                            ))}
+                              ))}
                           </div>
                         </div>
                       </TableCell>
@@ -545,19 +695,29 @@ export function EditableItemsTable({
             <Button variant="outline" onClick={() => setShowBulkChangeModal(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              const percentage = parseFloat(bulkChangePercentage);
-              if (isNaN(percentage)) {
-                toast.error('Please enter a valid percentage');
-                return;
-              }
-              if (!bulkChangeReason.trim()) {
-                toast.error('Please enter a reason for the change');
-                return;
-              }
-              applyBulkPriceChange(percentage, bulkChangeReason);
-            }}>
-              Apply Changes
+            <Button 
+              onClick={() => {
+                const percentage = parseFloat(bulkChangePercentage);
+                if (isNaN(percentage)) {
+                  toast.error('Please enter a valid percentage');
+                  return;
+                }
+                if (!bulkChangeReason.trim()) {
+                  toast.error('Please enter a reason for the change');
+                  return;
+                }
+                applyBulkPriceChange(percentage, bulkChangeReason);
+              }}
+              disabled={isBulkChanging}
+            >
+              {isBulkChanging ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Applying Changes...
+                </>
+              ) : (
+                'Apply Changes'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
