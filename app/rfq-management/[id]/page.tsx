@@ -447,12 +447,12 @@ export default function RfqDetail({
     newUnitPrice: number;
   }) => {
     try {
-      const item = items.find((i: any) => i.id === itemId);
+      // @ts-ignore
+      const item = items.find(i => i.id === itemId);
       if (!item) {
         throw new Error('Item not found');
       }
-
-      const skuId = item.internalProductId || item.inventory?.id;
+      const skuId = item.internalProductId || item?.inventory?.id;
       if (!skuId) {
         throw new Error('SKU ID not found');
       }

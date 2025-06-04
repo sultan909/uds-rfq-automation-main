@@ -149,7 +149,7 @@ export const rfqItems = pgTable('rfq_items', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const rfqItemsRelations = relations(rfqItems, ({ one }) => ({
+export const rfqItemsRelations = relations(rfqItems, ({ one, many }) => ({
   rfq: one(rfqs, {
     fields: [rfqItems.rfqId],
     references: [rfqs.id],
@@ -158,6 +158,7 @@ export const rfqItemsRelations = relations(rfqItems, ({ one }) => ({
     fields: [rfqItems.internalProductId],
     references: [inventoryItems.id],
   }),
+  versions: many(quotationVersions),
 }));
 
 // Quotations Table

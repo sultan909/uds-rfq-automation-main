@@ -181,6 +181,58 @@ export const rfqApi = {
       return { success: false, error: 'Failed to record customer response' };
     }
   },
+  getItemVersions: async (rfqId: string, sku: string) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/items/${sku}/versions`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching item versions:', error);
+      return { success: false, error: 'Failed to fetch item versions' };
+    }
+  },
+  createItemVersion: async (rfqId: string, sku: string, versionData: any) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/items/${sku}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(versionData),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating item version:', error);
+      return { success: false, error: 'Failed to create item version' };
+    }
+  },
+  updateItemVersionStatus: async (rfqId: string, sku: string, versionNumber: number, status: string) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/items/${sku}/versions/${versionNumber}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating item version status:', error);
+      return { success: false, error: 'Failed to update item version status' };
+    }
+  },
+  recordItemCustomerResponse: async (rfqId: string, sku: string, versionNumber: number, customerResponse: any) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/items/${sku}/versions/${versionNumber}/customer-response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerResponse),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error recording item customer response:', error);
+      return { success: false, error: 'Failed to record item customer response' };
+    }
+  },
 };
 
 // Customer API endpoints

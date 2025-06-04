@@ -24,9 +24,9 @@ interface StockChangeDetails {
  * GET /api/inventory/:id/history
  * Get the history for a specific inventory item
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     

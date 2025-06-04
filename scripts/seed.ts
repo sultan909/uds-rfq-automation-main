@@ -7,6 +7,8 @@ import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcrypt';
 import { type RfqStatus } from '../db/schema';
 
+type CustomerResponseStatus = 'ACCEPTED' | 'DECLINED' | 'NEGOTIATING';
+
 // Helper to get a random element from an array
 function getRandomElement<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
@@ -119,37 +121,46 @@ async function main() {
         name: 'Randmar',
         type: 'WHOLESALER',
         region: 'North America',
-        email: 'info@randmar.com',
-        phone: faker.phone.number(),
-        address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
-        contactPerson: faker.person.fullName(),
-        quickbooksId: `QB-RAND${faker.string.alphanumeric(4)}`,
+        email: 'orders@randmar.com',
+        phone: '1-800-555-1234',
+        address: '123 Business Ave, Toronto, ON M5V 2T6',
+        contactPerson: 'John Smith',
+        quickbooksId: 'QB-RAND2024',
         isActive: true,
-        main_customer: true
+        main_customer: true,
+        annualVolume: 2500000,
+        creditLimit: 500000,
+        paymentTerms: 'Net 30'
       },
       {
         name: 'UGS',
         type: 'WHOLESALER',
         region: 'North America',
-        email: 'info@ugs.com',
-        phone: faker.phone.number(),
-        address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
-        contactPerson: faker.person.fullName(),
-        quickbooksId: `QB-UGS${faker.string.alphanumeric(4)}`,
+        email: 'purchasing@ugs.com',
+        phone: '1-800-555-5678',
+        address: '456 Enterprise Blvd, Vancouver, BC V6B 1A1',
+        contactPerson: 'Sarah Johnson',
+        quickbooksId: 'QB-UGS2024',
         isActive: true,
-        main_customer: true
+        main_customer: true,
+        annualVolume: 1800000,
+        creditLimit: 350000,
+        paymentTerms: 'Net 45'
       },
       {
         name: 'DCS',
         type: 'WHOLESALER',
         region: 'North America',
-        email: 'info@dcs.com',
-        phone: faker.phone.number(),
-        address: faker.location.streetAddress() + ', ' + faker.location.city() + ', ' + faker.location.country(),
-        contactPerson: faker.person.fullName(),
-        quickbooksId: `QB-DCS${faker.string.alphanumeric(4)}`,
+        email: 'sales@dcs.com',
+        phone: '1-800-555-9012',
+        address: '789 Corporate Dr, Montreal, QC H3B 2Y5',
+        contactPerson: 'Michael Chen',
+        quickbooksId: 'QB-DCS2024',
         isActive: true,
-        main_customer: true
+        main_customer: true,
+        annualVolume: 3200000,
+        creditLimit: 600000,
+        paymentTerms: 'Net 30'
       }
     ];
     
@@ -195,29 +206,50 @@ async function main() {
     console.log('Seeding inventory items...');
     const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Lexmark', 'Samsung', 'Xerox', 'Ricoh'];
     const categories = ['TONER', 'DRUM', 'INK', 'PARTS', 'OTHER'];
+    const productTypes = {
+      TONER: ['High Yield Black', 'Standard Black', 'Cyan', 'Magenta', 'Yellow'],
+      DRUM: ['Black Drum Unit', 'Color Drum Unit', 'Maintenance Kit'],
+      INK: ['Black Ink', 'Color Ink Set', 'XL Black Ink', 'XL Color Ink'],
+      PARTS: ['Fuser Unit', 'Transfer Belt', 'Pickup Roller', 'Separation Pad'],
+      OTHER: ['Paper Tray', 'Document Feeder', 'Power Supply', 'Network Card']
+    };
     
-    const inventoryItemsData = Array(10).fill(null).map(() => {
+    const inventoryItemsData = Array(20).fill(null).map(() => {
       const brand = getRandomElement(brands);
       const category = getRandomElement(categories);
-      const costCad = parseFloat(faker.commerce.price({ min: 20, max: 500 }));
+      const productType = getRandomElement(productTypes[category as keyof typeof productTypes]);
+      const costCad = parseFloat(faker.commerce.price({ 
+        min: category === 'TONER' ? 50 : category === 'DRUM' ? 100 : category === 'INK' ? 30 : 40, 
+        max: category === 'TONER' ? 200 : category === 'DRUM' ? 400 : category === 'INK' ? 150 : 300 
+      }));
+      
+      // Generate more realistic SKUs
+      const sku = `${brand.substring(0, 2).toUpperCase()}-${faker.string.alphanumeric(5).toUpperCase()}`;
+      const mpn = `${brand.substring(0, 2)}${faker.string.alphanumeric(6).toUpperCase()}`;
+      
       return {
-        sku: `${brand.substring(0, 2).toUpperCase()}-${faker.string.alphanumeric(5).toUpperCase()}`,
-        mpn: faker.string.alphanumeric(8).toUpperCase(),
-        brand: brand,
-        category: category,
-        description: `${brand} ${faker.commerce.productName()} ${category === 'TONER' ? 'Toner Cartridge' : 
+        sku,
+        mpn,
+        brand,
+        category,
+        description: `${brand} ${productType} ${category === 'TONER' ? 'Toner Cartridge' : 
           category === 'DRUM' ? 'Drum Unit' : 
           category === 'INK' ? 'Ink Cartridge' : 
           category === 'PARTS' ? 'Replacement Part' : 'Accessory'}`,
         stock: faker.number.int({ min: 0, max: 100 }),
-        costCad: costCad,
+        costCad,
         costUsd: parseFloat((costCad * 0.75).toFixed(2)),
         warehouseLocation: `Aisle ${faker.string.alpha(1).toUpperCase()}${faker.number.int({ min: 1, max: 20 })}-Shelf ${faker.number.int({ min: 1, max: 5 })}`,
         quantityOnHand: faker.number.int({ min: 0, max: 50 }),
         quantityReserved: faker.number.int({ min: 0, max: 10 }),
         lowStockThreshold: 5,
         lastSaleDate: getPastDate(faker.number.int({ min: 1, max: 30 })),
-        quickbooksItemId: `QB-${faker.string.alphanumeric(8)}`
+        quickbooksItemId: `QB-${faker.string.alphanumeric(8)}`,
+        minOrderQuantity: category === 'TONER' ? 5 : category === 'DRUM' ? 2 : 1,
+        leadTimeDays: faker.number.int({ min: 3, max: 14 }),
+        reorderPoint: category === 'TONER' ? 20 : category === 'DRUM' ? 10 : 5,
+        isDiscontinued: false,
+        lastCostUpdate: getPastDate(faker.number.int({ min: 1, max: 90 }))
       };
     });
     
@@ -227,7 +259,8 @@ async function main() {
     // --- Seed SKU Mappings ---
     console.log('Seeding SKU mappings...');
     
-    const skuMappingsData = insertedInventoryItems.slice(0, 5).map(item => ({
+    // Create SKU mappings for ALL inventory items
+    const skuMappingsData = insertedInventoryItems.map(item => ({
       standardSku: item.sku,
       standardDescription: item.description
     }));
@@ -239,8 +272,9 @@ async function main() {
     console.log('Seeding SKU variations...');
     
     const skuVariationsData = [];
+    // Create variations for ALL customers and ALL SKU mappings
     for (const mapping of insertedSkuMappings) {
-      for (const customer of insertedCustomers.slice(0, 3)) {
+      for (const customer of insertedCustomers) {
         skuVariationsData.push({
           mappingId: mapping.id,
           customerId: customer.id,
@@ -275,45 +309,48 @@ async function main() {
     }> = [];
 
     for (const customer of insertedCustomers) {
-      // Create multiple RFQs per customer with different statuses
+      // Create fewer RFQs per customer with different statuses
       const statusDistribution: { status: RfqStatus; count: number }[] = [
-        { status: 'NEW', count: 2 },
+        { status: 'NEW', count: 3 },
         { status: 'DRAFT', count: 2 },
         { status: 'PRICED', count: 2 },
         { status: 'SENT', count: 2 },
-        { status: 'NEGOTIATING', count: 1 },
-        { status: 'ACCEPTED', count: 1 },
+        { status: 'NEGOTIATING', count: 3 },
+        { status: 'ACCEPTED', count: 2 },
         { status: 'DECLINED', count: 1 },
         { status: 'PROCESSED', count: 1 }
       ];
 
-      for (const { status, count } of statusDistribution) {
-        for (let i = 0; i < count; i++) {
-          const requestor = getRandomElement(insertedUsers);
-          const vendor = faker.datatype.boolean() ? getRandomElement(insertedVendors) : null;
-          const dueDate = faker.datatype.boolean() ? getFutureDate(30) : null;
-          const totalBudget = faker.datatype.boolean() ? faker.number.float({ min: 1000, max: 10000, precision: 2 }) : null;
-          const approvedBy = status === 'ACCEPTED' || status === 'PROCESSED' ? getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER')).id : null;
-          const rejectionReason = status === 'DECLINED' ? faker.lorem.sentence() : null;
+      // Only create RFQs for main customers or randomly for other customers
+      if (customer.main_customer || faker.datatype.boolean(0.3)) {
+        for (const { status, count } of statusDistribution) {
+          for (let i = 0; i < count; i++) {
+            const requestor = getRandomElement(insertedUsers);
+            const vendor = faker.datatype.boolean() ? getRandomElement(insertedVendors) : null;
+            const dueDate = faker.datatype.boolean() ? getFutureDate(30) : null;
+            const totalBudget = faker.datatype.boolean() ? faker.number.float({ min: 1000, max: 10000, precision: 2 }) : null;
+            const approvedBy = status === 'ACCEPTED' || status === 'PROCESSED' ? getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER')).id : null;
+            const rejectionReason = status === 'DECLINED' ? faker.lorem.sentence() : null;
 
-          rfqsData.push({
-            rfqNumber: `RFQ-${faker.string.numeric(5)}`,
-            title: faker.commerce.productName(),
-            description: faker.lorem.paragraph(),
-            requestorId: requestor.id,
-            customerId: customer.id,
-            vendorId: vendor?.id || null,
-            status,
-            dueDate,
-            attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
-            totalBudget,
-            approvedBy,
-            rejectionReason,
-            source: faker.helpers.arrayElement(['Email', 'Phone', 'Website', 'In Person']),
-            notes: faker.datatype.boolean() ? faker.lorem.paragraph() : null,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
+            rfqsData.push({
+              rfqNumber: `RFQ-${faker.string.numeric(5)}`,
+              title: faker.commerce.productName(),
+              description: faker.lorem.paragraph(),
+              requestorId: requestor.id,
+              customerId: customer.id,
+              vendorId: vendor?.id || null,
+              status,
+              dueDate,
+              attachments: faker.datatype.boolean() ? [faker.system.fileName()] : null,
+              totalBudget,
+              approvedBy,
+              rejectionReason,
+              source: faker.helpers.arrayElement(['Email', 'Phone', 'Website', 'In Person']),
+              notes: faker.datatype.boolean() ? faker.lorem.paragraph() : null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+          }
         }
       }
     }
@@ -340,17 +377,21 @@ async function main() {
     }> = [];
 
     for (const rfq of insertedRfqs) {
-      // Add 2-5 items per RFQ, ensure each inventory item is used at least once
+      // Add 1-3 items per RFQ
       const usedItems = new Set();
-      const itemCount = faker.number.int({ min: 2, max: 5 });
-      for (let i = 0; i < itemCount; i++) {
-        let inventoryItem;
-        do {
-          inventoryItem = getRandomElement(insertedInventoryItems);
-        } while (usedItems.has(inventoryItem.id));
+      const itemCount = faker.number.int({ min: 1, max: 3 });
+      
+      // Get all inventory items that haven't been used in this RFQ
+      const availableItems = insertedInventoryItems.filter(item => !usedItems.has(item.id));
+      
+      for (let i = 0; i < itemCount && i < availableItems.length; i++) {
+        const inventoryItem = availableItems[i];
         usedItems.add(inventoryItem.id);
+        
         if (!inventoryItem || inventoryItem.costCad === null) continue;
         const costCad = inventoryItem.costCad as number;
+        
+        // Find the SKU variation for this customer and inventory item
         const skuVariation = insertedSkuVariations.find(
           sv => sv.customerId === rfq.customerId && 
                insertedSkuMappings.find(sm => sm.id === sv.mappingId)?.standardSku === inventoryItem.sku
@@ -417,7 +458,10 @@ async function main() {
       const rfq = insertedRfqs.find(r => r.id === quotation.rfqId);
       if (!rfq) return [];
 
+      // Get all RFQ items for this RFQ
       const rfqItemsForRfq = insertedRfqItems.filter(item => item.rfqId === rfq.id);
+      
+      // Create quotation items for ALL RFQ items
       return rfqItemsForRfq.map(item => {
         if (!item.internalProductId) return null;
         
@@ -442,289 +486,11 @@ async function main() {
     const insertedQuotationItems = await db.insert(schema.quotationItems).values(quotationItemsData).returning();
     console.log(`Inserted ${insertedQuotationItems.length} quotation items`);
 
-    // --- Seed Comments ---
-    console.log('Seeding comments...');
-    
-    const commentsData = [];
-    for (const rfq of insertedRfqs) {
-      // Add 1-3 comments per RFQ
-      const commentCount = faker.number.int({ min: 1, max: 3 });
-      for (let i = 0; i < commentCount; i++) {
-        commentsData.push({
-          content: faker.lorem.paragraph(),
-          userId: getRandomElement(insertedUsers).id,
-          rfqId: rfq.id
-        });
-      }
-    }
-    
-    const insertedComments = await db.insert(schema.comments).values(commentsData).returning();
-    console.log(`Inserted ${insertedComments.length} comments`);
-
-    // --- Seed Email Templates ---
-    console.log('Seeding email templates...');
-    
-    const emailTemplatesData = [
-      {
-        name: 'RFQ Created Notification',
-        subject: 'New RFQ Created: {{rfq_title}}',
-        body: 'Dear {{recipient_name}},\n\nA new RFQ has been created with title {{rfq_title}}. Please review it at your earliest convenience.\n\nRegards,\nRFQ System',
-        variables: ['recipient_name', 'rfq_title', 'rfq_id'],
-        isActive: true
-      },
-      {
-        name: 'Quote Approval Request',
-        subject: 'Approval Required for Quote: {{quote_number}}',
-        body: 'Dear {{approver_name}},\n\nA new quote requires your approval: {{quote_number}} for {{customer_name}}.\n\nRegards,\nRFQ System',
-        variables: ['approver_name', 'quote_number', 'customer_name'],
-        isActive: true
-      },
-      {
-        name: 'Quote Approved Notification',
-        subject: 'Quote Approved: {{quote_number}}',
-        body: 'Dear {{recipient_name}},\n\nThe quote {{quote_number}} has been approved by {{approver_name}}.\n\nRegards,\nRFQ System',
-        variables: ['recipient_name', 'quote_number', 'approver_name'],
-        isActive: true
-      }
-    ];
-    
-    const insertedEmailTemplates = await db.insert(schema.emailTemplates).values(emailTemplatesData).returning();
-    console.log(`Inserted ${insertedEmailTemplates.length} email templates`);
-
-    // --- Seed Settings ---
-    console.log('Seeding settings...');
-    
-    const adminId = insertedUsers.find(u => u.role === 'ADMIN')?.id;
-    const settingsData = [
-      {
-        key: 'default_currency',
-        value: 'CAD',
-        description: 'Default currency used throughout the system',
-        updatedBy: adminId
-      },
-      {
-        key: 'quote_expiry_days',
-        value: '30',
-        description: 'Number of days until quotes automatically expire',
-        updatedBy: adminId
-      },
-      {
-        key: 'enable_quickbooks_sync',
-        value: 'true',
-        description: 'Enable automatic syncing with QuickBooks',
-        updatedBy: adminId
-      },
-      {
-        key: 'minimum_markup_percentage',
-        value: '20',
-        description: 'Minimum markup percentage for quotes',
-        updatedBy: adminId
-      }
-    ];
-    
-    const insertedSettings = await db.insert(schema.settings).values(settingsData).returning();
-    console.log(`Inserted ${insertedSettings.length} settings`);
-
-    // --- Seed Purchase Orders ---
-    console.log('Seeding purchase orders...');
-    
-    const poStatuses = ['OPEN', 'RECEIVED', 'CLOSED', 'CANCELLED'];
-    const purchaseOrdersData = [];
-    
-    for (let i = 0; i < 3; i++) {
-      const vendor = getRandomElement(insertedVendors);
-      const totalAmount = parseFloat(faker.commerce.price({ min: 1000, max: 50000 }));
-      purchaseOrdersData.push({
-        poNumber: `PO-${faker.string.numeric(6)}`,
-        vendorId: vendor.id,
-        status: getRandomElement(poStatuses),
-        orderDate: new Date(),  // Use Date object instead of string
-        expectedArrivalDate: getFutureDate(faker.number.int({ min: 15, max: 60 })),
-        totalAmount: totalAmount,
-        currency: 'CAD',
-        quickbooksPoId: `QB-PO-${faker.string.alphanumeric(8)}`
-      });
-    }
-    
-    const insertedPurchaseOrders = await db.insert(schema.purchaseOrders).values(purchaseOrdersData).returning();
-    console.log(`Inserted ${insertedPurchaseOrders.length} purchase orders`);
-
-    // --- Seed PO Items ---
-    console.log('Seeding purchase order items...');
-    
-    const poItemsData = [];
-    for (const po of insertedPurchaseOrders) {
-      // Add 2-3 items per PO
-      const itemCount = faker.number.int({ min: 2, max: 3 });
-      for (let i = 0; i < itemCount; i++) {
-        const product = getRandomElement(insertedInventoryItems);
-        if (!product || product.costCad === null) continue;
-        const costCad = product.costCad as number;
-        
-        const quantity = faker.number.int({ min: 5, max: 50 });
-        const unitCost = costCad;
-        const extendedCost = parseFloat((unitCost * quantity).toFixed(2));
-        
-        poItemsData.push({
-          poId: po.id,
-          productId: product.id,
-          quantity: quantity,
-          unitCost: unitCost,
-          extendedCost: extendedCost,
-          currency: 'CAD'
-        });
-      }
-    }
-    
-    const insertedPoItems = await db.insert(schema.poItems).values(poItemsData).returning();
-    console.log(`Inserted ${insertedPoItems.length} purchase order items`);
-
-    // --- Seed Sales History ---
-    console.log('Seeding sales history...');
-    
-    const salesHistoryData = [];
-    for (const customer of insertedCustomers) {
-      // Add 2-3 sales per customer
-      for (let i = 0; i < 3; i++) {
-        const product = getRandomElement(insertedInventoryItems);
-        if (!product || product.costCad === null) continue;
-        const costCad = product.costCad as number;
-        
-        const quantity = faker.number.int({ min: 1, max: 20 });
-        const unitPrice = parseFloat(faker.commerce.price({ min: costCad * 1.3, max: costCad * 2 }));
-        const extendedPrice = parseFloat((unitPrice * quantity).toFixed(2));
-        
-        salesHistoryData.push({
-          invoiceNumber: `INV-${faker.string.numeric(6)}`,
-          customerId: customer.id,
-          productId: product.id,
-          quantity: quantity,
-          unitPrice: unitPrice,
-          extendedPrice: extendedPrice,
-          currency: 'CAD',
-          saleDate: getPastDate(faker.number.int({ min: 1, max: 90 })),
-          quickbooksInvoiceId: `QB-INV-${faker.string.alphanumeric(8)}`
-        });
-      }
-    }
-    
-    const insertedSalesHistory = await db.insert(schema.salesHistory).values(salesHistoryData).returning();
-    console.log(`Inserted ${insertedSalesHistory.length} sales history records`);
-
-    // --- Seed Market Pricing ---
-    console.log('Seeding market pricing...');
-    
-    const marketPricingSources = ['MarketTrends Inc.', 'PriceWatch', 'CompetitorMonitor', 'IndustryInsight'];
-    const marketPricingData = [];
-    
-    for (const item of insertedInventoryItems) {
-      if (!item || item.costCad === null) continue;
-      const costCad = item.costCad as number;
-      
-      marketPricingData.push({
-        productId: item.id,
-        source: getRandomElement(marketPricingSources),
-        price: parseFloat(faker.commerce.price({ min: costCad * 1.1, max: costCad * 1.6 })),
-        currency: 'CAD'
-      });
-    }
-    
-    const insertedMarketPricing = await db.insert(schema.marketPricing).values(marketPricingData).returning();
-    console.log(`Inserted ${insertedMarketPricing.length} market pricing records`);
-
-    // --- Seed Audit Log ---
-    console.log('Seeding audit log...');
-    
-    const auditLogData = [];
-    // User login entries
-    for (const user of insertedUsers) {
-      auditLogData.push({
-        userId: user.id,
-        action: 'USER_LOGIN',
-        entityType: 'USER',
-        entityId: user.id,
-        details: { ip: faker.internet.ip(), browser: 'Chrome' }
-      });
-    }
-    
-    // RFQ actions
-    for (const rfq of insertedRfqs) {
-      auditLogData.push({
-        userId: rfq.requestorId,
-        action: 'RFQ_CREATED',
-        entityType: 'RFQ',
-        entityId: rfq.id,
-        details: { rfqNumber: rfq.rfqNumber, customerId: rfq.customerId }
-      });
-      
-      if (rfq.status !== 'NEW') {
-        auditLogData.push({
-          userId: getRandomElement(insertedUsers).id,
-          action: `RFQ_STATUS_CHANGED`,
-          entityType: 'RFQ',
-          entityId: rfq.id,
-          details: { 
-            oldStatus: 'NEW', 
-            newStatus: rfq.status 
-          }
-        });
-      }
-    }
-    
-    // Quote actions
-    for (const quote of insertedQuotations) {
-      auditLogData.push({
-        userId: quote.createdBy,
-        action: 'QUOTE_CREATED',
-        entityType: 'QUOTE',
-        entityId: quote.id,
-        details: { quoteNumber: quote.quoteNumber, rfqId: quote.rfqId }
-      });
-      
-      if (quote.isSelected) {
-        auditLogData.push({
-          userId: getRandomElement(insertedUsers.filter(u => u.role === 'MANAGER' || u.role === 'ADMIN')).id,
-          action: 'QUOTE_SELECTED',
-          entityType: 'QUOTE',
-          entityId: quote.id,
-          details: { quoteNumber: quote.quoteNumber, rfqId: quote.rfqId }
-        });
-      }
-    }
-    
-    const insertedAuditLogs = await db.insert(schema.auditLog).values(auditLogData).returning();
-    console.log(`Inserted ${insertedAuditLogs.length} audit log entries`);
-
-    // --- Seed Quotation Versions ---
-    console.log('Seeding quotation versions...');
-    
-    const quotationVersionsData = [];
-    for (const rfq of insertedRfqs) {
-      // Create 1-2 versions per RFQ
-      const numVersions = faker.number.int({ min: 1, max: 2 });
-      for (let i = 1; i <= numVersions; i++) {
-        const estimatedPrice = parseFloat(faker.commerce.price({ min: 1000, max: 5000 }));
-        const finalPrice = estimatedPrice * (1 + faker.number.float({ min: 0.1, max: 0.3 }));
-        quotationVersionsData.push({
-          rfqId: rfq.id,
-          versionNumber: i,
-          status: i === 1 ? 'NEW' : 'SENT',
-          estimatedPrice: Math.round(estimatedPrice),
-          finalPrice: Math.round(finalPrice),
-          changes: i === 1 ? 'Initial quote' : 'Updated pricing based on market conditions',
-          createdBy: 'System'
-        });
-      }
-    }
-    
-    const insertedQuotationVersions = await db.insert(schema.quotationVersions).values(quotationVersionsData).returning();
-    console.log(`Inserted ${insertedQuotationVersions.length} quotation versions`);
-
     // --- Seed Customer Responses ---
     console.log('Seeding customer responses...');
     
     const customerResponsesData = [];
-    for (const version of insertedQuotationVersions) {
+    for (const version of insertedQuotations) {
       // Add responses to some versions
       if (faker.datatype.boolean(0.7)) { // 70% chance of having a response
         customerResponsesData.push({
@@ -755,13 +521,12 @@ async function main() {
     for (const rfq of negotiatableRfqs) {
       const numCommunications = faker.number.int({ min: 2, max: 8 });
       const customer = insertedCustomers.find(c => c.id === rfq.customerId);
-      const relatedVersions = insertedQuotationVersions.filter(v => v.rfqId === rfq.id);
+      const relatedQuotation = insertedQuotations.find(q => q.rfqId === rfq.id);
       
       for (let i = 0; i < numCommunications; i++) {
         const communicationType = getRandomElement(communicationTypes);
         const direction = getRandomElement(directions);
         const user = getRandomElement(insertedUsers.filter(u => ['SALES', 'MANAGER', 'ADMIN'].includes(u.role)));
-        const relatedVersion = faker.datatype.boolean(0.6) ? getRandomElement(relatedVersions) : null;
         
         // Create realistic communication dates (spread over the last 30 days)
         const communicationDate = new Date();
@@ -847,7 +612,7 @@ async function main() {
 
         negotiationCommunicationsData.push({
           rfqId: rfq.id,
-          versionId: relatedVersion?.id || null,
+          versionId: null,
           communicationType: communicationType as any,
           direction: direction as any,
           subject,
@@ -871,8 +636,8 @@ async function main() {
     // --- Seed SKU Negotiation History ---
     console.log('Seeding SKU negotiation history...');
     
-    const changeTypes = ['PRICE_CHANGE', 'QUANTITY_CHANGE', 'BOTH'];
-    const changedByOptions = ['CUSTOMER', 'INTERNAL'];
+    const changeTypes = ['PRICE_CHANGE', 'QUANTITY_CHANGE', 'BOTH'] as const;
+    const changedByOptions = ['CUSTOMER', 'INTERNAL'] as const;
     
     const skuNegotiationHistoryData = [];
     
@@ -884,14 +649,20 @@ async function main() {
       if (!rfq) continue;
       
       const rfqItems = insertedRfqItems.filter(item => item.rfqId === rfqId);
-      const communications = insertedNegotiationCommunications.filter(comm => comm.rfqId === rfqId);
-      const versions = insertedQuotationVersions.filter(v => v.rfqId === rfqId);
-      
-      // Create 1-3 SKU changes per RFQ
-      const numChanges = faker.number.int({ min: 1, max: Math.min(3, rfqItems.length) });
-      const selectedItems = faker.helpers.arrayElements(rfqItems, numChanges);
-      
-      for (const item of selectedItems) {
+      const user = getRandomElement(insertedUsers);
+
+      for (const item of rfqItems) {
+        const changeType = getRandomElement([...changeTypes]); // Convert readonly array to mutable array
+        const changedBy = getRandomElement([...changedByOptions]); // Convert readonly array to mutable array
+        const oldQuantity = item.quantity;
+        const newQuantity = changeType === 'QUANTITY_CHANGE' || changeType === 'BOTH' 
+          ? faker.number.int({ min: Math.max(1, oldQuantity - 5), max: oldQuantity + 5 })
+          : oldQuantity;
+        const oldUnitPrice = item.finalPrice ?? item.suggestedPrice ?? item.estimatedPrice ?? 0;
+        const newUnitPrice = changeType === 'PRICE_CHANGE' || changeType === 'BOTH'
+          ? parseFloat((oldUnitPrice * faker.number.float({ min: 0.9, max: 1.1 })).toFixed(2))
+          : oldUnitPrice;
+
         if (!item.internalProductId) continue;
         
         const changeType = getRandomElement(changeTypes);
@@ -960,19 +731,19 @@ async function main() {
           : new Date(Date.now() - faker.number.int({ min: 86400000, max: 2592000000 })); // 1 day to 30 days ago
         
         skuNegotiationHistoryData.push({
-          rfqId: rfqId,
+          rfqId,
           skuId: item.internalProductId,
-          versionId: relatedVersion?.id || null,
-          communicationId: relatedCommunication?.id || null,
-          changeType: changeType as any,
-          oldQuantity: changeType === 'PRICE_CHANGE' ? null : oldQuantity,
-          newQuantity: changeType === 'PRICE_CHANGE' ? null : newQuantity,
-          oldUnitPrice: changeType === 'QUANTITY_CHANGE' ? null : oldUnitPrice,
-          newUnitPrice: changeType === 'QUANTITY_CHANGE' ? null : newUnitPrice,
-          changeReason,
-          changedBy: changedBy as any,
+          versionId: null,
+          communicationId: null,
+          changeType: changeType as string,
+          oldQuantity,
+          newQuantity,
+          oldUnitPrice,
+          newUnitPrice,
+          changeReason: faker.lorem.sentence(),
+          changedBy: changedBy as string,
           enteredByUserId: user.id,
-          createdAt: changeDate
+          createdAt: new Date()
         });
       }
     }
