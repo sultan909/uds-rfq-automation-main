@@ -16,9 +16,12 @@ class ApiError extends Error {
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = "An error occurred";
+    let errorDetails = null;
+    
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorData.error || errorMessage;
+      errorDetails = errorData.details || null;
     } catch (parseError) {
       // If we can't parse the response, use the status text
       errorMessage = response.statusText || `HTTP ${response.status}`;
@@ -28,7 +31,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
       url: response.url,
       status: response.status,
       statusText: response.statusText,
-      message: errorMessage
+      message: errorMessage,
+      details: errorDetails
     });
     
     throw new ApiError(response.status, errorMessage);

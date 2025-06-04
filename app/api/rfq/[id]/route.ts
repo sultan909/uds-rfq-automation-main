@@ -190,67 +190,121 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
     const body = await request.json();
-    console.log("body",body);
+    console.log("PATCH RFQ Body:", body);
+
+    // Validate the RFQ ID
+    const rfqId = parseInt(id);
+    if (isNaN(rfqId)) {
+      throw new ApiError(`Invalid RFQ ID: ${id}`, 400);
+    }
 
     // Check if RFQ exists
-    const existingRfq = await db.query.rfqs.findFirst({
-      where: eq(rfqs.id, parseInt(id)),
-      with: {
-        items: true,
-        customer: true,
-      }
-    });
+    const existingRfq = await db
+      .select()
+      .from(rfqs)
+      .where(eq(rfqs.id, rfqId))
+      .then((result: typeof rfqs.$inferSelect[]) => result[0]);
 
     if (!existingRfq) {
       throw new ApiError(`RFQ with ID ${id} not found`, 404);
     }
 
+    console.log("Existing RFQ found:", existingRfq);
+
+    // Prepare update data
+    const updateData: Partial<typeof rfqs.$inferInsert> = {
+      updatedAt: new Date()
+    };
+
+    // Only include valid fields for update
+    if (body.status !== undefined) {
+      // Validate status
+      const validStatuses = ['NEW', 'DRAFT', 'PRICED', 'SENT', 'NEGOTIATING', 'ACCEPTED', 'DECLINED', 'PROCESSED'];
+      if (!validStatuses.includes(body.status)) {
+        throw new ApiError(`Invalid status: ${body.status}. Valid statuses are: ${validStatuses.join(', ')}`, 400);
+      }
+      updateData.status = body.status;
+    }
+
+    if (body.source !== undefined) updateData.source = body.source;
+    if (body.dueDate !== undefined) updateData.dueDate = body.dueDate;
+    if (body.totalBudget !== undefined) updateData.totalBudget = body.totalBudget;
+    if (body.notes !== undefined) updateData.notes = body.notes;
+
+    console.log("Update data:", updateData);
+
     // Update RFQ
     const [updatedRfq] = await db
       .update(rfqs)
-      .set({
-        ...body,
-        updatedAt: new Date()
-      })
-      .where(eq(rfqs.id, parseInt(id)))
+      .set(updateData)
+      .where(eq(rfqs.id, rfqId))
       .returning();
 
+    console.log("RFQ updated successfully:", updatedRfq);
+
     // Log the update in audit log
-    await db.insert(auditLog).values({
-      userId: body.updatedBy,
-      action: 'RFQ Updated',
-      entityType: 'rfq',
-      entityId: parseInt(id),
-      details: body
-    });
-console.log("existingRfq",existingRfq);
+    try {
+      await db.insert(auditLog).values({
+        userId: body.updatedBy || null,
+        action: 'RFQ Updated',
+        entityType: 'rfq',
+        entityId: rfqId,
+        details: {
+          oldStatus: existingRfq.status,
+          newStatus: body.status,
+          changes: body
+        }
+      });
+      console.log("Audit log entry created");
+    } catch (auditError) {
+      console.error("Failed to create audit log entry:", auditError);
+      // Don't fail the whole operation if audit log fails
+    }
 
     // If status is updated to APPROVED, COMPLETED, or ACCEPTED, create sales history entries
     if (body.status === 'APPROVED' || body.status === 'COMPLETED' || body.status === 'ACCEPTED') {
-      if (existingRfq.items && existingRfq.items.length > 0) {
-        // Create sales history entries for each item
-        const salesHistoryEntries = existingRfq.items.map(item => ({
-          invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          customerId: existingRfq.customerId,
-          productId: item.internalProductId || 1, // Default to 1 if not mapped
-          quantity: item.quantity,
-          unitPrice: item.finalPrice || item.suggestedPrice || 0,
-          extendedPrice: (item.quantity || 0) * (item.finalPrice || item.suggestedPrice || 0),
-          // @ts-ignore
-          currency: 'CAD',
-          saleDate: new Date().toISOString().split('T')[0],
-          quickbooksInvoiceId: `QB-${Date.now()}`
-        }));
+      try {
+        console.log("Status changed to completion status, creating sales history...");
+        
+        // Get RFQ items separately for sales history
+        const rfqItemsForSales = await db
+          .select()
+          .from(rfqItems)
+          .where(eq(rfqItems.rfqId, rfqId));
 
+        console.log("Found RFQ items for sales:", rfqItemsForSales);
 
-        // Insert sales history entries
-        await db.insert(salesHistory).values(salesHistoryEntries);
+        if (rfqItemsForSales && rfqItemsForSales.length > 0) {
+          // Create sales history entries for each item
+          const salesHistoryEntries = rfqItemsForSales.map(item => ({
+            invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            customerId: existingRfq.customerId,
+            productId: item.internalProductId || 1, // Default to 1 if not mapped
+            quantity: item.quantity,
+            unitPrice: item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0,
+            extendedPrice: (item.quantity || 0) * (item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0),
+            currency: 'CAD',
+            saleDate: new Date().toISOString().split('T')[0],
+            quickbooksInvoiceId: `QB-${Date.now()}`
+          }));
+
+          console.log("Sales history entries to create:", salesHistoryEntries);
+
+          // Insert sales history entries
+          await db.insert(salesHistory).values(salesHistoryEntries);
+          console.log("Sales history entries created successfully");
+        } else {
+          console.log("No RFQ items found for sales history creation");
+        }
+      } catch (salesError) {
+        console.error("Failed to create sales history entries:", salesError);
+        // Don't fail the whole operation if sales history creation fails
       }
     }
 
-
     return NextResponse.json(createSuccessResponse(updatedRfq));
   } catch (error) {
+    console.error("Error in PATCH /api/rfq/[id]:", error);
     return handleApiError(error);
   }
 }
@@ -263,11 +317,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
 
+    // Validate the RFQ ID
+    const rfqId = parseInt(id);
+    if (isNaN(rfqId)) {
+      throw new ApiError(`Invalid RFQ ID: ${id}`, 400);
+    }
+
     // Check if RFQ exists
     const existingRfq = await db
       .select()
       .from(rfqs)
-      .where(eq(rfqs.id, parseInt(id)))
+      .where(eq(rfqs.id, rfqId))
       .then((result: typeof rfqs.$inferSelect[]) => result[0]);
 
     if (!existingRfq) {
@@ -277,25 +337,31 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Delete RFQ items first (due to foreign key constraint)
     await db
       .delete(rfqItems)
-      .where(eq(rfqItems.rfqId, parseInt(id)));
+      .where(eq(rfqItems.rfqId, rfqId));
 
     // Delete RFQ
     await db
       .delete(rfqs)
-      .where(eq(rfqs.id, parseInt(id)));
+      .where(eq(rfqs.id, rfqId));
 
     // Log the deletion in audit log
-    await db.insert(auditLog).values({
-      action: 'RFQ Deleted',
-      entityType: 'rfq',
-      entityId: parseInt(id),
-      details: { rfqNumber: existingRfq.rfqNumber }
-    });
+    try {
+      await db.insert(auditLog).values({
+        action: 'RFQ Deleted',
+        entityType: 'rfq',
+        entityId: rfqId,
+        details: { rfqNumber: existingRfq.rfqNumber }
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log entry for deletion:", auditError);
+      // Don't fail the operation if audit log fails
+    }
 
     return NextResponse.json(
       createSuccessResponse({ message: `RFQ ${id} deleted successfully` })
     );
   } catch (error) {
+    console.error("Error in DELETE /api/rfq/[id]:", error);
     return handleApiError(error);
   }
 }

@@ -243,9 +243,13 @@ export default function RfqDetail({
 
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
+      console.log('Attempting to change status to:', newStatus);
       const response = await rfqApi.update(id, {
         status: newStatus
       });
+      
+      console.log('Status update response:', response);
+      
       if (response.success) {
         toast.success(`RFQ status updated to ${newStatus}`);
         // Refresh RFQ data
@@ -254,11 +258,14 @@ export default function RfqDetail({
           setRfqData(updatedRfq.data);
         }
       } else {
-        toast.error('Failed to update RFQ status');
+        const errorMessage = response.error || 'Failed to update RFQ status';
+        console.error('Status update failed:', errorMessage);
+        toast.error(errorMessage);
       }
     } catch (err) {
       console.error('Error updating RFQ status:', err);
-      toast.error('Failed to update RFQ status');
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      toast.error(`Failed to update RFQ status: ${errorMessage}`);
     }
   };
 
