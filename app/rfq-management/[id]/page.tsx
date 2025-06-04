@@ -935,13 +935,14 @@ export default function RfqDetail({
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PENDING">Pending</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="QUOTED">Quoted</SelectItem>
+                        <SelectItem value="NEW">New</SelectItem>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="PRICED">Priced</SelectItem>
+                        <SelectItem value="SENT">Sent</SelectItem>
+                        <SelectItem value="NEGOTIATING">Negotiating</SelectItem>
                         <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                        <SelectItem value="DECLINED">Declined</SelectItem>
+                        <SelectItem value="PROCESSED">Processed</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -991,17 +992,17 @@ export default function RfqDetail({
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => handleStatusChange('COMPLETED')}
-                      disabled={rfq.status === 'COMPLETED'}
+                      onClick={() => handleStatusChange('PROCESSED')}
+                      disabled={rfq.status === 'PROCESSED'}
                     >
-                      Mark as Completed
+                      Mark as Processed
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => handleStatusChange('CANCELLED')}
-                      disabled={rfq.status === 'CANCELLED'}
+                      onClick={() => handleStatusChange('DECLINED')}
+                      disabled={rfq.status === 'DECLINED'}
                     >
-                      Cancel RFQ
+                      Decline RFQ
                     </Button>
                   </div>
                 </div>

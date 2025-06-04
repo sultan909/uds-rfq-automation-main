@@ -1,6 +1,6 @@
 // Shared types for RFQ tab components
 
-export type RfqStatus = 'PENDING' | 'IN_PROGRESS' | 'QUOTED' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED';
+export type RfqStatus = 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'NEGOTIATING' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED';
 
 export type TabName = 'items' | 'original-request' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings' | 'quotation-history';
 

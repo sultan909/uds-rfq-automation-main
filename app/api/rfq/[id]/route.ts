@@ -5,12 +5,6 @@ import { db } from '../../../../db';
 import { rfqs, customers, users, rfqItems, inventoryItems, auditLog, salesHistory } from '../../../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
 interface RfqData {
   rfq: typeof rfqs.$inferSelect;
   customer: {
@@ -56,8 +50,9 @@ interface AuditLogEntry {
  * GET /api/rfq/:id
  * Get a specific RFQ by ID
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "10");
@@ -97,18 +92,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(rfqs)
       .leftJoin(customers, eq(rfqs.customerId, customers.id))
       .leftJoin(users, eq(rfqs.requestorId, users.id))
-      .where(eq(rfqs.id, parseInt(params.id)))
+      .where(eq(rfqs.id, parseInt(id)))
       .then((result: any[]) => result[0]);
 
     if (!rfqData) {
-      throw new ApiError(`RFQ with ID ${params.id} not found`, 404);
+      throw new ApiError(`RFQ with ID ${id} not found`, 404);
     }
 
     // Get total count of items
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(rfqItems)
-      .where(eq(rfqItems.rfqId, parseInt(params.id)));
+      .where(eq(rfqItems.rfqId, parseInt(id)));
 
     // Get paginated RFQ items with inventory data
     const items = await db
@@ -132,7 +127,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })
       .from(rfqItems)
       .leftJoin(inventoryItems, eq(rfqItems.internalProductId, inventoryItems.id))
-      .where(eq(rfqItems.rfqId, parseInt(params.id)))
+      .where(eq(rfqItems.rfqId, parseInt(id)))
       .limit(pageSize)
       .offset(offset);
 
@@ -143,7 +138,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(auditLog.entityType, 'rfq'),
-          eq(auditLog.entityId, parseInt(params.id))
+          eq(auditLog.entityId, parseInt(id))
         )
       )
       .orderBy(desc(auditLog.timestamp));
@@ -186,9 +181,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PATCH /api/rfq/:id
  * Update a specific RFQ
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     console.log("PATCH RFQ Body:", body);
 
@@ -313,9 +308,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/rfq/:id
  * Delete an RFQ
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Validate the RFQ ID
     const rfqId = parseInt(id);

@@ -383,7 +383,7 @@ export default function CustomerView({
                           <TableCell>
                             <Badge
                               variant={
-                                rfq.status === 'COMPLETED' ? 'default' :
+                                rfq.status === 'PROCESSED' ? 'default' :
                                   rfq.status === 'APPROVED' ? 'default' :
                                     rfq.status === 'REJECTED' ? 'destructive' :
                                       'secondary'
