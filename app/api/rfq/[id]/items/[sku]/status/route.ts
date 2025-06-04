@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { rfqItems, itemQuotationVersions } from '@/db/schema';
+import { rfqItems, quotationVersions } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 export async function PATCH(
@@ -38,22 +38,24 @@ export async function PATCH(
 
     // Create a new version for this SKU/item
     // Find latest version number
-    const latestVersion = await db.query.itemQuotationVersions.findFirst({
-      where: eq(itemQuotationVersions.rfqItemId, updatedItem.id),
-      orderBy: [desc(itemQuotationVersions.versionNumber)]
+    const latestVersion = await db.query.quotationVersions.findFirst({
+      where: eq(quotationVersions.rfqId, parseInt(id)),
+      orderBy: [desc(quotationVersions.versionNumber)]
     });
     const nextVersionNumber = (latestVersion?.versionNumber || 0) + 1;
-    await db.insert(itemQuotationVersions).values({
-      rfqItemId: updatedItem.id,
+    await db.insert(quotationVersions).values({
+      rfqId: parseInt(id),
       versionNumber: nextVersionNumber,
+      entryType: 'internal_quote',
       status: updatedItem.status,
       estimatedPrice: updatedItem.estimatedPrice || 0,
       finalPrice: updatedItem.finalPrice || 0,
       changes: 'Status updated',
+      notes: null,
       createdBy: 'System',
+      submittedByUserId: null,
       createdAt: new Date(),
-      updatedAt: new Date(),
-      customerResponse: null
+      updatedAt: new Date()
     });
 
     console.log('Successfully updated item status:', updatedItem);

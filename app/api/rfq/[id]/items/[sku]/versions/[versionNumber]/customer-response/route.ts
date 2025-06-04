@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { rfqItems, itemQuotationVersions } from '@/db/schema';
+import { rfqItems, quotationVersions } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: NextRequest, context: { params: { id: string, sku: string, versionNumber: string } }) {
@@ -20,10 +20,10 @@ export async function POST(request: NextRequest, context: { params: { id: string
   }
 
   // Find the version to update
-  const version = await db.query.itemQuotationVersions.findFirst({
-    where: (v) => and(
-      eq(v.rfqItemId, item.id),
-      eq(v.versionNumber, Number(versionNumber))
+  const version = await db.query.quotationVersions.findFirst({
+    where: and(
+      eq(quotationVersions.rfqId, Number(id)),
+      eq(quotationVersions.versionNumber, Number(versionNumber))
     ),
   });
 
@@ -33,15 +33,15 @@ export async function POST(request: NextRequest, context: { params: { id: string
 
   // Update the version with customer response
   const [updatedVersion] = await db
-    .update(itemQuotationVersions)
+    .update(quotationVersions)
     .set({
-      customerResponse: {
+      notes: JSON.stringify({
         ...response,
         respondedAt: new Date().toISOString(),
-      },
+      }),
       updatedAt: new Date(),
     })
-    .where(eq(itemQuotationVersions.id, version.id))
+    .where(eq(quotationVersions.id, version.id))
     .returning();
 
   return NextResponse.json({ success: true, data: updatedVersion });

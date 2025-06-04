@@ -19,7 +19,32 @@ export async function GET(
     }
 
     // Check if table exists and return empty array if not
-    let skuChanges = [];
+    type SkuChange = {
+      id: number;
+      rfqId: number;
+      skuId: number;
+      versionId: number | null;
+      communicationId: number | null;
+      changeType: string;
+      oldQuantity: number | null;
+      newQuantity: number | null;
+      oldUnitPrice: number | null;
+      newUnitPrice: number | null;
+      changedBy: string;
+      enteredByUserId: number;
+      createdAt: Date;
+      sku: {
+        id: number;
+        sku: string;
+        description: string;
+      } | null;
+      enteredByUser: {
+        id: number;
+        name: string;
+        email: string;
+      } | null;
+    };
+    let skuChanges: SkuChange[] = [];
     
     try {
       skuChanges = await db
@@ -34,7 +59,6 @@ export async function GET(
           newQuantity: skuNegotiationHistory.newQuantity,
           oldUnitPrice: skuNegotiationHistory.oldUnitPrice,
           newUnitPrice: skuNegotiationHistory.newUnitPrice,
-          changeReason: skuNegotiationHistory.changeReason,
           changedBy: skuNegotiationHistory.changedBy,
           enteredByUserId: skuNegotiationHistory.enteredByUserId,
           createdAt: skuNegotiationHistory.createdAt,

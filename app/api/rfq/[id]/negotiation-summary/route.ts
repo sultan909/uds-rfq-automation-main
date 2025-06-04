@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { negotiationCommunications, skuNegotiationHistory, rfqs } from '@/db/schema';
-import { eq, count, min } from 'drizzle-orm';
+import { eq, count, min, and } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
@@ -51,10 +51,16 @@ export async function GET(
       // Get pending follow-ups count
       const [followUpCount] = await db
         .select({ count: count() })
-        .from(negotiationCommunications)
-        .where(eq(negotiationCommunications.rfqId, rfqId))
-        .where(eq(negotiationCommunications.followUpRequired, true))
-        .where(eq(negotiationCommunications.followUpCompleted, false));
+        .from(
+          db.select()
+            .from(negotiationCommunications)
+            .where(and(
+              eq(negotiationCommunications.rfqId, rfqId),
+              eq(negotiationCommunications.followUpRequired, true),
+              eq(negotiationCommunications.followUpCompleted, false)
+            ))
+            .as('pending_followups')
+        );
       pendingFollowUps = followUpCount?.count || 0;
     } catch (error) {
       console.error('Error getting follow-ups count:', error);

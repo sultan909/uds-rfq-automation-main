@@ -28,7 +28,6 @@ export async function POST(
       newQuantity,
       oldUnitPrice,
       newUnitPrice,
-      changeReason,
       changedBy,
     } = body;
 
@@ -47,9 +46,9 @@ export async function POST(
         newQuantity: newQuantity || null,
         oldUnitPrice: oldUnitPrice || null,
         newUnitPrice: newUnitPrice || null,
-        changeReason: changeReason || null,
         changedBy: changedBy || 'CUSTOMER',
         enteredByUserId,
+        createdAt: new Date()
       })
       .returning();
 

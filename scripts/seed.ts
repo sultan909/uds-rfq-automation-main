@@ -652,45 +652,27 @@ async function main() {
       const user = getRandomElement(insertedUsers);
 
       for (const item of rfqItems) {
+        if (!item.internalProductId) continue;
+
         const changeType = getRandomElement([...changeTypes]); // Convert readonly array to mutable array
         const changedBy = getRandomElement([...changedByOptions]); // Convert readonly array to mutable array
-        const oldQuantity = item.quantity;
-        const newQuantity = changeType === 'QUANTITY_CHANGE' || changeType === 'BOTH' 
-          ? faker.number.int({ min: Math.max(1, oldQuantity - 5), max: oldQuantity + 5 })
-          : oldQuantity;
-        const oldUnitPrice = item.finalPrice ?? item.suggestedPrice ?? item.estimatedPrice ?? 0;
-        const newUnitPrice = changeType === 'PRICE_CHANGE' || changeType === 'BOTH'
-          ? parseFloat((oldUnitPrice * faker.number.float({ min: 0.9, max: 1.1 })).toFixed(2))
-          : oldUnitPrice;
-
-        if (!item.internalProductId) continue;
-        
-        const changeType = getRandomElement(changeTypes);
-        const changedBy = getRandomElement(changedByOptions);
-        const relatedCommunication = faker.datatype.boolean(0.7) ? getRandomElement(communications) : null;
-        const relatedVersion = faker.datatype.boolean(0.5) ? getRandomElement(versions) : null;
-        const user = getRandomElement(insertedUsers.filter(u => ['SALES', 'MANAGER', 'ADMIN'].includes(u.role)));
-        
-        // Generate realistic old and new values
         let oldQuantity = item.quantity;
         let newQuantity = item.quantity;
-        let oldUnitPrice = item.suggestedPrice;
-        let newUnitPrice = item.suggestedPrice;
-        
+        let oldUnitPrice = item.finalPrice ?? item.suggestedPrice ?? item.estimatedPrice ?? 0;
+        let newUnitPrice = oldUnitPrice;
+
         if (changeType === 'QUANTITY_CHANGE' || changeType === 'BOTH') {
-          // Quantity changes typically involve increases or decreases of 10-50%
           const quantityMultiplier = faker.number.float({ min: 0.5, max: 1.8 });
           newQuantity = Math.max(1, Math.round(oldQuantity * quantityMultiplier));
         }
         
         if (changeType === 'PRICE_CHANGE' || changeType === 'BOTH') {
-          // Price changes typically involve 5-20% adjustments
           const priceMultiplier = changedBy === 'CUSTOMER' 
-            ? faker.number.float({ min: 0.8, max: 0.95 }) // Customers usually want lower prices
-            : faker.number.float({ min: 0.95, max: 1.15 }); // Internal adjustments can go either way
-          newUnitPrice = parseFloat(((oldUnitPrice || 0) * priceMultiplier).toFixed(2));
+            ? faker.number.float({ min: 0.8, max: 0.95 })
+            : faker.number.float({ min: 0.95, max: 1.15 });
+          newUnitPrice = parseFloat((oldUnitPrice * priceMultiplier).toFixed(2));
         }
-        
+
         // Generate realistic change reasons
         const changeReasons: Record<string, string[]> = {
           'PRICE_CHANGE': changedBy === 'CUSTOMER' ? [
@@ -726,9 +708,7 @@ async function main() {
         const changeReason = getRandomElement(changeReasons[changeType] || []);
         
         // Create change record with realistic timestamp
-        const changeDate = relatedCommunication 
-          ? new Date(relatedCommunication.communicationDate.getTime() + faker.number.int({ min: 1800000, max: 86400000 })) // 30 minutes to 1 day after communication
-          : new Date(Date.now() - faker.number.int({ min: 86400000, max: 2592000000 })); // 1 day to 30 days ago
+        const changeDate = new Date(Date.now() - faker.number.int({ min: 86400000, max: 2592000000 })); // 1 day to 30 days ago
         
         skuNegotiationHistoryData.push({
           rfqId,
