@@ -49,7 +49,8 @@ import {
   SettingsTab,
   HistoryTab,
   QuotationHistoryTab,
-  ExportTab
+  ExportTab,
+  OriginalRequestTab
 } from "@/components/rfq-tabs";
 
 // Column definitions
@@ -951,10 +952,14 @@ export default function RfqDetail({
           </div>
 
           <Tabs defaultValue="items" className="w-full">
-            <TabsList className="grid w-full grid-cols-9">
+            <TabsList className="grid w-full grid-cols-10">
               <TabsTrigger value="items">
                 <FileText className="mr-2 h-4 w-4" />
                 Items
+              </TabsTrigger>
+              <TabsTrigger value="original-request">
+                <FileText className="mr-2 h-4 w-4" />
+                Original Request
               </TabsTrigger>
               <TabsTrigger value="negotiation">
                 <MessageSquare className="mr-2 h-4 w-4" />
@@ -999,6 +1004,14 @@ export default function RfqDetail({
                 negotiationHistory={negotiationHistory}
                 onCreateSkuChange={handleCreateSkuChange}
                 onRefreshNegotiation={fetchNegotiationHistory}
+              />
+              {renderPagination()}
+            </TabsContent>
+
+            <TabsContent value="original-request" className="m-0">
+              <OriginalRequestTab
+                items={items}
+                formatCurrency={formatCurrency}
               />
               {renderPagination()}
             </TabsContent>
