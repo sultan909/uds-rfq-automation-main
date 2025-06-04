@@ -67,9 +67,11 @@ export function OriginalRequestTab({
     
     return (
       <div className="flex items-center justify-center">
-        <Badge variant="outline" className="font-mono">
+        {/* <Badge variant="outline" className=""> */}
+        <span className="font-mono text-sm">
           {originalQty}
-        </Badge>
+        </span>
+        {/* </Badge> */}
       </div>
     );
   };
@@ -94,7 +96,7 @@ export function OriginalRequestTab({
     
     return (
       <div className="flex items-center justify-end">
-        <span className="font-mono text-sm font-semibold">
+        <span className="text-sm font-semibold">
           {formatCurrency(total)}
         </span>
       </div>
@@ -203,7 +205,7 @@ export function OriginalRequestTab({
         </DataTable>
 
         {/* Summary section */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+        {/* <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h4 className="font-semibold text-sm mb-3">Original Request Summary</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
@@ -219,10 +221,10 @@ export function OriginalRequestTab({
               <div className="text-sm text-muted-foreground">Total Estimated Value</div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Info note */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+        {/* <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
           <div className="flex items-start gap-2">
             <div className="text-blue-600 mt-0.5">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -238,7 +240,7 @@ export function OriginalRequestTab({
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );

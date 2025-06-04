@@ -1,0 +1,212 @@
+[
+    {
+        "Taxable": false,
+        "BillAddr": {
+            "Id": "87699",
+            "Line1": "Denison University/PO - C120488",
+            "Line2": "100 West College St",
+            "City": "Granville",
+            "Country": "United States",
+            "CountrySubDivisionCode": "OH",
+            "PostalCode": "43023-1100"
+        },
+        "ShipAddr": {
+            "Id": "87699",
+            "Line1": "Denison University/PO - C120488",
+            "Line2": "100 West College St",
+            "City": "Granville",
+            "Country": "United States",
+            "CountrySubDivisionCode": "OH",
+            "PostalCode": "43023-1100"
+        },
+        "Job": false,
+        "BillWithParent": false,
+        "Balance": 0,
+        "BalanceWithJobs": 0,
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "PreferredDeliveryMethod": "None",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "14592",
+        "SyncToken": "0",
+        "MetaData": {
+            "CreateTime": "2021-10-13T07:01:00-07:00",
+            "LastUpdatedTime": "2021-10-14T06:49:29-07:00"
+        },
+        "FullyQualifiedName": "\"Well, Denison\"POC120488 Ann-Margaret Cald - CAD",
+        "CompanyName": "\"Well, Denison\"POC120488 Ann-Margaret Cald - CAD",
+        "DisplayName": "\"Well, Denison\"POC120488 Ann-Margaret Cald - CAD",
+        "PrintOnCheckName": "\"Well, Denison\"POC120488 Ann-Margaret Cald - CAD",
+        "Active": true
+    },
+    {
+        "Taxable": false,
+        "BillAddr": {
+            "Id": "3",
+            "Line1": "5520 Stephanie St",
+            "City": "Las Vegas",
+            "Country": "USA",
+            "CountrySubDivisionCode": "NV,",
+            "PostalCode": "89122-0228"
+        },
+        "Job": false,
+        "BillWithParent": false,
+        "Balance": 0,
+        "BalanceWithJobs": 0,
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "PreferredDeliveryMethod": "None",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "1",
+        "SyncToken": "2",
+        "MetaData": {
+            "CreateTime": "2016-09-11T11:49:27-07:00",
+            "LastUpdatedTime": "2022-01-11T12:43:56-08:00"
+        },
+        "GivenName": "%",
+        "MiddleName": "Nevada",
+        "FamilyName": "Gaming Partners",
+        "FullyQualifiedName": "% Nevada Gaming Partners",
+        "CompanyName": "% Nevada Gaming Partners",
+        "DisplayName": "% Nevada Gaming Partners",
+        "PrintOnCheckName": "% Nevada Gaming Partners",
+        "Active": true,
+        "PrimaryEmailAddr": {
+            "Address": "dolldog@cox.net"
+        }
+    },
+    {
+        "Taxable": false,
+        "BillAddr": {
+            "Id": "75149",
+            "Line1": "10813 NW 30th St # Ste 115 DO61-15471",
+            "City": "Doral",
+            "Country": "United States",
+            "CountrySubDivisionCode": "FL",
+            "PostalCode": "33192-0001"
+        },
+        "ShipAddr": {
+            "Id": "75150",
+            "Line1": "10813 NW 30th St # Ste 115 DO61-15471",
+            "City": "Doral",
+            "Country": "United States",
+            "CountrySubDivisionCode": "FL",
+            "PostalCode": "33192-0001"
+        },
+        "Job": false,
+        "BillWithParent": false,
+        "Balance": 0,
+        "BalanceWithJobs": 0,
+        "CurrencyRef": {
+            "value": "USD",
+            "name": "United States Dollar"
+        },
+        "PreferredDeliveryMethod": "None",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "13651",
+        "SyncToken": "0",
+        "MetaData": {
+            "CreateTime": "2021-04-29T07:09:52-07:00",
+            "LastUpdatedTime": "2021-04-29T09:01:49-07:00"
+        },
+        "GivenName": "(A)",
+        "FamilyName": "Rafael Reyes Cabrera",
+        "FullyQualifiedName": "(A) Rafael Reyes Cabrera",
+        "DisplayName": "(A) Rafael Reyes Cabrera",
+        "PrintOnCheckName": "(A) Rafael Reyes Cabrera",
+        "Active": true,
+        "PrimaryPhone": {
+            "FreeFormNumber": "5146672433"
+        },
+        "PrimaryEmailAddr": {
+            "Address": "0822767211184fd52d75@members.ebay.com"
+        }
+    },
+    {
+        "Taxable": false,
+        "BillAddr": {
+            "Id": "194897",
+            "Line1": "115 W Aurora Rd",
+            "City": "Northfield",
+            "Country": "United States",
+            "CountrySubDivisionCode": "OH",
+            "PostalCode": "44067-2005"
+        },
+        "ShipAddr": {
+            "Id": "194897",
+            "Line1": "115 W Aurora Rd",
+            "City": "Northfield",
+            "Country": "United States",
+            "CountrySubDivisionCode": "OH",
+            "PostalCode": "44067-2005"
+        },
+        "Job": false,
+        "BillWithParent": false,
+        "Balance": 0,
+        "BalanceWithJobs": 0,
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "PreferredDeliveryMethod": "None",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "18247",
+        "SyncToken": "0",
+        "MetaData": {
+            "CreateTime": "2024-04-29T08:16:22-07:00",
+            "LastUpdatedTime": "2024-05-03T05:07:54-07:00"
+        },
+        "FullyQualifiedName": "(MARK ZACCARDELLI) - CAD",
+        "CompanyName": "(MARK ZACCARDELLI) - CAD",
+        "DisplayName": "(MARK ZACCARDELLI) - CAD",
+        "PrintOnCheckName": "(MARK ZACCARDELLI) - CAD",
+        "Active": true
+    },
+    {
+        "Taxable": false,
+        "BillAddr": {
+            "Id": "4",
+            "Line1": "641 Dowd Ave - Meest-America Ste 021660",
+            "City": "Elizabeth",
+            "Country": "USA",
+            "CountrySubDivisionCode": "NJ",
+            "PostalCode": "07201-2116"
+        },
+        "Job": false,
+        "BillWithParent": false,
+        "Balance": 0,
+        "BalanceWithJobs": 0,
+        "CurrencyRef": {
+            "value": "CAD",
+            "name": "Canadian Dollar"
+        },
+        "PreferredDeliveryMethod": "None",
+        "domain": "QBO",
+        "sparse": false,
+        "Id": "2",
+        "SyncToken": "1",
+        "MetaData": {
+            "CreateTime": "2016-09-11T11:49:27-07:00",
+            "LastUpdatedTime": "2017-05-29T14:50:25-07:00"
+        },
+        "GivenName": "021660",
+        "MiddleName": "Oleg",
+        "FamilyName": "Zhadko",
+        "FullyQualifiedName": "021660 Oleg Zhadko",
+        "CompanyName": "021660 Oleg Zhadko",
+        "DisplayName": "021660 Oleg Zhadko",
+        "PrintOnCheckName": "021660 Oleg Zhadko",
+        "Active": true,
+        "PrimaryEmailAddr": {
+            "Address": "vdz1987@gmail.com"
+        }
+    }
+]
