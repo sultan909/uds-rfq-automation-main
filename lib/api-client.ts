@@ -15,19 +15,19 @@ class ApiError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let errorMessage = "An error occurred";
-    let errorDetails = null;
+    let errorMessage = 'Unknown error';
+    let errorDetails = {};
     
     try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorData.error || errorMessage;
-      errorDetails = errorData.details || null;
+      const errorResponse = await response.json();
+      errorMessage = errorResponse.message || errorResponse.error || errorMessage;
+      errorDetails = errorResponse;
     } catch (parseError) {
       // If we can't parse the response, use the status text
       errorMessage = response.statusText || `HTTP ${response.status}`;
     }
     
-    console.error(`API Error: ${response.status} ${response.statusText}`, {
+    console.warn(`API Error: ${response.status} ${response.statusText}`, {
       url: response.url,
       status: response.status,
       statusText: response.statusText,
@@ -121,7 +121,7 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching quotation history:', error);
+      console.warn('Error fetching quotation history:', error);
       return { success: false, error: 'Failed to fetch quotation history' };
     }
   },
@@ -135,7 +135,7 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error creating quotation:', error);
+      console.warn('Error creating quotation:', error);
       return { success: false, error: 'Failed to create quotation' };
     }
   },
@@ -149,7 +149,7 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error creating version:', error);
+      console.warn('Error creating version:', error);
       return { success: false, error: 'Failed to create version' };
     }
   },
@@ -163,7 +163,7 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error updating version status:', error);
+      console.warn('Error updating version status:', error);
       return { success: false, error: 'Failed to update version status' };
     }
   },
@@ -177,7 +177,7 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error recording customer response:', error);
+      console.warn('Error recording customer response:', error);
       return { success: false, error: 'Failed to record customer response' };
     }
   },

@@ -917,11 +917,11 @@ async function main() {
           const priceMultiplier = changedBy === 'CUSTOMER' 
             ? faker.number.float({ min: 0.8, max: 0.95 }) // Customers usually want lower prices
             : faker.number.float({ min: 0.95, max: 1.15 }); // Internal adjustments can go either way
-          newUnitPrice = parseFloat((oldUnitPrice * priceMultiplier).toFixed(2));
+          newUnitPrice = parseFloat(((oldUnitPrice || 0) * priceMultiplier).toFixed(2));
         }
         
         // Generate realistic change reasons
-        const changeReasons = {
+        const changeReasons: Record<string, string[]> = {
           'PRICE_CHANGE': changedBy === 'CUSTOMER' ? [
             'Customer requested volume discount pricing',
             'Competitive pricing pressure from other suppliers',
@@ -952,7 +952,7 @@ async function main() {
           ]
         };
         
-        const changeReason = getRandomElement(changeReasons[changeType]);
+        const changeReason = getRandomElement(changeReasons[changeType] || []);
         
         // Create change record with realistic timestamp
         const changeDate = relatedCommunication 

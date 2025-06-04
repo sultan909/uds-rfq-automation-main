@@ -157,7 +157,6 @@ export interface CreateSkuChangeRequest {
   newQuantity?: number;
   oldUnitPrice?: number;
   newUnitPrice?: number;
-  changeReason?: string;
   changedBy: ChangedBy;
 }
 

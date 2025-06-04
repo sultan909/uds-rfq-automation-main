@@ -144,14 +144,15 @@ export default function RfqDetail({
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [visibleColumns, setVisibleColumns] = useState({
+  const [visibleColumns, setVisibleColumns] = useState<Record<TabName, string[]>>({
     items: ITEMS_COLUMNS.map(col => col.id),
     pricing: PRICING_COLUMNS.map(col => col.id),
     inventory: INVENTORY_COLUMNS.map(col => col.id),
     history: historyColumns.map(col => col.id),
     market: MARKET_COLUMNS.map(col => col.id),
     settings: SETTINGS_COLUMNS.map(col => col.id),
-    'quotation-history': QUOTATION_HISTORY_COLUMNS.map(col => col.id)
+    'quotation-history': QUOTATION_HISTORY_COLUMNS.map(col => col.id),
+    'original-request': [] // Add this to satisfy the TabName type
   });
 
   // Add state for quotation history
@@ -184,12 +185,14 @@ export default function RfqDetail({
     const fetchRfqData = async () => {
       try {
         setLoading(true);
+        setError(null); // Clear previous errors
+        
         const response = await rfqApi.getById(id, {
           page: currentPage,
           pageSize: itemsPerPage
         });
 
-        if (response.success && response.data) {
+        if (response?.success && response.data) {
           setRfqData(response.data);
 
           if (response.meta?.pagination) {
@@ -197,13 +200,24 @@ export default function RfqDetail({
             setTotalPages(response.meta.pagination.totalPages);
           }
         } else {
-          setError("Failed to load RFQ data");
-          toast.error("Failed to load RFQ data");
+          const errorMessage = response?.error || "Failed to load RFQ data";
+          setError(errorMessage);
+          toast.error(errorMessage);
         }
-      } catch (err) {
-        console.error('Error fetching RFQ:', err);
-        setError("An error occurred while loading RFQ data");
-        toast.error("An error occurred while loading RFQ data");
+      } catch (err: any) {
+        console.warn('Error fetching RFQ:', err);
+        
+        let errorMessage = "An error occurred while loading RFQ data";
+        if (err?.status === 404) {
+          errorMessage = "RFQ not found";
+        } else if (err?.status === 500) {
+          errorMessage = "Server error loading RFQ data";
+        } else if (err?.message) {
+          errorMessage = `Error loading RFQ: ${err.message}`;
+        }
+        
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -220,18 +234,33 @@ export default function RfqDetail({
     
     try {
       setNegotiationHistoryLoading(true);
+      setNegotiationHistory([]); // Clear previous data
+      
       const response = await negotiationApi.getSkuHistory(id);
-      if (response.success && Array.isArray(response.data)) {
+      if (response?.success && Array.isArray(response.data)) {
         setNegotiationHistory(response.data);
         setLastNegotiationRefresh(Date.now());
       } else {
         setNegotiationHistory([]);
-        console.error('Failed to fetch negotiation history:', response.error);
+        console.warn('Failed to fetch negotiation history:', response?.error || 'Unknown error');
+        // Only show toast error if it's not a "no data" scenario
+        if (response?.error && !response?.error.includes('not found')) {
+          toast.error('Failed to load negotiation history');
+        }
+      }
+    } catch (error: any) {
+      console.warn('Error fetching negotiation history:', error);
+      setNegotiationHistory([]);
+      
+      // Only show user-facing error for unexpected errors, not 404s
+      if (error?.status === 404) {
+        console.info('No negotiation history found for RFQ:', id);
+      } else if (error?.status === 500) {
+        console.warn('Server error fetching negotiation history:', error.message);
+        toast.error('Server error loading negotiation history. Some features may be limited.');
+      } else {
         toast.error('Failed to load negotiation history');
       }
-    } catch (error) {
-      console.error('Error fetching negotiation history:', error);
-      toast.error('Failed to load negotiation history');
     } finally {
       setNegotiationHistoryLoading(false);
     }
@@ -239,8 +268,11 @@ export default function RfqDetail({
 
   // Fetch negotiation history on mount and when ID changes
   useEffect(() => {
-    fetchNegotiationHistory();
-  }, [fetchNegotiationHistory]);
+    // Only fetch negotiation history if we have valid RFQ data
+    if (id && rfqData && !loading) {
+      fetchNegotiationHistory();
+    }
+  }, [fetchNegotiationHistory, rfqData, loading]);
 
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
@@ -260,11 +292,11 @@ export default function RfqDetail({
         }
       } else {
         const errorMessage = response.error || 'Failed to update RFQ status';
-        console.error('Status update failed:', errorMessage);
+        console.warn('Status update failed:', errorMessage);
         toast.error(errorMessage);
       }
     } catch (err) {
-      console.error('Error updating RFQ status:', err);
+      console.warn('Error updating RFQ status:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       toast.error(`Failed to update RFQ status: ${errorMessage}`);
     }
@@ -341,24 +373,40 @@ export default function RfqDetail({
   // Add useEffect to fetch quotation history
   useEffect(() => {
     const fetchQuotationHistory = async () => {
+      if (!id || loading) return; // Don't fetch if still loading main RFQ data
+      
       try {
         setQuotationHistoryLoading(true);
         const response = await rfqApi.getQuotationHistory(id);
-        if (response.success && response.data) {
+        if (response?.success && response.data) {
           setQuotationHistory(response.data);
+        } else {
+          console.warn('Failed to fetch quotation history:', response?.error);
+          setQuotationHistory([]);
+          // Only show error for non-404 cases
+          if (response?.error && !response?.error.includes('not found')) {
+            toast.error('Failed to load quotation history');
+          }
         }
-      } catch (err) {
-        console.error('Error fetching quotation history:', err);
-        toast.error('Failed to load quotation history');
+      } catch (err: any) {
+        console.warn('Error fetching quotation history:', err);
+        setQuotationHistory([]);
+        
+        if (err?.status === 404) {
+          console.info('No quotation history found for RFQ:', id);
+        } else if (err?.status === 500) {
+          console.warn('Server error fetching quotation history:', err.message);
+          toast.error('Server error loading quotation history. Some features may be limited.');
+        } else {
+          toast.error('Failed to load quotation history');
+        }
       } finally {
         setQuotationHistoryLoading(false);
       }
     };
 
-    if (id) {
-      fetchQuotationHistory();
-    }
-  }, [id]);
+    fetchQuotationHistory();
+  }, [id, loading]);
 
   // Add handlers for version management
   const handleCreateQuotation = async (items: any[]) => {
@@ -386,7 +434,7 @@ export default function RfqDetail({
         toast.error(response.error || 'Failed to create quotation');
       }
     } catch (error) {
-      console.error('Error creating quotation:', error);
+      console.warn('Error creating quotation:', error);
       toast.error('Failed to create quotation');
     }
   };
@@ -397,7 +445,6 @@ export default function RfqDetail({
     newQuantity: number;
     oldUnitPrice: number;
     newUnitPrice: number;
-    changeReason: string;
   }) => {
     try {
       const item = items.find((i: any) => i.id === itemId);
@@ -426,21 +473,32 @@ export default function RfqDetail({
         newQuantity: changes.newQuantity,
         oldUnitPrice: changes.oldUnitPrice,
         newUnitPrice: changes.newUnitPrice,
-        changeReason: changes.changeReason,
         changedBy: 'INTERNAL'
       };
 
       const response = await negotiationApi.createSkuChange(id, skuChangeData);
-      if (response.success) {
+      if (response?.success) {
         // Immediately refresh negotiation history
         await fetchNegotiationHistory();
         toast.success('SKU change recorded successfully');
       } else {
-        throw new Error(response.error || 'Failed to record SKU change');
+        throw new Error(response?.error || 'Failed to record SKU change');
       }
-    } catch (error) {
-      console.error('Error creating SKU change:', error);
-      throw error;
+    } catch (error: any) {
+      console.warn('Error creating SKU change:', error);
+      
+      // Provide more specific error messages based on error type
+      if (error?.status === 500) {
+        toast.error('Server error recording SKU change. Please try again later.');
+      } else if (error?.status === 404) {
+        toast.error('RFQ or SKU not found. Please refresh the page.');
+      } else if (error?.message?.includes('not found')) {
+        toast.error('Item or SKU not found.');
+      } else {
+        toast.error(error?.message || 'Failed to record SKU change');
+      }
+      
+      throw error; // Re-throw for the calling component to handle
     }
   };
 
@@ -553,7 +611,7 @@ export default function RfqDetail({
 
       toast.success('RFQ data exported successfully');
     } catch (error) {
-      console.error('Error exporting to Excel:', error);
+      console.warn('Error exporting to Excel:', error);
       toast.error(`Failed to export RFQ data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -578,11 +636,11 @@ export default function RfqDetail({
           }));
           
         } else {
-          console.error('Failed to fetch main customers:', response.error);
+          console.warn('Failed to fetch main customers:', response.error);
           toast.error('Failed to fetch main customers');
         }
       } catch (error) {
-        console.error('Error fetching main customers:', error);
+        console.warn('Error fetching main customers:', error);
         toast.error('Failed to fetch main customers');
       }
     };
@@ -678,7 +736,7 @@ export default function RfqDetail({
 
             return null;
           } catch (error) {
-            console.error(`❌ Error fetching history for item ${itemSku}:`, error);
+            console.warn(`❌ Error fetching history for item ${itemSku}:`, error);
             return null;
           }
         });
@@ -695,7 +753,7 @@ export default function RfqDetail({
         });
 
       } catch (err) {
-        console.error('❌ Error in fetchHistory:', err);
+        console.warn('❌ Error in fetchHistory:', err);
         setHistoryError("An error occurred while loading history data");
         toast.error("An error occurred while loading history data");
       } finally {
@@ -754,7 +812,7 @@ export default function RfqDetail({
 
               return item;
             } catch (err) {
-              console.error('Error processing item:', err);
+              console.warn('Error processing item:', err);
               return item;
             }
           })
@@ -765,7 +823,7 @@ export default function RfqDetail({
           return acc;
         }, {}));
       } catch (err) {
-        console.error('Error in fetchInventoryData:', err);
+        console.warn('Error in fetchInventoryData:', err);
         toast.error('Failed to fetch inventory data');
       }
     };

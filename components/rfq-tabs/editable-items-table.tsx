@@ -49,16 +49,8 @@ interface EditableItemsTableProps {
     newQuantity: number;
     oldUnitPrice: number;
     newUnitPrice: number;
-    changeReason: string;
   }) => Promise<void>;
   onRefreshNegotiation?: () => Promise<void>;
-}
-
-interface CellEditInfo {
-  rowIndex: number;
-  field: string;
-  originalValue: any;
-  newValue: any;
 }
 
 export function EditableItemsTable({ 
@@ -75,7 +67,6 @@ export function EditableItemsTable({
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showNegotiationHistory, setShowNegotiationHistory] = useState<Record<number, boolean>>({});
-  const [changeReasons, setChangeReasons] = useState<Record<string, string>>({});
   const [isNegotiationMode, setIsNegotiationMode] = useState(false);
   
   // Track SKU change operations
@@ -84,10 +75,6 @@ export function EditableItemsTable({
 
   // PrimeReact specific states
   const [editingRows, setEditingRows] = useState<Record<string, boolean>>({});
-  const [pendingCellEdits, setPendingCellEdits] = useState<Record<string, CellEditInfo>>({});
-  const [reasonDialogVisible, setReasonDialogVisible] = useState(false);
-  const [currentEditInfo, setCurrentEditInfo] = useState<CellEditInfo | null>(null);
-  const [editReason, setEditReason] = useState('');
 
   // Double-click tracking
   const [lastClickTime, setLastClickTime] = useState<Record<string, number>>({});
@@ -96,9 +83,9 @@ export function EditableItemsTable({
   // Refs for auto-focus
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize editing state when items change
+  // Initialize editing state when items change or when entering negotiation mode
   useEffect(() => {
-    if (isEditMode && items.length > 0) {
+    if ((isEditMode || isNegotiationMode) && items.length > 0) {
       const editingState: Record<number, EditableItem> = {};
       items.forEach(item => {
         editingState[item.id] = {
@@ -110,7 +97,7 @@ export function EditableItemsTable({
       });
       setEditingItems(editingState);
     }
-  }, [items, isEditMode]);
+  }, [items, isEditMode, isNegotiationMode]);
 
   // Clear states when negotiation history changes
   useEffect(() => {
@@ -120,26 +107,35 @@ export function EditableItemsTable({
 
   const handleEditStart = () => {
     setIsEditMode(true);
-    const editingState: Record<number, EditableItem> = {};
-    items.forEach(item => {
-      editingState[item.id] = {
-        ...item,
-        unitPrice: item.unitPrice || 0,
-        quantity: item.quantity || 1,
-        comment: item.comment || ''
-      };
-    });
-    setEditingItems(editingState);
+    // EditingItems will be initialized by the useEffect above
   };
 
   const handleEditCancel = () => {
     setIsEditMode(false);
     setEditingItems({});
-    setChangeReasons({});
     setPendingSkuChanges({});
     setSkuChangeErrors({});
     setEditingRows({});
-    setPendingCellEdits({});
+  };
+
+  // Toggle negotiation mode and ensure editing state is ready
+  const handleToggleNegotiationMode = () => {
+    const newNegotiationMode = !isNegotiationMode;
+    setIsNegotiationMode(newNegotiationMode);
+    
+    if (newNegotiationMode && items.length > 0) {
+      // Initialize editing state for negotiation mode
+      const editingState: Record<number, EditableItem> = {};
+      items.forEach(item => {
+        editingState[item.id] = {
+          ...item,
+          unitPrice: item.unitPrice || 0,
+          quantity: item.quantity || 1,
+          comment: item.comment || ''
+        };
+      });
+      setEditingItems(editingState);
+    }
   };
 
   const handleSaveQuotation = async () => {
@@ -163,11 +159,9 @@ export function EditableItemsTable({
       await onSaveQuotation(quotationItems);
       setIsEditMode(false);
       setEditingItems({});
-      setChangeReasons({});
       setPendingSkuChanges({});
       setSkuChangeErrors({});
       setEditingRows({});
-      setPendingCellEdits({});
       toast.success('Quotation saved successfully');
     } catch (error) {
       console.error('Error saving quotation:', error);
@@ -221,16 +215,21 @@ export function EditableItemsTable({
     }, 100);
   };
 
-  // Handle cell edit complete
-  const onCellEditComplete = async (e: any) => {
+  // Handle cell edit complete - now automatically saves negotiation changes
+  const onRowEditComplete = async (e: any) => {
     const { rowData, newValue, field, originalEvent } = e;
     const rowKey = rowData.id.toString();
     
-    // Update local state immediately
+    // Get the current item from original items array to compare old values
+    const originalItem = items.find(item => item.id === rowData.id);
+    const oldValue = originalItem ? (field === 'quantity' ? originalItem.quantity : originalItem.unitPrice) : 0;
+    
+    // Update local editing state immediately
     setEditingItems(prev => ({
       ...prev,
       [rowData.id]: {
         ...prev[rowData.id],
+        ...rowData, // Include all current row data
         [field]: newValue
       }
     }));
@@ -242,83 +241,61 @@ export function EditableItemsTable({
       return updated;
     });
 
-    // If in negotiation mode and value changed, prompt for reason
-    if (isNegotiationMode && onCreateSkuChange) {
-      const currentItem = items.find(item => item.id === rowData.id);
-      if (currentItem) {
-        const oldValue = field === 'quantity' ? currentItem.quantity : currentItem.unitPrice;
-        
-        if (oldValue !== newValue) {
-          const editInfo: CellEditInfo = {
-            rowIndex: rowData.id,
-            field,
-            originalValue: oldValue,
-            newValue
-          };
-          
-          setCurrentEditInfo(editInfo);
-          setReasonDialogVisible(true);
-        }
-      }
+    // If in negotiation mode and value changed, automatically save the change
+    if (isNegotiationMode && onCreateSkuChange && originalItem && oldValue !== newValue) {
+      console.log('Saving SKU change:', { itemId: rowData.id, field, oldValue, newValue });
+      await handleSkuChangeAutoSave(rowData.id, field, oldValue, newValue);
     }
   };
 
-  // Handle cell edit cancel
-  const onCellEditCancel = (e: any) => {
-    const { rowData } = e;
-    const rowKey = rowData.id.toString();
-    
-    setEditingRows(prev => {
-      const updated = { ...prev };
-      delete updated[rowKey];
-      return updated;
-    });
-  };
-
-  // Handle reason submission
-  const handleReasonSubmit = async () => {
-    if (!currentEditInfo || !editReason.trim() || !onCreateSkuChange) {
-      toast.error('Please provide a reason for the change');
+  // Automatically save SKU changes without requiring reason
+  const handleSkuChangeAutoSave = async (itemId: number, field: string, oldValue: number, newValue: number) => {
+    if (!onCreateSkuChange) {
+      console.warn('onCreateSkuChange handler not provided');
       return;
     }
 
-    const { rowIndex: itemId, field, originalValue, newValue } = currentEditInfo;
     const changeKey = `${itemId}_${field}`;
 
     try {
       setPendingSkuChanges(prev => ({ ...prev, [changeKey]: true }));
       setSkuChangeErrors(prev => ({ ...prev, [changeKey]: '' }));
 
-      const editingItem = editingItems[itemId];
+      // Get current editing item state or fallback to original item
+      const editingItem = editingItems[itemId] || items.find(item => item.id === itemId);
       
-      await onCreateSkuChange(itemId, {
-        oldQuantity: field === 'quantity' ? originalValue : editingItem.quantity,
+      if (!editingItem) {
+        throw new Error('Item not found for SKU change');
+      }
+
+      const changeData = {
+        oldQuantity: field === 'quantity' ? oldValue : editingItem.quantity,
         newQuantity: field === 'quantity' ? newValue : editingItem.quantity,
-        oldUnitPrice: field === 'unitPrice' ? originalValue : editingItem.unitPrice,
+        oldUnitPrice: field === 'unitPrice' ? oldValue : editingItem.unitPrice,
         newUnitPrice: field === 'unitPrice' ? newValue : editingItem.unitPrice,
-        changeReason: editReason,
-      });
+      };
+
+      console.log('Creating SKU change with data:', changeData);
+      
+      await onCreateSkuChange(itemId, changeData);
 
       if (onRefreshNegotiation) {
         await onRefreshNegotiation();
       }
 
       toast.success('Change recorded successfully');
-      setReasonDialogVisible(false);
-      setEditReason('');
-      setCurrentEditInfo(null);
     } catch (error) {
       console.error('Error recording change:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to record change';
       setSkuChangeErrors(prev => ({ ...prev, [changeKey]: errorMessage }));
       toast.error(errorMessage);
       
-      // Revert the change
+      // Revert the change on error
       setEditingItems(prev => ({
         ...prev,
         [itemId]: {
           ...prev[itemId],
-          [field]: originalValue
+          [field]: oldValue
         }
       }));
     } finally {
@@ -330,12 +307,8 @@ export function EditableItemsTable({
   const quantityEditor = (options: any) => {
     return (
       <InputNumber
-        ref={editInputRef}
         value={options.value}
         onValueChange={(e) => options.editorCallback(e.value)}
-        onBlur={() => {
-          // Handle blur - this will trigger onCellEditComplete
-        }}
         className="w-full"
         min={1}
         showButtons={false}
@@ -347,12 +320,8 @@ export function EditableItemsTable({
   const priceEditor = (options: any) => {
     return (
       <InputNumber
-        ref={editInputRef}
         value={options.value}
         onValueChange={(e) => options.editorCallback(e.value)}
-        onBlur={() => {
-          // Handle blur - this will trigger onCellEditComplete
-        }}
         className="w-full"
         mode="currency"
         currency="USD"
@@ -400,15 +369,20 @@ export function EditableItemsTable({
     const isLoading = pendingSkuChanges[changeKey];
     const error = skuChangeErrors[changeKey];
     
+    // Use editing state if available, otherwise use original data
+    const currentQuantity = (isEditMode || isNegotiationMode) && editingItems[rowData.id] 
+      ? editingItems[rowData.id].quantity 
+      : rowData.quantity;
+    
     return (
       <div className="space-y-1">
         <div 
-          className={`cursor-pointer p-2 rounded ${hasQuantityChange ? 'font-semibold text-blue-600' : ''}`}
+          className={`cursor-pointer p-2 rounded hover:bg-gray-100 ${hasQuantityChange ? 'font-semibold text-blue-600' : ''}`}
           onClick={(e) => handleCellClick(rowData, 'quantity', e)}
           title="Double-click to edit"
         >
           <div className="flex items-center gap-2">
-            <span>{rowData.quantity}</span>
+            <span>{currentQuantity}</span>
             {isLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
           </div>
         </div>
@@ -426,15 +400,20 @@ export function EditableItemsTable({
     const isLoading = pendingSkuChanges[changeKey];
     const error = skuChangeErrors[changeKey];
     
+    // Use editing state if available, otherwise use original data
+    const currentPrice = (isEditMode || isNegotiationMode) && editingItems[rowData.id] 
+      ? editingItems[rowData.id].unitPrice 
+      : rowData.unitPrice;
+    
     return (
       <div className="space-y-1">
         <div 
-          className={`cursor-pointer p-2 rounded ${hasPriceChange ? 'font-semibold text-green-600' : ''}`}
+          className={`cursor-pointer p-2 rounded hover:bg-gray-100 ${hasPriceChange ? 'font-semibold text-green-600' : ''}`}
           onClick={(e) => handleCellClick(rowData, 'unitPrice', e)}
           title="Double-click to edit"
         >
           <div className="flex items-center gap-2">
-            <span>{formatCurrency(rowData.unitPrice || 0)}</span>
+            <span>{formatCurrency(currentPrice || 0)}</span>
             {isLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
           </div>
         </div>
@@ -477,15 +456,27 @@ export function EditableItemsTable({
     );
   };
 
-  // Calculate total amount
-  const totalAmount = Object.values(editingItems).reduce(
-    (sum, item) => sum + (item.quantity * item.unitPrice), 0
-  );
+  // Calculate total amount using current editing state when available
+  const totalAmount = (isEditMode || isNegotiationMode) && Object.keys(editingItems).length > 0
+    ? Object.values(editingItems).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    : items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
   const isValidForEdit = isEditable && ['DRAFT', 'SENT', 'NEGOTIATING'].includes(rfqStatus || '');
 
-  // Prepare data for DataTable
-  const tableData = isEditMode ? Object.values(editingItems) : items;
+  // Use consistent data source - always use items as base, but show edited values in display
+  const tableData = items;
+
+  // Handle cell edit cancel
+  const onRowEditCancel = (e: any) => {
+    const { rowData } = e;
+    const rowKey = rowData.id.toString();
+    
+    setEditingRows(prev => {
+      const updated = { ...prev };
+      delete updated[rowKey];
+      return updated;
+    });
+  };
 
   return (
     <Card>
@@ -496,7 +487,7 @@ export function EditableItemsTable({
             {!isEditMode && isValidForEdit && (
               <>
                 <Button 
-                  onClick={() => setIsNegotiationMode(!isNegotiationMode)}
+                  onClick={handleToggleNegotiationMode}
                   variant={isNegotiationMode ? "default" : "outline"}
                   size="sm"
                 >
@@ -550,7 +541,7 @@ export function EditableItemsTable({
         )}
         {isNegotiationMode && (
           <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-            Negotiation Mode: Double-click on quantity or price cells to edit. Changes will be tracked and recorded in the negotiation history.
+            Negotiation Mode: Double-click on quantity or price cells to edit. Changes will be automatically saved.
           </div>
         )}
       </CardHeader>
@@ -558,10 +549,10 @@ export function EditableItemsTable({
         <DataTable 
           value={tableData}
           editMode="cell"
-          onCellEditComplete={onCellEditComplete}
-          onCellEditCancel={onCellEditCancel}
+          onRowEditComplete={onRowEditComplete}
+          onRowEditCancel={onRowEditCancel}
           editingRows={editingRows}
-          onRowEditChange={setEditingRows}
+          onRowEditChange={(event) => setEditingRows(event.data)}
           tableStyle={{ minWidth: '50rem' }}
           scrollable
           scrollHeight="600px"
@@ -644,9 +635,6 @@ export function EditableItemsTable({
                       {change.oldUnitPrice !== change.newUnitPrice && (
                         <div>Price: {formatCurrency(change.oldUnitPrice || 0)} → {formatCurrency(change.newUnitPrice || 0)}</div>
                       )}
-                      {change.changeReason && (
-                        <div className="text-gray-600 italic">Reason: {change.changeReason}</div>
-                      )}
                     </div>
                   ))}
               </div>
@@ -654,59 +642,6 @@ export function EditableItemsTable({
           );
         })}
       </CardContent>
-
-      {/* Reason Dialog */}
-      <Dialog open={reasonDialogVisible} onOpenChange={setReasonDialogVisible}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Reason Required</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Please provide a reason for this change:</Label>
-              {currentEditInfo && (
-                <div className="text-sm text-muted-foreground mt-1">
-                  {currentEditInfo.field === 'quantity' ? 'Quantity' : 'Price'} change: {currentEditInfo.originalValue} → {currentEditInfo.newValue}
-                </div>
-              )}
-            </div>
-            <Textarea
-              placeholder="Enter reason for change..."
-              value={editReason}
-              onChange={(e) => setEditReason(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setReasonDialogVisible(false);
-                setEditReason('');
-                setCurrentEditInfo(null);
-                // Revert the change
-                if (currentEditInfo) {
-                  setEditingItems(prev => ({
-                    ...prev,
-                    [currentEditInfo.rowIndex]: {
-                      ...prev[currentEditInfo.rowIndex],
-                      [currentEditInfo.field]: currentEditInfo.originalValue
-                    }
-                  }));
-                }
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleReasonSubmit}
-              disabled={!editReason.trim()}
-            >
-              Record Change
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
