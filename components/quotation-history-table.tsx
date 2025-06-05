@@ -396,7 +396,7 @@ export function QuotationHistoryTable({
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold">Response #{response.responseNumber}</h4>
                       <div className="flex items-center gap-2">
-                        {getResponseStatusBadge(response.overallStatus)}
+                        {/* {getResponseStatusBadge(response.overallStatus)} */}
                         <span className="text-sm text-muted-foreground">
                           {new Date(response.responseDate).toLocaleDateString()}
                         </span>
@@ -447,8 +447,8 @@ export function QuotationHistoryTable({
                               <TableRow>
                                 <TableHead>SKU</TableHead>
                                 <TableHead>Description</TableHead>
-                                <TableHead>Original Qty</TableHead>
-                                <TableHead>Original Price</TableHead>
+                                <TableHead>v{responseVersion?.versionNumber} Qty</TableHead>
+                                <TableHead>v{responseVersion?.versionNumber} Price</TableHead>
                                 <TableHead>Response Status</TableHead>
                                 <TableHead>Requested Qty</TableHead>
                                 <TableHead>Requested Price</TableHead>

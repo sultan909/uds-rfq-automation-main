@@ -14,6 +14,7 @@ import { useCurrency } from '@/contexts/currency-context';
 import type { ResponseItemStatus } from '@/lib/types/quotation-response';
 
 interface ResponseItemsTableProps {
+  versionNumber: number;
   items: any[];
   itemResponses: Record<number, {
     itemStatus: ResponseItemStatus;
@@ -25,6 +26,7 @@ interface ResponseItemsTableProps {
 }
 
 export function ResponseItemsTable({ 
+  versionNumber,
   items, 
   itemResponses, 
   setItemResponses 
@@ -47,8 +49,8 @@ export function ResponseItemsTable({
         <TableRow>
           <TableHead>SKU</TableHead>
           <TableHead>Description</TableHead>
-          <TableHead>Original Qty</TableHead>
-          <TableHead>Original Price</TableHead>
+          <TableHead>v{versionNumber} Qty</TableHead>
+          <TableHead>v{versionNumber} Price</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Requested Qty</TableHead>
           <TableHead>Requested Price</TableHead>

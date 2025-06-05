@@ -84,6 +84,7 @@ export function QuotationResponseForm({
         </CardHeader>
         <CardContent>
           <ResponseItemsTable
+            versionNumber={quotationVersion.versionNumber}
             items={quotationVersion.items}
             itemResponses={itemResponses}
             setItemResponses={setItemResponses}
