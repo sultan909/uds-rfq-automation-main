@@ -603,6 +603,7 @@ export const quotationVersionsRelations = relations(quotationVersions, ({ one, m
     references: [users.id],
   }),
   responses: many(customerResponses),
+  quotationResponses: many(quotationResponses),
   items: many(quotationVersionItems),
 }));
 
@@ -694,5 +695,68 @@ export const skuNegotiationHistoryRelations = relations(skuNegotiationHistory, (
   enteredByUser: one(users, {
     fields: [skuNegotiationHistory.enteredByUserId],
     references: [users.id],
+  }),
+}));
+
+// Quotation Responses Table
+export const quotationResponses = pgTable('quotation_responses', {
+  id: serial('id').primaryKey(),
+  quotationVersionId: integer('quotation_version_id').references(() => quotationVersions.id).notNull(),
+  responseNumber: integer('response_number').notNull(),
+  overallStatus: varchar('overall_status', { length: 20 }).notNull().default('PENDING'), // 'ACCEPTED', 'DECLINED', 'PARTIAL_ACCEPTED', 'NEGOTIATING', 'PENDING'
+  responseDate: timestamp('response_date').notNull(),
+  customerContactPerson: varchar('customer_contact_person', { length: 255 }),
+  communicationMethod: varchar('communication_method', { length: 20 }).notNull().default('EMAIL'), // 'EMAIL', 'PHONE', 'MEETING', 'PORTAL'
+  overallComments: text('overall_comments'),
+  requestedDeliveryDate: date('requested_delivery_date'),
+  paymentTermsRequested: varchar('payment_terms_requested', { length: 255 }),
+  specialInstructions: text('special_instructions'),
+  recordedByUserId: integer('recorded_by_user_id').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const quotationResponsesRelations = relations(quotationResponses, ({ one, many }) => ({
+  quotationVersion: one(quotationVersions, {
+    fields: [quotationResponses.quotationVersionId],
+    references: [quotationVersions.id],
+  }),
+  recordedByUser: one(users, {
+    fields: [quotationResponses.recordedByUserId],
+    references: [users.id],
+  }),
+  responseItems: many(quotationResponseItems),
+}));
+
+// Quotation Response Items Table
+export const quotationResponseItems = pgTable('quotation_response_items', {
+  id: serial('id').primaryKey(),
+  quotationResponseId: integer('quotation_response_id').references(() => quotationResponses.id).notNull(),
+  quotationVersionItemId: integer('quotation_version_item_id').references(() => quotationVersionItems.id).notNull(),
+  skuId: integer('sku_id').references(() => inventoryItems.id).notNull(),
+  itemStatus: varchar('item_status', { length: 20 }).notNull().default('PENDING'), // 'ACCEPTED', 'DECLINED', 'COUNTER_PROPOSED', 'NEEDS_CLARIFICATION', 'PENDING'
+  requestedQuantity: integer('requested_quantity'),
+  requestedUnitPrice: real('requested_unit_price'),
+  requestedTotalPrice: real('requested_total_price'),
+  customerSkuReference: varchar('customer_sku_reference', { length: 100 }),
+  itemSpecificComments: text('item_specific_comments'),
+  alternativeSuggestions: text('alternative_suggestions'),
+  deliveryRequirements: varchar('delivery_requirements', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const quotationResponseItemsRelations = relations(quotationResponseItems, ({ one }) => ({
+  quotationResponse: one(quotationResponses, {
+    fields: [quotationResponseItems.quotationResponseId],
+    references: [quotationResponses.id],
+  }),
+  quotationVersionItem: one(quotationVersionItems, {
+    fields: [quotationResponseItems.quotationVersionItemId],
+    references: [quotationVersionItems.id],
+  }),
+  sku: one(inventoryItems, {
+    fields: [quotationResponseItems.skuId],
+    references: [inventoryItems.id],
   }),
 }));

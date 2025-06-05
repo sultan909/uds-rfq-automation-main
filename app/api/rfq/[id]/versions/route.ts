@@ -14,6 +14,12 @@ export async function GET(
       orderBy: [desc(quotationVersions.versionNumber)],
       with: {
         responses: true,
+        quotationResponses: {
+          columns: {
+            id: true,
+            // Just getting the ID to count them, not the full data
+          }
+        },
         items: {
           with: {
             sku: {
@@ -37,9 +43,15 @@ export async function GET(
       },
     });
 
+    // Add quotation response count to each version
+    const versionsWithCounts = versions.map(version => ({
+      ...version,
+      quotationResponseCount: version.quotationResponses?.length || 0,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: versions,
+      data: versionsWithCounts,
     });
   } catch (error) {
     console.error('Error fetching quotation versions:', error);
