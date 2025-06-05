@@ -181,6 +181,41 @@ export const rfqApi = {
       return { success: false, error: 'Failed to record customer response' };
     }
   },
+  // Quotation Response endpoints
+  getQuotationResponses: async (rfqId: string, versionId: string) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/quotation/${versionId}/responses`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.warn('Error fetching quotation responses:', error);
+      return { success: false, error: 'Failed to fetch quotation responses' };
+    }
+  },
+  createQuotationResponse: async (rfqId: string, versionId: string, responseData: any) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/quotation/${versionId}/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(responseData),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.warn('Error creating quotation response:', error);
+      return { success: false, error: 'Failed to create quotation response' };
+    }
+  },
+  getQuotationResponse: async (rfqId: string, versionId: string, responseId: string) => {
+    try {
+      const response = await fetch(`/api/rfq/${rfqId}/quotation/${versionId}/responses/${responseId}`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.warn('Error fetching quotation response:', error);
+      return { success: false, error: 'Failed to fetch quotation response' };
+    }
+  },
   getItemVersions: async (rfqId: string, sku: string) => {
     try {
       const response = await fetch(`/api/rfq/${rfqId}/items/${sku}/versions`);

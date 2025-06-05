@@ -16,11 +16,13 @@ import type { QuotationVersionWithItems } from '@/lib/types/quotation';
 interface QuotationHistoryTableProps {
   versions: QuotationVersionWithItems[];
   onRecordResponse: (version: QuotationVersionWithItems) => void;
+  onRecordQuotationResponse?: (version: QuotationVersionWithItems) => void;
 }
 
 export function QuotationHistoryTable({ 
   versions, 
-  onRecordResponse 
+  onRecordResponse,
+  onRecordQuotationResponse 
 }: QuotationHistoryTableProps) {
   const { formatCurrency } = useCurrency();
   const [expandedVersions, setExpandedVersions] = useState<Set<number>>(new Set());
@@ -79,6 +81,7 @@ export function QuotationHistoryTable({
               <TableHead>Created By</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Customer Response</TableHead>
+              <TableHead>Detailed Response</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -133,6 +136,19 @@ export function QuotationHistoryTable({
                     )}
                   </TableCell>
                   <TableCell>
+                    {onRecordQuotationResponse ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onRecordQuotationResponse(version)}
+                      >
+                        Record Detailed Response
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Not available</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Button
                       variant="outline"
                       size="sm"
@@ -145,7 +161,7 @@ export function QuotationHistoryTable({
                 </TableRow>
                 {expandedVersions.has(version.id) && version.items && version.items.length > 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="p-0">
+                    <TableCell colSpan={10} className="p-0">
                       <div className="bg-muted/30 p-4">
                         <h4 className="font-medium mb-2">
                           SKU Items (v{version.versionNumber}) - {version.items.length} items

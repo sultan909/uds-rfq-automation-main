@@ -30,6 +30,7 @@ import * as XLSX from 'xlsx';
 import { EditableItemsTable } from "@/components/rfq-tabs/editable-items-table";
 import { NegotiationTab } from "@/components/rfq-tabs/negotiation-tab";
 import type { CreateQuotationRequest, QuotationVersionWithItems } from "@/lib/types/quotation";
+import type { CreateQuotationResponseRequest } from "@/lib/types/quotation-response";
 import type { 
   RfqStatus, 
   TabName, 
@@ -550,6 +551,26 @@ export default function RfqDetail({
     } finally {
       setIsResponseModalOpen(false);
       setSelectedVersion(null);
+    }
+  };
+
+  // New handler for detailed quotation responses
+  const handleRecordQuotationResponse = async (versionId: number, data: any) => {
+    try {
+      const response = await rfqApi.createQuotationResponse(id, versionId.toString(), data);
+      if (response.success) {
+        toast.success('Detailed quotation response recorded successfully');
+        // Refresh quotation history to show updated response data
+        const historyResponse = await rfqApi.getQuotationHistory(id);
+        if (historyResponse.success && historyResponse.data) {
+          setQuotationHistory(historyResponse.data);
+        }
+      } else {
+        toast.error(response.error || 'Failed to record detailed quotation response');
+      }
+    } catch (error) {
+      console.error('Error recording detailed quotation response:', error);
+      toast.error('Failed to record detailed quotation response');
     }
   };
 
@@ -1162,6 +1183,7 @@ export default function RfqDetail({
                 }}
                 onCreateVersion={handleCreateVersion}
                 onRecordResponse={handleRecordResponse}
+                onRecordQuotationResponse={handleRecordQuotationResponse}
               />
             </TabsContent>
 
