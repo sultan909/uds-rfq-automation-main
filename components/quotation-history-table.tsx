@@ -127,7 +127,7 @@ export function QuotationHistoryTable({
               <TableHead className="w-12"></TableHead>
               <TableHead>Version</TableHead>
               <TableHead>Entry Type</TableHead>
-              <TableHead>Status</TableHead>
+              {/* <TableHead>Status</TableHead> */}
               <TableHead>Total Amount</TableHead>
               <TableHead>Created By</TableHead>
               <TableHead>Date</TableHead>
@@ -155,7 +155,7 @@ export function QuotationHistoryTable({
                   </TableCell>
                   <TableCell>v{version.versionNumber}</TableCell>
                   <TableCell>{getEntryTypeBadge(version.entryType)}</TableCell>
-                  <TableCell>{getStatusBadge(version.status)}</TableCell>
+                  {/* <TableCell>{getStatusBadge(version.status)}</TableCell> */}
                   <TableCell>{formatCurrency(version.finalPrice)}</TableCell>
                   <TableCell>{version.createdBy}</TableCell>
                   <TableCell>
@@ -396,7 +396,7 @@ export function QuotationHistoryTable({
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold">Response #{response.responseNumber}</h4>
                       <div className="flex items-center gap-2">
-                        {/* {getResponseStatusBadge(response.overallStatus)} */}
+                        {getResponseStatusBadge(response.overallStatus)}
                         <span className="text-sm text-muted-foreground">
                           {new Date(response.responseDate).toLocaleDateString()}
                         </span>

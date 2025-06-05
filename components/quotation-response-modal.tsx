@@ -6,10 +6,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { QuotationResponseForm } from './quotation-response-form';
-import type { 
-  QuotationVersionWithItems, 
-  CreateQuotationResponseRequest
-} from '@/lib/types/quotation-response';
+import type { QuotationVersionWithItems } from '@/lib/types/quotation';
+import type { CreateQuotationResponseRequest } from '@/lib/types/quotation-response';
 
 interface QuotationResponseModalProps {
   isOpen: boolean;

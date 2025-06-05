@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResponseFormFields } from './response-form-fields';
 import { ResponseItemsTable } from './response-items-table';
+import type { QuotationVersionWithItems } from '@/lib/types/quotation';
 import type { 
-  QuotationVersionWithItems, 
   CreateQuotationResponseRequest,
   QuotationResponseStatus,
   ResponseItemStatus,
