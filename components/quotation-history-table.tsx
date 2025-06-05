@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, Eye } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, FileText } from 'lucide-react';
 import { useCurrency } from '@/contexts/currency-context';
 import { 
   Dialog, 
@@ -11,22 +11,33 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
+import { rfqApi } from '@/lib/api-client';
+import { toast } from 'sonner';
 import type { QuotationVersionWithItems } from '@/lib/types/quotation';
+import type { QuotationResponse, QuotationResponseWithItems } from '@/lib/types/quotation-response';
 
 interface QuotationHistoryTableProps {
   versions: QuotationVersionWithItems[];
   onRecordResponse: (version: QuotationVersionWithItems) => void;
   onRecordQuotationResponse?: (version: QuotationVersionWithItems) => void;
+  onCreateVersion: () => void;
+  rfqId: string;
 }
 
 export function QuotationHistoryTable({ 
   versions, 
   onRecordResponse,
-  onRecordQuotationResponse 
+  onRecordQuotationResponse,
+  onCreateVersion,
+  rfqId
 }: QuotationHistoryTableProps) {
   const { formatCurrency } = useCurrency();
   const [expandedVersions, setExpandedVersions] = useState<Set<number>>(new Set());
   const [selectedVersion, setSelectedVersion] = useState<QuotationVersionWithItems | null>(null);
+  const [quotationResponses, setQuotationResponses] = useState<QuotationResponseWithItems[]>([]);
+  const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [responseVersion, setResponseVersion] = useState<QuotationVersionWithItems | null>(null);
 
   const toggleExpanded = (versionId: number) => {
     setExpandedVersions(prev => {
@@ -38,6 +49,27 @@ export function QuotationHistoryTable({
       }
       return newSet;
     });
+  };
+
+  const loadQuotationResponses = async (version: QuotationVersionWithItems) => {
+    setLoadingResponses(true);
+    try {
+      const response = await rfqApi.getQuotationResponses(rfqId, version.id.toString());
+      
+      if (response.success) {
+        const responses = response.data || [];
+        setQuotationResponses(responses);
+        setResponseVersion(version);
+        setIsResponseModalOpen(true);
+      } else {
+        toast.error(response.error || 'Failed to load quotation responses');
+      }
+    } catch (error) {
+      console.error('Error loading quotation responses:', error);
+      toast.error('Failed to load quotation responses');
+    } finally {
+      setLoadingResponses(false);
+    }
   };
 
   const getEntryTypeLabel = (entryType: string) => {
@@ -58,16 +90,35 @@ export function QuotationHistoryTable({
       </Badge>
     );
   };
+  
   const getStatusBadge = (status: string) => {
     const variant = status === 'ACCEPTED' ? 'default' :
                    status === 'DECLINED' ? 'destructive' : 'secondary';
     return <Badge variant={variant}>{status}</Badge>;
   };
 
+  const getResponseStatusBadge = (status: string) => {
+    const variant = status === 'ACCEPTED' ? 'default' :
+                   status === 'DECLINED' ? 'destructive' :
+                   status === 'PARTIAL_ACCEPTED' ? 'secondary' : 'outline';
+    return <Badge variant={variant}>{status.replace('_', ' ')}</Badge>;
+  };
+
+  // Check if a version has quotation responses by counting them
+  const hasQuotationResponses = (version: QuotationVersionWithItems) => {
+    // Show the button only if there are actual quotation responses
+    return (version.quotationResponseCount || 0) > 0;
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quotation History</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle>Quotation History</CardTitle>
+          <Button onClick={onCreateVersion}>
+            Create New Version
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -136,17 +187,32 @@ export function QuotationHistoryTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    {onRecordQuotationResponse ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRecordQuotationResponse(version)}
-                      >
-                        Record Detailed Response
-                      </Button>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Not available</span>
-                    )}
+                    <div className="flex gap-2">
+                      {hasQuotationResponses(version) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => loadQuotationResponses(version)}
+                          disabled={loadingResponses}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          View Response{(version.quotationResponseCount || 0) > 1 ? 's' : ''} ({version.quotationResponseCount})
+                        </Button>
+                      )}
+                      {onRecordQuotationResponse ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onRecordQuotationResponse(version)}
+                        >
+                          Record Detailed Response
+                        </Button>
+                      ) : (
+                        !hasQuotationResponses(version) && (
+                          <span className="text-muted-foreground text-sm">Not available</span>
+                        )
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -299,6 +365,151 @@ export function QuotationHistoryTable({
                 )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Quotation Responses Modal */}
+        <Dialog open={isResponseModalOpen} onOpenChange={() => {
+          setIsResponseModalOpen(false);
+          setResponseVersion(null);
+        }}>
+          <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Quotation Responses - Version {responseVersion?.versionNumber}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {loadingResponses ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  Loading responses...
+                </div>
+              ) : quotationResponses.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-lg font-medium">No detailed responses found</p>
+                  <p className="text-sm mt-2">This version doesn't have any detailed quotation responses yet.</p>
+                </div>
+              ) : (
+                quotationResponses.map((response) => (
+                  <div key={response.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold">Response #{response.responseNumber}</h4>
+                      <div className="flex items-center gap-2">
+                        {getResponseStatusBadge(response.overallStatus)}
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(response.responseDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {response.customerContactPerson && (
+                        <div>
+                          <strong>Contact Person:</strong> {response.customerContactPerson}
+                        </div>
+                      )}
+                      <div>
+                        <strong>Communication Method:</strong> {response.communicationMethod}
+                      </div>
+                      {response.requestedDeliveryDate && (
+                        <div>
+                          <strong>Requested Delivery:</strong> {new Date(response.requestedDeliveryDate).toLocaleDateString()}
+                        </div>
+                      )}
+                      {response.paymentTermsRequested && (
+                        <div>
+                          <strong>Payment Terms:</strong> {response.paymentTermsRequested}
+                        </div>
+                      )}
+                    </div>
+
+                    {response.overallComments && (
+                      <div>
+                        <strong>Overall Comments:</strong>
+                        <p className="mt-1 text-muted-foreground">{response.overallComments}</p>
+                      </div>
+                    )}
+
+                    {response.specialInstructions && (
+                      <div>
+                        <strong>Special Instructions:</strong>
+                        <p className="mt-1 text-muted-foreground">{response.specialInstructions}</p>
+                      </div>
+                    )}
+
+                    {response.responseItems && response.responseItems.length > 0 && (
+                      <div className="mt-4">
+                        <strong>SKU-Level Responses:</strong>
+                        <div className="mt-2 border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Original Qty</TableHead>
+                                <TableHead>Original Price</TableHead>
+                                <TableHead>Response Status</TableHead>
+                                <TableHead>Requested Qty</TableHead>
+                                <TableHead>Requested Price</TableHead>
+                                <TableHead>Comments</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {response.responseItems.map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell className="font-medium">{item.sku?.sku || 'N/A'}</TableCell>
+                                  <TableCell>{item.sku?.description || 'N/A'}</TableCell>
+                                  <TableCell>{item.quotationVersionItem?.quantity || 'N/A'}</TableCell>
+                                  <TableCell>{formatCurrency(item.quotationVersionItem?.unitPrice || 0)}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={
+                                      item.itemStatus === 'ACCEPTED' ? 'default' :
+                                      item.itemStatus === 'DECLINED' ? 'destructive' :
+                                      item.itemStatus === 'COUNTER_PROPOSED' ? 'secondary' : 'outline'
+                                    }>
+                                      {item.itemStatus.replace('_', ' ')}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>{item.requestedQuantity || '-'}</TableCell>
+                                  <TableCell>{item.requestedUnitPrice ? formatCurrency(item.requestedUnitPrice) : '-'}</TableCell>
+                                  <TableCell>
+                                    <div className="max-w-xs">
+                                      {item.itemSpecificComments && (
+                                        <div className="text-sm">
+                                          <strong>Comments:</strong> {item.itemSpecificComments}
+                                        </div>
+                                      )}
+                                      {item.alternativeSuggestions && (
+                                        <div className="text-sm mt-1">
+                                          <strong>Alternatives:</strong> {item.alternativeSuggestions}
+                                        </div>
+                                      )}
+                                      {item.deliveryRequirements && (
+                                        <div className="text-sm mt-1">
+                                          <strong>Delivery:</strong> {item.deliveryRequirements}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-muted-foreground border-t pt-2">
+                      Created: {new Date(response.createdAt).toLocaleString()}
+                      {response.updatedAt !== response.createdAt && (
+                        <> • Updated: {new Date(response.updatedAt).toLocaleString()}</>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </CardContent>

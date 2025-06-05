@@ -80,6 +80,7 @@ export interface QuotationHistoryResponse {
 
 export interface QuotationVersionWithItems extends QuotationVersion {
   items: QuotationItem[];
+  quotationResponseCount?: number;
 }
 
 // New Negotiation Types

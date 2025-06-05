@@ -30,6 +30,7 @@ interface QuotationHistoryTabProps {
     requestedChanges?: string;
   }) => Promise<void>;
   onRecordQuotationResponse?: (versionId: number, data: CreateQuotationResponseRequest) => Promise<void>;
+  rfqId: string;
 }
 
 export function QuotationHistoryTab({
@@ -44,7 +45,8 @@ export function QuotationHistoryTab({
   onCloseResponseModal,
   onCreateVersion,
   onRecordResponse,
-  onRecordQuotationResponse
+  onRecordQuotationResponse,
+  rfqId
 }: QuotationHistoryTabProps) {
   const [isQuotationResponseModalOpen, setIsQuotationResponseModalOpen] = useState(false);
   const [selectedVersionForResponse, setSelectedVersionForResponse] = useState<QuotationVersionWithItems | null>(null);
@@ -66,18 +68,13 @@ export function QuotationHistoryTab({
     }
   };
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Quotation History</h3>
-        <Button onClick={onOpenVersionModal}>
-          Create New Version
-        </Button>
-      </div>
-      
+    <div className="space-y-4 pt-6">
       <QuotationHistoryTable
         versions={quotationHistory}
         onRecordResponse={onOpenResponseModal}
         onRecordQuotationResponse={handleOpenQuotationResponseModal}
+        onCreateVersion={onOpenVersionModal}
+        rfqId={rfqId}
       />
 
       <VersionCreationModal

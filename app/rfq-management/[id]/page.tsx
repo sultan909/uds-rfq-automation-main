@@ -1184,6 +1184,7 @@ export default function RfqDetail({
                 onCreateVersion={handleCreateVersion}
                 onRecordResponse={handleRecordResponse}
                 onRecordQuotationResponse={handleRecordQuotationResponse}
+                rfqId={id}
               />
             </TabsContent>
 

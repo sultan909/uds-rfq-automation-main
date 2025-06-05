@@ -39,6 +39,28 @@ export async function GET(
             name: true,
             email: true,
           }
+        },
+        responseItems: {
+          with: {
+            sku: {
+              columns: {
+                id: true,
+                sku: true,
+                description: true,
+                mpn: true,
+                brand: true,
+              }
+            },
+            quotationVersionItem: {
+              columns: {
+                id: true,
+                quantity: true,
+                unitPrice: true,
+                totalPrice: true,
+                comment: true,
+              }
+            }
+          }
         }
       }
     });
