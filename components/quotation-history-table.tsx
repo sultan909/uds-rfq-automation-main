@@ -131,7 +131,7 @@ export function QuotationHistoryTable({
               <TableHead>Total Amount</TableHead>
               <TableHead>Created By</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Customer Response</TableHead>
+              {/* <TableHead>Customer Response</TableHead> */}
               <TableHead>Detailed Response</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -161,7 +161,7 @@ export function QuotationHistoryTable({
                   <TableCell>
                     {new Date(version.createdAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
+                  {/* <TableCell>
                     {version.customerResponse ? (
                       <div className="space-y-1">
                         <Badge variant={
@@ -185,7 +185,7 @@ export function QuotationHistoryTable({
                         Record Response
                       </Button>
                     )}
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell>
                     <div className="flex gap-2">
                       {hasQuotationResponses(version) && (
@@ -227,7 +227,7 @@ export function QuotationHistoryTable({
                 </TableRow>
                 {expandedVersions.has(version.id) && version.items && version.items.length > 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="p-0">
+                    <TableCell colSpan={9} className="p-0">
                       <div className="bg-muted/30 p-4">
                         <h4 className="font-medium mb-2">
                           SKU Items (v{version.versionNumber}) - {version.items.length} items
