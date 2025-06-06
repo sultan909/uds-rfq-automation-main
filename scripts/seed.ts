@@ -2,7 +2,7 @@
 
 import { db, migrationClient } from '../db'; // Use migrationClient for seeding
 import * as schema from '../db/schema';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcrypt';
 import { type RfqStatus } from '../db/schema';
@@ -331,7 +331,7 @@ async function main() {
             const requestor = getRandomElement(insertedUsers);
             const vendor = faker.datatype.boolean() ? getRandomElement(insertedVendors) : null;
             const dueDate = faker.datatype.boolean() ? getFutureDate(30) : null;
-            const totalBudget = faker.datatype.boolean() ? faker.number.float({ min: 1000, max: 10000, precision: 2 }) : null;
+            const totalBudget = null; // Will be calculated after items are created
             const approvedBy = status === 'ACCEPTED' || status === 'PROCESSED' ? getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER')).id : null;
             const rejectionReason = status === 'DECLINED' ? faker.lorem.sentence() : null;
 
@@ -372,11 +372,9 @@ async function main() {
       unit: string;
       customerSku: string | null;
       internalProductId: number;
-      suggestedPrice: number;
-      finalPrice: number | null;
+      unitPrice: number;
       currency: string;
       status: RfqStatus;
-      estimatedPrice: number;
     }> = [];
 
     for (const rfq of insertedRfqs) {
@@ -400,11 +398,8 @@ async function main() {
                insertedSkuMappings.find(sm => sm.id === sv.mappingId)?.standardSku === inventoryItem.sku
         );
 
-        // Set final price based on RFQ status
-        let finalPrice = null;
-        if (['PRICED', 'SENT', 'NEGOTIATING', 'ACCEPTED', 'PROCESSED'].includes(rfq.status)) {
-          finalPrice = parseFloat(faker.commerce.price({ min: cost * 1.1, max: cost * 1.5 }));
-        }
+        // Calculate unit price based on cost with markup (10-50% above cost)
+        const unitPrice = parseFloat(faker.commerce.price({ min: cost * 1.1, max: cost * 1.5 }));
 
         rfqItemsData.push({
           rfqId: rfq.id,
@@ -414,11 +409,9 @@ async function main() {
           unit: 'pcs',
           customerSku: skuVariation?.variationSku || null,
           internalProductId: inventoryItem.id,
-          suggestedPrice: parseFloat(faker.commerce.price({ min: cost * 1.1, max: cost * 1.5 })),
-          finalPrice,
+          unitPrice,
           currency: inventoryItem.costCurrency || 'CAD',
-          status: rfq.status,
-          estimatedPrice: parseFloat(faker.commerce.price({ min: cost * 1.2, max: cost * 1.8 }))
+          status: rfq.status
         });
       }
     }
@@ -426,9 +419,33 @@ async function main() {
     const insertedRfqItems = await db.insert(schema.rfqItems).values(rfqItemsData).returning();
     console.log(`Inserted ${insertedRfqItems.length} RFQ items`);
 
+    // --- Update RFQ Total Budgets ---
+    console.log('Updating RFQ total budgets based on items...');
+    for (const rfq of insertedRfqs) {
+      // Calculate total budget from RFQ items
+      const rfqItems = insertedRfqItems.filter(item => item.rfqId === rfq.id);
+      const calculatedTotal = rfqItems.reduce((sum, item) => {
+        // Use unitPrice for calculations
+        const price = item.unitPrice || 0;
+        return sum + (price * item.quantity);
+      }, 0);
+
+      // Update RFQ with calculated total budget (always update, even if 0)
+      await db.update(schema.rfqs)
+        .set({ totalBudget: parseFloat(calculatedTotal.toFixed(2)) })
+        .where(eq(schema.rfqs.id, rfq.id));
+      
+      console.log(`Updated RFQ ${rfq.id} with total budget: ${calculatedTotal.toFixed(2)}`);
+    }
+    console.log('Updated RFQ total budgets');
+
     // --- Seed Quotations ---
     console.log('Seeding quotations...');
-    const quotationsData = insertedRfqs.map(rfq => {
+    
+    // Fetch updated RFQs with calculated total budgets
+    const updatedRfqs = await db.select().from(schema.rfqs);
+    
+    const quotationsData = updatedRfqs.map(rfq => {
       // Find a random admin or manager to be the creator
       const adminOrManager = getRandomElement(insertedUsers.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER'));
       
@@ -458,7 +475,7 @@ async function main() {
     // --- Seed Quotation Items ---
     console.log('Seeding quotation items...');
     const quotationItemsData = insertedQuotations.flatMap(quotation => {
-      const rfq = insertedRfqs.find(r => r.id === quotation.rfqId);
+      const rfq = updatedRfqs.find(r => r.id === quotation.rfqId);
       if (!rfq) return [];
 
       // Get all RFQ items for this RFQ
@@ -469,7 +486,7 @@ async function main() {
         if (!item.internalProductId) return null;
         
         // Ensure we have a valid unit price
-        const unitPrice = item.finalPrice || item.suggestedPrice || item.estimatedPrice || 0;
+        const unitPrice = item.unitPrice || 0;
         if (unitPrice <= 0) return null;
 
         return {
@@ -661,7 +678,7 @@ async function main() {
         const changedBy = getRandomElement([...changedByOptions]); // Convert readonly array to mutable array
         let oldQuantity = item.quantity;
         let newQuantity = item.quantity;
-        let oldUnitPrice = item.finalPrice ?? item.suggestedPrice ?? item.estimatedPrice ?? 0;
+                  let oldUnitPrice = item.unitPrice ?? 0;
         let newUnitPrice = oldUnitPrice;
 
         if (changeType === 'QUANTITY_CHANGE' || changeType === 'BOTH') {

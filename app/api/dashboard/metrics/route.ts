@@ -97,20 +97,20 @@ export async function GET(request: NextRequest) {
       previousWeekSalesCAD: 0
     };
     
-    // Calculate conversion rates
-    const conversionRate = rfqMetrics.totalRfqs > 0 
-      ? (rfqMetrics.completedRfqs / rfqMetrics.totalRfqs) * 100 
-      : 0;
+    // Get weekly processed RFQs - specifically RFQs that have status 'PROCESSED' within the last 7 days
+    const weeklyProcessedRfqs = await db
+      .select({
+        count: count()
+      })
+      .from(rfqs)
+      .where(
+        and(
+          eq(rfqs.status, 'PROCESSED'),
+          gte(rfqs.updatedAt, sevenDaysAgo) // Use updatedAt to track when status changed to PROCESSED
+        )
+      );
     
-    const weeklyConversionRate = rfqMetrics.weeklyTotalRfqs > 0
-      ? (rfqMetrics.weeklyCompletedRfqs / rfqMetrics.weeklyTotalRfqs) * 100
-      : 0;
-    
-    const previousWeekConversionRate = rfqMetrics.previousWeekTotalRfqs > 0
-      ? (rfqMetrics.previousWeekCompletedRfqs / rfqMetrics.previousWeekTotalRfqs) * 100
-      : 0;
-    
-    const weeklyConversionChange = weeklyConversionRate - previousWeekConversionRate;
+    const weeklyProcessedCount = weeklyProcessedRfqs[0]?.count || 0;
     
     // Calculate weekly sales change
     const weeklySalesChange = salesData.previousWeekSalesCAD > 0
@@ -124,9 +124,7 @@ export async function GET(request: NextRequest) {
         activeRfqs: rfqMetrics.activeRfqs,
         completedRfqs: rfqMetrics.completedRfqs,
         declinedRfqs: rfqMetrics.declinedRfqs,
-        conversionRate,
-        weeklyConversionRate,
-        weeklyConversionChange
+        weeklyProcessedRfqs: weeklyProcessedCount
       },
       customerMetrics: {
         totalCustomers: customerCounts[0]?.totalCustomers || 0,
