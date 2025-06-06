@@ -42,20 +42,31 @@ interface RfqData {
 export default function RfqManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [rfqs, setRfqs] = useState<RfqData[]>([])
+  const [allRfqs, setAllRfqs] = useState<RfqData[]>([])
+  const [filteredRfqs, setFilteredRfqs] = useState<RfqData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
   const [globalFilterValue, setGlobalFilterValue] = useState("")
   const [selectedRfq, setSelectedRfq] = useState<RfqData | null>(null)
+  const [stats, setStats] = useState({
+    total: 0,
+    new: 0,
+    draft: 0,
+    priced: 0,
+    sent: 0,
+    negotiating: 0,
+    accepted: 0,
+    declined: 0,
+    processed: 0
+  })
   const [filters, setFilters] = useState({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     rfqNumber: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'customer.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
     source: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    status: { value: null, matchMode: FilterMatchMode.EQUALS },
-    createdAt: { value: null as Date | null, matchMode: FilterMatchMode.DATE_IS }
+    status: { value: null, matchMode: FilterMatchMode.EQUALS }
   })
 
   const statusOptions = [
@@ -69,25 +80,43 @@ export default function RfqManagement() {
     { label: 'Processed', value: 'PROCESSED' }
   ]
 
-  const sortOptions = [
-    { label: 'Newest First', value: 'newest' },
-    { label: 'Oldest First', value: 'oldest' },
-    { label: 'Customer A-Z', value: 'customer_asc' },
-    { label: 'Customer Z-A', value: 'customer_desc' }
-  ]
 
+
+  // Fetch all RFQ data once
   useEffect(() => {
-    fetchRfqs()
-  }, [selectedTab])
+    fetchAllRfqs()
+  }, [])
 
-  const fetchRfqs = async () => {
+  // Filter RFQs when tab changes
+  useEffect(() => {
+    filterRfqsByTab()
+  }, [selectedTab, allRfqs])
+
+  const fetchAllRfqs = async () => {
     try {
       setLoading(true)
-      const response = await rfqApi.list({
-        status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
-      })
+      setError(null)
+      
+      // Fetch all RFQs without status filter
+      const response = await rfqApi.list({})
+      
       if (response.success && response.data) {
-        setRfqs(response.data as RfqData[])
+        const rfqData = response.data as RfqData[]
+        setAllRfqs(rfqData)
+        
+        // Calculate stats by status
+        const statusStats = {
+          total: rfqData.length,
+          new: rfqData.filter(rfq => rfq.status.toLowerCase() === 'new').length,
+          draft: rfqData.filter(rfq => rfq.status.toLowerCase() === 'draft').length,
+          priced: rfqData.filter(rfq => rfq.status.toLowerCase() === 'priced').length,
+          sent: rfqData.filter(rfq => rfq.status.toLowerCase() === 'sent').length,
+          negotiating: rfqData.filter(rfq => rfq.status.toLowerCase() === 'negotiating').length,
+          accepted: rfqData.filter(rfq => rfq.status.toLowerCase() === 'accepted').length,
+          declined: rfqData.filter(rfq => rfq.status.toLowerCase() === 'declined').length,
+          processed: rfqData.filter(rfq => rfq.status.toLowerCase() === 'processed').length,
+        }
+        setStats(statusStats)
       } else {
         setError("Failed to load RFQs")
         toast.error("Failed to load RFQs")
@@ -100,19 +129,39 @@ export default function RfqManagement() {
     }
   }
 
+  const filterRfqsByTab = () => {
+    let filtered = [...allRfqs]
+
+    if (selectedTab !== "all") {
+      filtered = allRfqs.filter(rfq => 
+        rfq.status.toLowerCase() === selectedTab.toLowerCase()
+      )
+    }
+
+    setFilteredRfqs(filtered)
+  }
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      fetchRfqs()
+      filterRfqsByTab()
       return
     }
 
     try {
-      setLoading(true);
-      const response = await rfqApi.search(searchQuery, {
-        status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
-      })
+      setLoading(true)
+      const response = await rfqApi.search(searchQuery, {})
       if (response.success && response.data) {
-        setRfqs(response.data as RfqData[])
+        const searchData = response.data as RfqData[]
+        
+        // Apply tab filter to search results
+        let filtered = searchData
+        if (selectedTab !== "all") {
+          filtered = searchData.filter(rfq => 
+            rfq.status.toLowerCase() === selectedTab.toLowerCase()
+          )
+        }
+        
+        setFilteredRfqs(filtered)
       } else {
         setError("Failed to search RFQs")
         toast.error("Failed to search RFQs")
@@ -147,36 +196,9 @@ export default function RfqManagement() {
   const renderHeader = () => {
     return (
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
-          {/* Left side - Sort and Date controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <i className="pi pi-sort-alt text-muted-foreground" />
-              <Dropdown 
-                options={sortOptions} 
-                placeholder="Sort by..." 
-                className="w-[200px] border rounded-md"
-                panelClassName="min-w-[200px]"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <i className="pi pi-calendar text-muted-foreground" />
-              <Calendar 
-                value={filters.createdAt.value} 
-                onChange={(e) => {
-                  let _filters = { ...filters };
-                  _filters.createdAt.value = e.value || null;
-                  setFilters(_filters);
-                }}
-                placeholder="Filter by date"
-                className="w-[200px] border rounded-md"
-                showIcon
-                dateFormat="dd/mm/yy"
-              />
-            </div>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
 
-          {/* Right side - Search and Actions */}
+          {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -281,17 +303,7 @@ export default function RfqManagement() {
     )
   }
 
-  const dateFilterTemplate = (options: any) => {
-    return (
-      <Calendar 
-        value={options.value} 
-        onChange={(e) => options.filterCallback(e.value)} 
-        placeholder="Select Date"
-        dateFormat="mm/dd/yy"
-        className="p-column-filter"
-      />
-    )
-  }
+
 
   const header = renderHeader()
 
@@ -314,15 +326,60 @@ export default function RfqManagement() {
 
               <Tabs defaultValue="all" onValueChange={setSelectedTab}>
                 <TabsList className="mb-4">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="new">New</TabsTrigger>
-                  <TabsTrigger value="draft">Draft</TabsTrigger>
-                  <TabsTrigger value="priced">Priced</TabsTrigger>
-                  <TabsTrigger value="sent">Sent</TabsTrigger>
-                  <TabsTrigger value="negotiating">Negotiating</TabsTrigger>
-                  <TabsTrigger value="accepted">Accepted</TabsTrigger>
-                  <TabsTrigger value="declined">Declined</TabsTrigger>
-                  <TabsTrigger value="processed">Processed</TabsTrigger>
+                  <TabsTrigger value="all" className="relative">
+                    All
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                      {stats.total}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="new" className="relative">
+                    New
+                    <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      {stats.new}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="draft" className="relative">
+                    Draft
+                    <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
+                      {stats.draft}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="priced" className="relative">
+                    Priced
+                    <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                      {stats.priced}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="sent" className="relative">
+                    Sent
+                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                      {stats.sent}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="negotiating" className="relative">
+                    Negotiating
+                    <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                      {stats.negotiating}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="accepted" className="relative">
+                    Accepted
+                    <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                      {stats.accepted}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="declined" className="relative">
+                    Declined
+                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                      {stats.declined}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="processed" className="relative">
+                    Processed
+                    <span className="ml-2 text-xs bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full">
+                      {stats.processed}
+                    </span>
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={selectedTab} className="m-0">
@@ -339,7 +396,7 @@ export default function RfqManagement() {
                     <div className="card">
                       <DataTable 
                         key={`rfq-table-${currency}`}
-                        value={rfqs}
+                        value={filteredRfqs}
                         paginator 
                         rows={10} 
                         rowsPerPageOptions={[5, 10, 25, 50]}

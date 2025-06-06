@@ -47,7 +47,8 @@ interface Customer {
 export default function CustomerManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([])
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -67,8 +68,7 @@ export default function CustomerManagement() {
     email: { value: null, matchMode: FilterMatchMode.CONTAINS },
     type: { value: null, matchMode: FilterMatchMode.EQUALS },
     phone: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    city: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    lastOrder: { value: null as Date | null, matchMode: FilterMatchMode.DATE_IS }
+    city: { value: null, matchMode: FilterMatchMode.CONTAINS }
   })
 
   const customerTypeOptions = [
@@ -78,31 +78,31 @@ export default function CustomerManagement() {
     { label: 'Direct', value: 'DIRECT' }
   ]
 
-  const sortOptions = [
-    { label: 'Newest First', value: 'newest' },
-    { label: 'Oldest First', value: 'oldest' },
-    { label: 'Name A-Z', value: 'name_asc' },
-    { label: 'Name Z-A', value: 'name_desc' },
-    { label: 'Total Spent High-Low', value: 'spent_desc' },
-    { label: 'Total Spent Low-High', value: 'spent_asc' }
-  ]
 
+
+  // Fetch all customer data once
   useEffect(() => {
-    fetchCustomers()
-  }, [selectedTab])
+    fetchAllCustomers()
+  }, [])
 
-  const fetchCustomers = async () => {
+  // Filter customers when tab changes
+  useEffect(() => {
+    filterCustomersByTab()
+  }, [selectedTab, allCustomers])
+
+  const fetchAllCustomers = async () => {
     try {
       setLoading(true)
-      const params =
-        selectedTab === "all" ? {} : { type: selectedTab.toUpperCase() }
-      const response = await customerApi.list(params)
+      setError(null)
+      
+      // Fetch all customers without type filter
+      const response = await customerApi.list({})
 
       if (response.success && response.data) {
         const customerData = response.data as Customer[]
-        setCustomers(customerData)
+        setAllCustomers(customerData)
 
-        // Calculate statistics
+        // Calculate statistics from all data (remains constant)
         setStats({
           total: customerData.length,
           dealers: customerData.filter((c) => c.type === "DEALER").length,
@@ -122,19 +122,39 @@ export default function CustomerManagement() {
     }
   }
 
+  const filterCustomersByTab = () => {
+    let filtered = [...allCustomers]
+
+    if (selectedTab !== "all") {
+      filtered = allCustomers.filter(customer => 
+        customer.type.toLowerCase() === selectedTab.toLowerCase()
+      )
+    }
+
+    setFilteredCustomers(filtered)
+  }
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      fetchCustomers()
+      filterCustomersByTab()
       return
     }
 
     try {
-      setLoading(true);
-      const response = await customerApi.search(searchQuery, {
-        type: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
-      })
+      setLoading(true)
+      const response = await customerApi.search(searchQuery, {})
       if (response.success && response.data) {
-        setCustomers(response.data as Customer[])
+        const searchData = response.data as Customer[]
+        
+        // Apply tab filter to search results
+        let filtered = searchData
+        if (selectedTab !== "all") {
+          filtered = searchData.filter(customer => 
+            customer.type.toLowerCase() === selectedTab.toLowerCase()
+          )
+        }
+        
+        setFilteredCustomers(filtered)
       } else {
         setError("Failed to search customers")
         toast.error("Failed to search customers")
@@ -170,36 +190,9 @@ export default function CustomerManagement() {
   const renderHeader = () => {
     return (
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
-          {/* Left side - Sort and Date controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <i className="pi pi-sort-alt text-muted-foreground" />
-              <Dropdown 
-                options={sortOptions} 
-                placeholder="Sort by..." 
-                className="w-[200px] border rounded-md"
-                panelClassName="min-w-[200px]"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <i className="pi pi-calendar text-muted-foreground" />
-              <Calendar 
-                value={filters.lastOrder.value} 
-                onChange={(e) => {
-                  let _filters = { ...filters };
-                  _filters.lastOrder.value = e.value || null;
-                  setFilters(_filters);
-                }}
-                placeholder="Filter by last order date"
-                className="w-[200px] border rounded-md"
-                showIcon
-                dateFormat="dd/mm/yy"
-              />
-            </div>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
 
-          {/* Right side - Search and Actions */}
+          {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -355,17 +348,7 @@ export default function CustomerManagement() {
     )
   }
 
-  const dateFilterTemplate = (options: any) => {
-    return (
-      <Calendar 
-        value={options.value} 
-        onChange={(e) => options.filterCallback(e.value)} 
-        placeholder="Select Date"
-        dateFormat="mm/dd/yy"
-        className="p-column-filter"
-      />
-    )
-  }
+
 
   const header = renderHeader()
 
@@ -478,7 +461,7 @@ export default function CustomerManagement() {
                     <div className="card">
                       <DataTable 
                         key={`customers-table-${currency}`}
-                        value={customers}
+                        value={filteredCustomers}
                         paginator 
                         rows={10} 
                         rowsPerPageOptions={[5, 10, 25, 50]}
@@ -528,8 +511,6 @@ export default function CustomerManagement() {
                           header="Last Order" 
                           body={lastOrderBodyTemplate}
                           sortable 
-                          filter
-                          filterElement={dateFilterTemplate}
                           style={{ minWidth: '120px' }}
                         />
                         <Column 

@@ -30,8 +30,8 @@ interface InventoryItem {
   description: string
   quantityOnHand: number
   quantityReserved: number
-  costCad: number | null
-  costUsd: number | null
+  cost: number | null
+  costCurrency: string
   warehouseLocation: string | null
   lowStockThreshold: number
   lastSaleDate: string | null
@@ -243,18 +243,10 @@ export default function InventoryItemView({
                   </div>
                   <div>
                     <label className="text-sm text-muted-foreground">
-                      Cost (CAD)
+                      Cost ({item.costCurrency})
                     </label>
                     <div className="font-medium">
-                      ${item.costCad?.toFixed(2) || "0.00"}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">
-                      Cost (USD)
-                    </label>
-                    <div className="font-medium">
-                      ${item.costUsd?.toFixed(2) || "0.00"}
+                      ${item.cost?.toFixed(2) || "0.00"}
                     </div>
                   </div>
                 </div>

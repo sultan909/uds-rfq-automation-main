@@ -206,8 +206,8 @@ async function extractItemsFromContent(content: string) {
         quantityReserved: matchedItem.quantityReserved,
         warehouseLocation: matchedItem.warehouseLocation,
         lowStockThreshold: matchedItem.lowStockThreshold,
-        costCad: matchedItem.costCad,
-        costUsd: matchedItem.costUsd,
+        cost: matchedItem.cost,
+        costCurrency: matchedItem.costCurrency,
         stock: matchedItem.stock
       } : null
     });

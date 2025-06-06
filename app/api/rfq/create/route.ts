@@ -105,9 +105,16 @@ export async function POST(request: NextRequest) {
         let suggestedPrice = null;
         let estimatedPrice = null;
         
-        if (inventoryItem?.costCad) {
+        if (inventoryItem?.cost) {
           // Apply a default markup of 30% for suggested price
-          const cost = body.currency === 'USD' ? (inventoryItem.costUsd || inventoryItem.costCad * 0.75) : inventoryItem.costCad;
+          // Convert cost to the requested currency if needed
+          let cost = inventoryItem.cost;
+          if (inventoryItem.costCurrency !== body.currency) {
+            // Simple conversion rate for demo (should use actual rate)
+            cost = inventoryItem.costCurrency === 'CAD' && body.currency === 'USD' 
+              ? cost * 0.75 
+              : cost * 1.35;
+          }
           suggestedPrice = Math.round(cost * 1.3 * 100) / 100;
           estimatedPrice = suggestedPrice;
         }

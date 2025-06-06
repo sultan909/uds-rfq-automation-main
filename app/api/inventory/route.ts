@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
       body.stock = 0;
     }
     
-    if (body.costCad === undefined || body.costCad === null) {
-      throw new ApiError('Cost in CAD is required');
+    if (body.cost === undefined || body.cost === null) {
+      throw new ApiError('Cost is required');
     }
     
     if (!body.mpn) {
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
         brand: body.brand,
         description: body.description,
         stock: body.stock || 0,
-        costCad: body.costCad,
-        costUsd: body.costUsd,
+        cost: body.cost,
+        costCurrency: body.costCurrency || 'CAD',
         warehouseLocation: body.warehouseLocation,
         quantityOnHand: body.quantityOnHand || body.stock || 0,
         quantityReserved: body.quantityReserved || 0,

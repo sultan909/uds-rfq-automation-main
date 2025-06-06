@@ -36,7 +36,8 @@ interface InventoryItem {
   quantityOnHand: number
   quantityReserved: number
   lowStockThreshold: number
-  costCad: number | null
+  cost: number | null
+  costCurrency: string
   warehouseLocation: string | null
 }
 
@@ -45,7 +46,8 @@ interface InventoryApiResponse extends Array<InventoryItem> {}
 export default function InventoryManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [items, setItems] = useState<InventoryItem[]>([])
+  const [allItems, setAllItems] = useState<InventoryItem[]>([]) // Store all items
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]) // Store filtered items for display
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -73,48 +75,32 @@ export default function InventoryManagement() {
     { label: 'Out of Stock', value: 'OUT_OF_STOCK' }
   ]
 
-  const sortOptions = [
-    { label: 'SKU A-Z', value: 'sku_asc' },
-    { label: 'SKU Z-A', value: 'sku_desc' },
-    { label: 'Quantity High-Low', value: 'quantity_desc' },
-    { label: 'Quantity Low-High', value: 'quantity_asc' },
-    { label: 'Brand A-Z', value: 'brand_asc' },
-    { label: 'Brand Z-A', value: 'brand_desc' }
-  ]
 
+
+  // Fetch all inventory data once
   useEffect(() => {
-    fetchInventory()
-  }, [selectedTab])
+    fetchAllInventory()
+  }, [])
 
-  const fetchInventory = async () => {
+  // Filter items when tab changes
+  useEffect(() => {
+    filterItemsByTab()
+  }, [selectedTab, allItems])
+
+  const fetchAllInventory = async () => {
     try {
       setLoading(true)
-      let params = {};
-
-      switch (selectedTab) {
-        case "low_stock":
-          params = { lowStock: true };
-          break;
-        case "out_of_stock":
-          params = { outOfStock: true };
-          break;
-        case "active":
-          params = { status: "ACTIVE" };
-          break;
-      }
-
-      const response = await inventoryApi.list(params)
-      console.log("response", response)
-
+      setError(null)
+      
+      // Fetch all inventory without filters
+      const response = await inventoryApi.list({})
+      
       if (response.success && response.data) {
-        console.log("hello");
-        
         const inventoryData = response.data as InventoryApiResponse
-        console.log("inventoryData", inventoryData);
-        setItems(inventoryData)
-
-        // Calculate statistics
-        setStats({
+        setAllItems(inventoryData)
+        
+        // Calculate overall statistics from all data
+        const totalStats = {
           total: inventoryData.length,
           lowStock: inventoryData.filter(
             (item: InventoryItem) =>
@@ -128,7 +114,8 @@ export default function InventoryManagement() {
             (item: InventoryItem) =>
               item.quantityOnHand > item.lowStockThreshold
           ).length,
-        })
+        }
+        setStats(totalStats)
       } else {
         setError("Failed to load inventory")
         toast.error("Failed to load inventory")
@@ -141,20 +128,71 @@ export default function InventoryManagement() {
     }
   }
 
+  const filterItemsByTab = () => {
+    let filtered = [...allItems]
+
+    switch (selectedTab) {
+      case "active":
+        filtered = allItems.filter(
+          (item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold
+        )
+        break
+      case "low_stock":
+        filtered = allItems.filter(
+          (item: InventoryItem) =>
+            item.quantityOnHand <= item.lowStockThreshold &&
+            item.quantityOnHand > 0
+        )
+        break
+      case "out_of_stock":
+        filtered = allItems.filter(
+          (item: InventoryItem) => item.quantityOnHand === 0
+        )
+        break
+      case "all":
+      default:
+        filtered = allItems
+        break
+    }
+
+    setFilteredItems(filtered)
+  }
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      fetchInventory()
+      filterItemsByTab()
       return
     }
 
     try {
       setLoading(true)
-      const response = await inventoryApi.search(searchQuery, {
-        status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
-      })
+      const response = await inventoryApi.search(searchQuery, {})
       if (response.success && response.data) {
         const searchData = response.data as InventoryItem[]
-        setItems(searchData)
+        
+        // Apply tab filter to search results
+        let filtered = searchData
+        switch (selectedTab) {
+          case "active":
+            filtered = searchData.filter(
+              (item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold
+            )
+            break
+          case "low_stock":
+            filtered = searchData.filter(
+              (item: InventoryItem) =>
+                item.quantityOnHand <= item.lowStockThreshold &&
+                item.quantityOnHand > 0
+            )
+            break
+          case "out_of_stock":
+            filtered = searchData.filter(
+              (item: InventoryItem) => item.quantityOnHand === 0
+            )
+            break
+        }
+        
+        setFilteredItems(filtered)
       } else {
         setError("Failed to search inventory")
         toast.error("Failed to search inventory")
@@ -190,21 +228,9 @@ export default function InventoryManagement() {
   const renderHeader = () => {
     return (
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
-          {/* Left side - Sort controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <i className="pi pi-sort-alt text-muted-foreground" />
-              <Dropdown 
-                options={sortOptions} 
-                placeholder="Sort by..." 
-                className="w-[200px] border rounded-md"
-                panelClassName="min-w-[200px]"
-              />
-            </div>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
 
-          {/* Right side - Search and Actions */}
+          {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -263,18 +289,22 @@ export default function InventoryManagement() {
   }
 
   const priceBodyTemplate = (rowData: InventoryItem) => {
-    if (!rowData.costCad) {
+    if (!rowData.cost) {
       return <span className="text-muted-foreground">-</span>
     }
     
-    // Convert from CAD (database stores in CAD) to selected currency if needed
-    const convertedAmount = currency === 'CAD' 
-      ? rowData.costCad 
-      : convertCurrency(rowData.costCad, 'CAD')
+    // Convert from stored currency to selected display currency
+    const convertedAmount = convertCurrency(
+      rowData.cost, 
+      rowData.costCurrency as 'CAD' | 'USD'
+    )
     
     return (
       <div className="text-sm font-medium">
         {formatCurrency(convertedAmount)}
+        {/* <div className="text-xs text-muted-foreground">
+          {rowData.costCurrency !== currency && `(${rowData.costCurrency}: ${formatCurrency(rowData.cost)})`}
+        </div> */}
       </div>
     )
   }
@@ -426,15 +456,15 @@ export default function InventoryManagement() {
                   ) : (
                     <div className="card">
                       <DataTable 
-                        key={`inventory-table-${currency}`}
-                        value={items}
+                        key={`inventory-table-${currency}-${selectedTab}`}
+                        value={filteredItems}
                         paginator 
                         rows={10} 
                         rowsPerPageOptions={[5, 10, 25, 50]}
                         dataKey="id"
                         filters={filters}
                         globalFilterFields={['sku', 'description', 'brand', 'category', 'warehouseLocation']}
-                        emptyMessage="No inventory items found."
+                        emptyMessage={`No ${selectedTab === 'all' ? '' : selectedTab.replace('_', ' ')} inventory items found.`}
                         loading={loading}
                         sortMode="multiple"
                         removableSort
@@ -460,52 +490,44 @@ export default function InventoryManagement() {
                           header="Description" 
                           body={descriptionBodyTemplate}
                           sortable 
-                          style={{ minWidth: '250px' }}
+                          style={{ minWidth: '200px' }}
                         />
                         <Column 
                           field="brand" 
                           header="Brand" 
                           sortable 
-                          style={{ minWidth: '150px' }}
+                          style={{ minWidth: '120px' }}
                         />
                         <Column 
                           field="category" 
                           header="Category" 
                           body={categoryBodyTemplate}
                           sortable 
-                          style={{ minWidth: '120px' }}
+                          style={{ minWidth: '100px' }}
                         />
                         <Column 
                           field="quantityOnHand" 
                           header="Stock" 
-                          body={quantityBodyTemplate}
+                          body={stockStatusBodyTemplate}
                           sortable 
                           style={{ minWidth: '100px' }}
                         />
                         <Column 
-                          field="costCad" 
-                          header={`Price (${currency})`} 
+                          field="cost" 
+                          header="Cost" 
                           body={priceBodyTemplate}
                           sortable 
                           style={{ minWidth: '120px' }}
-                          key={`price-inventory-${currency}`}
                         />
                         <Column 
                           field="warehouseLocation" 
                           header="Location" 
                           body={locationBodyTemplate}
                           sortable 
-                          style={{ minWidth: '150px' }}
-                        />
-                        <Column 
-                          field="status" 
-                          header="Status" 
-                          body={stockStatusBodyTemplate}
-                          sortable 
                           style={{ minWidth: '120px' }}
                         />
                         <Column 
-                          header="Actions" 
+                          header="Actions"
                           body={actionsBodyTemplate}
                           style={{ minWidth: '120px' }}
                         />

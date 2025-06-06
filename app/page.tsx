@@ -328,7 +328,7 @@ export default function Dashboard() {
             {/* Completed RFQs Table */}
             <Card className="p-4 bg-card text-card-foreground">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Completed RFQs</h2>
+                <h2 className="text-lg font-semibold">Processed RFQs</h2>
                 <a
                   href="/rfq-management"
                   className="text-sm text-primary hover:underline"
@@ -420,9 +420,9 @@ function ConversionRateMetric({
 
   return (
     <div className="metric-card bg-green-50 dark:bg-green-950/30">
-      <div className="metric-label">Conversion Rate</div>
+      <div className="metric-label">Weekly Processed RFQs</div>
       <div className="metric-value">{rfqMetrics.conversionRate.toFixed(1)}%</div>
-      <div className={`metric-change ${
+      {/* <div className={`metric-change ${
         trend === "up" ? "metric-positive" : "metric-negative"
       }`}>
         {trend === "up" ? (
@@ -431,7 +431,7 @@ function ConversionRateMetric({
           <ArrowDownIcon className="inline w-3 h-3 mr-1" />
         )}
         {changeValue.toFixed(1)}% this week
-      </div>
+      </div> */}
     </div>
   );
 }
@@ -465,9 +465,9 @@ function SalesVolumeMetric({
 
   return (
     <div className="metric-card bg-purple-50 dark:bg-purple-950/30">
-      <div className="metric-label">Sales Volume</div>
+      <div className="metric-label">Weekly Sales Volume</div>
       <div className="metric-value">{formattedValue}</div>
-      <div className={`metric-change ${
+      {/* <div className={`metric-change ${
         trend === "up" ? "metric-positive" : "metric-negative"
       }`}>
         {trend === "up" ? (
@@ -476,7 +476,7 @@ function SalesVolumeMetric({
           <ArrowDownIcon className="inline w-3 h-3 mr-1" />
         )}
         {Math.abs(percentageChange).toFixed(1)}% this week
-      </div>
+      </div> */}
     </div>
   );
 }

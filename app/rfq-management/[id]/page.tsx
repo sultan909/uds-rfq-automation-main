@@ -308,6 +308,28 @@ export default function RfqDetail({
     console.log("Edit item:", itemId);
   };
 
+  const handlePushToQB = async () => {
+    try {
+      // Dummy action for now - show loading state and success message
+      toast.loading("Pushing RFQ to QuickBooks...", { id: "qb-push" });
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Show success message
+      toast.success("RFQ successfully pushed to QuickBooks!", { id: "qb-push" });
+      
+      // TODO: Implement actual QuickBooks integration
+      console.log("Push to QB clicked for RFQ:", id);
+      console.log("RFQ Data:", rfqData);
+      console.log("Items:", items);
+      
+    } catch (error) {
+      toast.error("Failed to push to QuickBooks", { id: "qb-push" });
+      console.error("Error pushing to QB:", error);
+    }
+  };
+
   // Update the pagination display in the UI
   const renderPagination = () => {
     console.log('Rendering pagination with state:', { totalItems, totalPages, currentPage });
@@ -818,8 +840,8 @@ export default function RfqDetail({
                       sku: inventoryData.sku,
                       description: inventoryData.description,
                       stock: inventoryData.stock,
-                      costCad: inventoryData.costCad,
-                      costUsd: inventoryData.costUsd,
+                      cost: inventoryData.cost,
+                      costCurrency: inventoryData.costCurrency,
                       quantityOnHand: inventoryData.quantityOnHand,
                       quantityReserved: inventoryData.quantityReserved,
                       warehouseLocation: inventoryData.warehouseLocation,
@@ -1008,8 +1030,8 @@ export default function RfqDetail({
                     </div>
                   )}
                   <div className="pt-4 flex gap-2">
-                    <Button asChild>
-                      <a href={`/rfq-management/${id}/create-quote`}>Create Quote</a>
+                    <Button onClick={handlePushToQB}>
+                      Push to QB
                     </Button>
                     <Button
                       variant="outline"
