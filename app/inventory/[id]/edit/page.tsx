@@ -65,9 +65,9 @@ export default function InventoryItemEdit({
   const fetchItem = async () => {
     try {
       setLoading(true)
-      const response = await inventoryApi.getById(parseInt(params.id))
+      const response = await inventoryApi.get(params.id)
       if (response.success && response.data) {
-        const item = response.data
+        const item = response.data as InventoryItem
         setFormData({
           sku: item.sku || "",
           mpn: item.mpn || "",
@@ -97,7 +97,7 @@ export default function InventoryItemEdit({
     setLoading(true)
 
     try {
-      const response = await inventoryApi.update(parseInt(params.id), {
+      const response = await inventoryApi.update(params.id, {
         ...formData,
         quantityOnHand: parseInt(formData.quantityOnHand),
         quantityReserved: parseInt(formData.quantityReserved),

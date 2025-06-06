@@ -28,8 +28,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           sku: inventoryItems.sku,
           description: inventoryItems.description,
           stock: inventoryItems.stock,
-          costCad: inventoryItems.costCad,
-          costUsd: inventoryItems.costUsd
+          cost: inventoryItems.cost,
+          costCurrency: inventoryItems.costCurrency
         }
       })
       .from(rfqItems)
@@ -84,8 +84,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             quantityReserved: inventoryItem.quantityReserved,
             warehouseLocation: inventoryItem.warehouseLocation,
             lowStockThreshold: inventoryItem.lowStockThreshold,
-            costCad: inventoryItem.costCad,
-            costUsd: inventoryItem.costUsd,
+            cost: inventoryItem.cost,
+            costCurrency: inventoryItem.costCurrency,
             stock: inventoryItem.stock
           };
         }

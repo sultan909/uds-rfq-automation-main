@@ -46,7 +46,8 @@ interface InventoryApiResponse extends Array<InventoryItem> {}
 export default function InventoryManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [items, setItems] = useState<InventoryItem[]>([])
+  const [allItems, setAllItems] = useState<InventoryItem[]>([]) // Store all items
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]) // Store filtered items for display
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -83,39 +84,30 @@ export default function InventoryManagement() {
     { label: 'Brand Z-A', value: 'brand_desc' }
   ]
 
+  // Fetch all inventory data once
   useEffect(() => {
-    fetchInventory()
-  }, [selectedTab])
+    fetchAllInventory()
+  }, [])
 
-  const fetchInventory = async () => {
+  // Filter items when tab changes
+  useEffect(() => {
+    filterItemsByTab()
+  }, [selectedTab, allItems])
+
+  const fetchAllInventory = async () => {
     try {
       setLoading(true)
-      let params = {};
-
-      switch (selectedTab) {
-        case "low_stock":
-          params = { lowStock: true };
-          break;
-        case "out_of_stock":
-          params = { outOfStock: true };
-          break;
-        case "active":
-          params = { status: "ACTIVE" };
-          break;
-      }
-
-      const response = await inventoryApi.list(params)
-      console.log("response", response)
-
+      setError(null)
+      
+      // Fetch all inventory without filters
+      const response = await inventoryApi.list({})
+      
       if (response.success && response.data) {
-        console.log("hello");
-        
         const inventoryData = response.data as InventoryApiResponse
-        console.log("inventoryData", inventoryData);
-        setItems(inventoryData)
-
-        // Calculate statistics
-        setStats({
+        setAllItems(inventoryData)
+        
+        // Calculate overall statistics from all data
+        const totalStats = {
           total: inventoryData.length,
           lowStock: inventoryData.filter(
             (item: InventoryItem) =>
@@ -129,7 +121,8 @@ export default function InventoryManagement() {
             (item: InventoryItem) =>
               item.quantityOnHand > item.lowStockThreshold
           ).length,
-        })
+        }
+        setStats(totalStats)
       } else {
         setError("Failed to load inventory")
         toast.error("Failed to load inventory")
@@ -142,20 +135,71 @@ export default function InventoryManagement() {
     }
   }
 
+  const filterItemsByTab = () => {
+    let filtered = [...allItems]
+
+    switch (selectedTab) {
+      case "active":
+        filtered = allItems.filter(
+          (item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold
+        )
+        break
+      case "low_stock":
+        filtered = allItems.filter(
+          (item: InventoryItem) =>
+            item.quantityOnHand <= item.lowStockThreshold &&
+            item.quantityOnHand > 0
+        )
+        break
+      case "out_of_stock":
+        filtered = allItems.filter(
+          (item: InventoryItem) => item.quantityOnHand === 0
+        )
+        break
+      case "all":
+      default:
+        filtered = allItems
+        break
+    }
+
+    setFilteredItems(filtered)
+  }
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      fetchInventory()
+      filterItemsByTab()
       return
     }
 
     try {
       setLoading(true)
-      const response = await inventoryApi.search(searchQuery, {
-        status: selectedTab === "all" ? undefined : selectedTab.toUpperCase(),
-      })
+      const response = await inventoryApi.search(searchQuery, {})
       if (response.success && response.data) {
         const searchData = response.data as InventoryItem[]
-        setItems(searchData)
+        
+        // Apply tab filter to search results
+        let filtered = searchData
+        switch (selectedTab) {
+          case "active":
+            filtered = searchData.filter(
+              (item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold
+            )
+            break
+          case "low_stock":
+            filtered = searchData.filter(
+              (item: InventoryItem) =>
+                item.quantityOnHand <= item.lowStockThreshold &&
+                item.quantityOnHand > 0
+            )
+            break
+          case "out_of_stock":
+            filtered = searchData.filter(
+              (item: InventoryItem) => item.quantityOnHand === 0
+            )
+            break
+        }
+        
+        setFilteredItems(filtered)
       } else {
         setError("Failed to search inventory")
         toast.error("Failed to search inventory")
@@ -431,15 +475,15 @@ export default function InventoryManagement() {
                   ) : (
                     <div className="card">
                       <DataTable 
-                        key={`inventory-table-${currency}`}
-                        value={items}
+                        key={`inventory-table-${currency}-${selectedTab}`}
+                        value={filteredItems}
                         paginator 
                         rows={10} 
                         rowsPerPageOptions={[5, 10, 25, 50]}
                         dataKey="id"
                         filters={filters}
                         globalFilterFields={['sku', 'description', 'brand', 'category', 'warehouseLocation']}
-                        emptyMessage="No inventory items found."
+                        emptyMessage={`No ${selectedTab === 'all' ? '' : selectedTab.replace('_', ' ')} inventory items found.`}
                         loading={loading}
                         sortMode="multiple"
                         removableSort

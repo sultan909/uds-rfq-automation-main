@@ -31,8 +31,8 @@ interface RfqItem {
     sku: string;
     description: string;
     stock: number;
-    costCad: number | null;
-    costUsd: number | null;
+    cost: number | null;
+    costCurrency: string;
   } | null;
 }
 
@@ -114,8 +114,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           sku: inventoryItems.sku,
           description: inventoryItems.description,
           stock: inventoryItems.stock,
-          costCad: inventoryItems.costCad,
-          costUsd: inventoryItems.costUsd,
+          cost: inventoryItems.cost,
+          costCurrency: inventoryItems.costCurrency,
           quantityOnHand: inventoryItems.quantityOnHand,
           quantityReserved: inventoryItems.quantityReserved,
           warehouseLocation: inventoryItems.warehouseLocation,

@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       category,
       description,
       stock,
-      costCad,
-      costUsd,
+      cost,
+      costCurrency,
       warehouseLocation,
       quantityOnHand,
       quantityReserved,
@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
         category,
         description,
         stock: stock || 0,
-        costCad,
-        costUsd,
+        cost,
+        costCurrency: costCurrency || 'CAD',
         warehouseLocation,
         quantityOnHand: quantityOnHand || 0,
         quantityReserved: quantityReserved || 0,
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
-    return createSuccessResponse(newItem, 201)
+    return NextResponse.json(createSuccessResponse(newItem), { status: 201 })
   } catch (error) {
     return handleApiError(error)
   }

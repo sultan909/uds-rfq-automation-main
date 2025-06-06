@@ -101,7 +101,7 @@ export default function NewInventory() {
         }
       } else {
         console.log("Invalid vendor response format:", response);
-        setVendorsError(response?.message || 'Failed to fetch vendors')
+        setVendorsError(response?.error || 'Failed to fetch vendors')
       }
     } catch (error) {
       console.error('Failed to fetch vendors:', error)
@@ -153,7 +153,7 @@ export default function NewInventory() {
         toast.success("Inventory item created successfully")
         router.push("/inventory")
       } else {
-        toast.error(response.message || "Failed to create inventory item")
+        toast.error(response.error || "Failed to create inventory item")
       }
     } catch (error) {
       toast.error("An error occurred while creating the inventory item")

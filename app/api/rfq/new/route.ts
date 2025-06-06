@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
         description: inventoryItems.description,
         brand: inventoryItems.brand,
         mpn: inventoryItems.mpn,
-        costCad: inventoryItems.costCad,
-        costUsd: inventoryItems.costUsd,
+        cost: inventoryItems.cost,
+        costCurrency: inventoryItems.costCurrency,
       })
       .from(inventoryItems)
       .orderBy(inventoryItems.sku);

@@ -59,8 +59,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           sku: inventoryItems.sku,
           description: inventoryItems.description,
           stock: inventoryItems.stock,
-          costCad: inventoryItems.costCad,
-          costUsd: inventoryItems.costUsd
+          cost: inventoryItems.cost,
+          costCurrency: inventoryItems.costCurrency
         }
       })
       .from(rfqItems)
