@@ -13,8 +13,8 @@ export async function GET(
   { params }: { params: { id: string; versionId: string } }
 ) {
   try {
-    const rfqId = parseInt(params.id);
-    const versionId = parseInt(params.versionId);
+    const rfqId = parseInt(await params.id);
+    const versionId = parseInt(await params.versionId);
 
     // Verify version exists and belongs to the RFQ
     const version = await db.query.quotationVersions.findFirst({
@@ -125,12 +125,12 @@ export async function POST(
       responseNumber,
       overallStatus: body.overallStatus,
       responseDate: new Date(body.responseDate),
-      customerContactPerson: body.customerContactPerson,
+      customerContactPerson: body.customerContactPerson || null,
       communicationMethod: body.communicationMethod,
-      overallComments: body.overallComments,
-      requestedDeliveryDate: body.requestedDeliveryDate ? new Date(body.requestedDeliveryDate) : undefined,
-      paymentTermsRequested: body.paymentTermsRequested,
-      specialInstructions: body.specialInstructions,
+      overallComments: body.overallComments || null,
+      requestedDeliveryDate: body.requestedDeliveryDate || null,
+      paymentTermsRequested: body.paymentTermsRequested || null,
+      specialInstructions: body.specialInstructions || null,
       recordedByUserId: 1, // TODO: Get from auth context
     }).returning();
 
