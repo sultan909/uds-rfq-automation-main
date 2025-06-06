@@ -80,12 +80,7 @@ export default function RfqManagement() {
     { label: 'Processed', value: 'PROCESSED' }
   ]
 
-  const sortOptions = [
-    { label: 'Newest First', value: 'newest' },
-    { label: 'Oldest First', value: 'oldest' },
-    { label: 'Customer A-Z', value: 'customer_asc' },
-    { label: 'Customer Z-A', value: 'customer_desc' }
-  ]
+
 
   // Fetch all RFQ data once
   useEffect(() => {
@@ -201,22 +196,9 @@ export default function RfqManagement() {
   const renderHeader = () => {
     return (
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
-          {/* Left side - Sort and Date controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <i className="pi pi-sort-alt text-muted-foreground" />
-              <Dropdown 
-                options={sortOptions} 
-                placeholder="Sort by..." 
-                className="w-[200px] border rounded-md"
-                panelClassName="min-w-[200px]"
-              />
-            </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
 
-          </div>
-
-          {/* Right side - Search and Actions */}
+          {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">

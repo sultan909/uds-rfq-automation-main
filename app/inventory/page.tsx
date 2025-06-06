@@ -75,14 +75,7 @@ export default function InventoryManagement() {
     { label: 'Out of Stock', value: 'OUT_OF_STOCK' }
   ]
 
-  const sortOptions = [
-    { label: 'SKU A-Z', value: 'sku_asc' },
-    { label: 'SKU Z-A', value: 'sku_desc' },
-    { label: 'Quantity High-Low', value: 'quantity_desc' },
-    { label: 'Quantity Low-High', value: 'quantity_asc' },
-    { label: 'Brand A-Z', value: 'brand_asc' },
-    { label: 'Brand Z-A', value: 'brand_desc' }
-  ]
+
 
   // Fetch all inventory data once
   useEffect(() => {
@@ -235,21 +228,9 @@ export default function InventoryManagement() {
   const renderHeader = () => {
     return (
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-card rounded-lg border shadow-sm">
-          {/* Left side - Sort controls */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <i className="pi pi-sort-alt text-muted-foreground" />
-              <Dropdown 
-                options={sortOptions} 
-                placeholder="Sort by..." 
-                className="w-[200px] border rounded-md"
-                panelClassName="min-w-[200px]"
-              />
-            </div>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
 
-          {/* Right side - Search and Actions */}
+          {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -321,9 +302,9 @@ export default function InventoryManagement() {
     return (
       <div className="text-sm font-medium">
         {formatCurrency(convertedAmount)}
-        <div className="text-xs text-muted-foreground">
+        {/* <div className="text-xs text-muted-foreground">
           {rowData.costCurrency !== currency && `(${rowData.costCurrency}: ${formatCurrency(rowData.cost)})`}
-        </div>
+        </div> */}
       </div>
     )
   }
