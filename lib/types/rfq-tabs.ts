@@ -29,8 +29,8 @@ export interface InventoryResponse {
   sku: string;
   description: string;
   stock: number;
-  costCad: number;
-  costUsd: number;
+  cost: number;
+  costCurrency: string;
   quantityOnHand: number;
   quantityReserved: number;
   warehouseLocation: string;

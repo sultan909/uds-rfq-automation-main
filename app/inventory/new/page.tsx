@@ -3,7 +3,7 @@
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { inventoryApi, vendorApi } from "@/lib/api-client"
 import { toast } from "sonner"
+import { useCurrency } from "@/contexts/currency-context"
 
 interface Vendor {
   id: number
@@ -22,26 +23,62 @@ interface Vendor {
   isActive: boolean
 }
 
+interface FormData {
+  sku: string
+  mpn: string
+  brand: string
+  category: string
+  description: string
+  quantityOnHand: string
+  cost: string
+  costCurrency: string
+  warehouseLocation: string
+  lowStockThreshold: string
+  quickbooksItemId: string
+  vendorId: string
+  poNumber: string
+}
+
+const categories = [
+  "ELECTRONICS",
+  "MACHINERY",
+  "AUTOMOTIVE",
+  "INDUSTRIAL",
+  "MEDICAL",
+  "AEROSPACE",
+  "OTHER"
+]
+
 export default function NewInventory() {
   const router = useRouter()
+  const { currency } = useCurrency()
   const [loading, setLoading] = useState(false)
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [vendorsLoading, setVendorsLoading] = useState(false)
   const [vendorsError, setVendorsError] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     sku: "",
     mpn: "",
     brand: "",
-    category: "",
+    category: "OTHER",
     description: "",
     quantityOnHand: "0",
-    costCad: "",
-    costUsd: "",
+    cost: "",
+    costCurrency: currency, // Default to current selected currency
     warehouseLocation: "",
     lowStockThreshold: "5",
+    quickbooksItemId: "",
     vendorId: "",
-    poNumber: ""  // Purchase Order number
+    poNumber: "",
   })
+
+  // Update cost currency when global currency changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      costCurrency: currency
+    }))
+  }, [currency])
 
   const fetchVendors = async () => {
     if (vendors.length > 0) {
@@ -79,12 +116,11 @@ export default function NewInventory() {
     setLoading(true)
 
     try {
-      // First create the inventory item
+      // Create the inventory item
       const response = await inventoryApi.create({
         ...formData,
         quantityOnHand: parseInt(formData.quantityOnHand),
-        costCad: formData.costCad ? parseFloat(formData.costCad) : null,
-        costUsd: formData.costUsd ? parseFloat(formData.costUsd) : null,
+        cost: formData.cost ? parseFloat(formData.cost) : null,
         lowStockThreshold: parseInt(formData.lowStockThreshold),
       })
 
@@ -102,8 +138,9 @@ export default function NewInventory() {
               items: [{
                 productId: response.data.id,
                 quantity: parseInt(formData.quantityOnHand),
-                unitCost: formData.costCad ? parseFloat(formData.costCad) : 0,
-                extendedCost: formData.costCad ? parseFloat(formData.costCad) * parseInt(formData.quantityOnHand) : 0
+                unitCost: formData.cost ? parseFloat(formData.cost) : 0,
+                extendedCost: formData.cost ? parseFloat(formData.cost) * parseInt(formData.quantityOnHand) : 0,
+                currency: formData.costCurrency
               }]
             })
           })
@@ -127,11 +164,17 @@ export default function NewInventory() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
   }
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -146,210 +189,241 @@ export default function NewInventory() {
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="New Inventory Item" subtitle="Add a new item to your inventory" />
+        <Header
+          title="Add New Inventory Item"
+          subtitle="Create a new inventory item"
+        />
         <div className="flex-1 overflow-auto p-4">
-          <Card className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="sku">SKU</Label>
-                  <Input
-                    id="sku"
-                    name="sku"
-                    value={formData.sku}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter SKU"
-                  />
-                </div>
+          <div className="max-w-4xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle>Inventory Item Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Basic Information</h3>
+                      <div className="space-y-2">
+                        <Label htmlFor="sku">SKU *</Label>
+                        <Input
+                          id="sku"
+                          name="sku"
+                          value={formData.sku}
+                          onChange={handleChange}
+                          required
+                          placeholder="Enter SKU"
+                        />
+                      </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="mpn">MPN</Label>
-                  <Input
-                    id="mpn"
-                    name="mpn"
-                    value={formData.mpn}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter Manufacturer Part Number"
-                  />
-                </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="mpn">Manufacturer Part Number (MPN) *</Label>
+                        <Input
+                          id="mpn"
+                          name="mpn"
+                          value={formData.mpn}
+                          onChange={handleChange}
+                          required
+                          placeholder="Enter MPN"
+                        />
+                      </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="vendorId">Vendor</Label>
-                  <Select
-                    value={formData.vendorId}
-                    onValueChange={(value) => handleSelectChange("vendorId", value)}
-                    disabled={vendorsLoading}
-                    onOpenChange={handleOpenChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select vendor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vendorsLoading ? (
-                        <SelectItem value="loading" disabled>
-                          Loading vendors...
-                        </SelectItem>
-                      ) : vendorsError ? (
-                        <SelectItem value="error" disabled>
-                          {vendorsError}
-                        </SelectItem>
-                      ) : vendors.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No vendors available. Please add vendors first.
-                        </SelectItem>
-                      ) : (
-                        vendors.map((vendor) => (
-                          <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                            {vendor.name} {vendor.contactPerson ? `(${vendor.contactPerson})` : ''}
+                      <div className="space-y-2">
+                        <Label htmlFor="brand">Brand *</Label>
+                        <Input
+                          id="brand"
+                          name="brand"
+                          value={formData.brand}
+                          onChange={handleChange}
+                          required
+                          placeholder="Enter brand name"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Select 
+                          value={formData.category} 
+                          onValueChange={(value) => handleSelectChange("category", value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description *</Label>
+                        <Textarea
+                          id="description"
+                          name="description"
+                          value={formData.description}
+                          onChange={handleChange}
+                          required
+                          placeholder="Enter item description"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Stock & Pricing</h3>
+                      <div className="space-y-2">
+                        <Label htmlFor="quantityOnHand">Quantity On Hand</Label>
+                        <Input
+                          id="quantityOnHand"
+                          name="quantityOnHand"
+                          type="number"
+                          min="0"
+                          value={formData.quantityOnHand}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cost">Cost *</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="cost"
+                            name="cost"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.cost}
+                            onChange={handleChange}
+                            required
+                            placeholder="Enter cost"
+                            className="flex-1"
+                          />
+                          <Select 
+                            value={formData.costCurrency} 
+                            onValueChange={(value) => handleSelectChange("costCurrency", value)}
+                          >
+                            <SelectTrigger className="w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CAD">CAD</SelectItem>
+                              <SelectItem value="USD">USD</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Cost will be stored in {formData.costCurrency} and converted for display
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="warehouseLocation">Warehouse Location</Label>
+                        <Input
+                          id="warehouseLocation"
+                          name="warehouseLocation"
+                          value={formData.warehouseLocation}
+                          onChange={handleChange}
+                          placeholder="Enter warehouse location"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
+                        <Input
+                          id="lowStockThreshold"
+                          name="lowStockThreshold"
+                          type="number"
+                          min="0"
+                          value={formData.lowStockThreshold}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="quickbooksItemId">QuickBooks Item ID</Label>
+                        <Input
+                          id="quickbooksItemId"
+                          name="quickbooksItemId"
+                          value={formData.quickbooksItemId}
+                          onChange={handleChange}
+                          placeholder="Enter QuickBooks ID (optional)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorId">Vendor</Label>
+                    <Select
+                      value={formData.vendorId}
+                      onValueChange={(value) => handleSelectChange("vendorId", value)}
+                      disabled={vendorsLoading}
+                      onOpenChange={handleOpenChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vendor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vendorsLoading ? (
+                          <SelectItem value="loading" disabled>
+                            Loading vendors...
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {vendorsError && (
-                    <p className="text-sm text-red-500 mt-1">{vendorsError}</p>
-                  )}
-                </div>
+                        ) : vendorsError ? (
+                          <SelectItem value="error" disabled>
+                            {vendorsError}
+                          </SelectItem>
+                        ) : vendors.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No vendors available. Please add vendors first.
+                          </SelectItem>
+                        ) : (
+                          vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                              {vendor.name} {vendor.contactPerson ? `(${vendor.contactPerson})` : ''}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {vendorsError && (
+                      <p className="text-sm text-red-500 mt-1">{vendorsError}</p>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    name="brand"
-                    value={formData.brand}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter brand name"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="poNumber">Purchase Order Number</Label>
+                    <Input
+                      id="poNumber"
+                      name="poNumber"
+                      value={formData.poNumber}
+                      onChange={handleChange}
+                      placeholder="Enter PO number"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => handleSelectChange("category", value)}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TONER">Toner</SelectItem>
-                      <SelectItem value="DRUM">Drum</SelectItem>
-                      <SelectItem value="INK">Ink</SelectItem>
-                      <SelectItem value="PARTS">Parts</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter item description"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="quantityOnHand">Quantity On Hand</Label>
-                  <Input
-                    id="quantityOnHand"
-                    name="quantityOnHand"
-                    type="number"
-                    min="0"
-                    value={formData.quantityOnHand}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="costCad">Cost (CAD)</Label>
-                  <Input
-                    id="costCad"
-                    name="costCad"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.costCad}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter cost in CAD"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="costUsd">Cost (USD)</Label>
-                  <Input
-                    id="costUsd"
-                    name="costUsd"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.costUsd}
-                    onChange={handleChange}
-                    placeholder="Enter cost in USD (optional)"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="warehouseLocation">Warehouse Location</Label>
-                  <Input
-                    id="warehouseLocation"
-                    name="warehouseLocation"
-                    value={formData.warehouseLocation}
-                    onChange={handleChange}
-                    placeholder="Enter warehouse location"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
-                  <Input
-                    id="lowStockThreshold"
-                    name="lowStockThreshold"
-                    type="number"
-                    min="0"
-                    value={formData.lowStockThreshold}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="poNumber">Purchase Order Number</Label>
-                  <Input
-                    id="poNumber"
-                    name="poNumber"
-                    value={formData.poNumber}
-                    onChange={handleChange}
-                    placeholder="Enter PO number"
-                  />
-                </div>
-
-                <div className="md:col-span-2 flex justify-end gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.back()}
-                    disabled={loading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Creating..." : "Create Item"}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </Card>
+                  <div className="flex gap-4 pt-6 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push("/inventory")}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={loading}>
+                      {loading ? "Creating..." : "Create Item"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

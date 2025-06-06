@@ -36,7 +36,8 @@ interface InventoryItem {
   quantityOnHand: number
   quantityReserved: number
   lowStockThreshold: number
-  costCad: number | null
+  cost: number | null
+  costCurrency: string
   warehouseLocation: string | null
 }
 
@@ -263,18 +264,22 @@ export default function InventoryManagement() {
   }
 
   const priceBodyTemplate = (rowData: InventoryItem) => {
-    if (!rowData.costCad) {
+    if (!rowData.cost) {
       return <span className="text-muted-foreground">-</span>
     }
     
-    // Convert from CAD (database stores in CAD) to selected currency if needed
-    const convertedAmount = currency === 'CAD' 
-      ? rowData.costCad 
-      : convertCurrency(rowData.costCad, 'CAD')
+    // Convert from stored currency to selected display currency
+    const convertedAmount = convertCurrency(
+      rowData.cost, 
+      rowData.costCurrency as 'CAD' | 'USD'
+    )
     
     return (
       <div className="text-sm font-medium">
         {formatCurrency(convertedAmount)}
+        <div className="text-xs text-muted-foreground">
+          {rowData.costCurrency !== currency && `(${rowData.costCurrency}: ${formatCurrency(rowData.cost)})`}
+        </div>
       </div>
     )
   }
@@ -460,52 +465,44 @@ export default function InventoryManagement() {
                           header="Description" 
                           body={descriptionBodyTemplate}
                           sortable 
-                          style={{ minWidth: '250px' }}
+                          style={{ minWidth: '200px' }}
                         />
                         <Column 
                           field="brand" 
                           header="Brand" 
                           sortable 
-                          style={{ minWidth: '150px' }}
+                          style={{ minWidth: '120px' }}
                         />
                         <Column 
                           field="category" 
                           header="Category" 
                           body={categoryBodyTemplate}
                           sortable 
-                          style={{ minWidth: '120px' }}
+                          style={{ minWidth: '100px' }}
                         />
                         <Column 
                           field="quantityOnHand" 
                           header="Stock" 
-                          body={quantityBodyTemplate}
+                          body={stockStatusBodyTemplate}
                           sortable 
                           style={{ minWidth: '100px' }}
                         />
                         <Column 
-                          field="costCad" 
-                          header={`Price (${currency})`} 
+                          field="cost" 
+                          header="Cost" 
                           body={priceBodyTemplate}
                           sortable 
                           style={{ minWidth: '120px' }}
-                          key={`price-inventory-${currency}`}
                         />
                         <Column 
                           field="warehouseLocation" 
                           header="Location" 
                           body={locationBodyTemplate}
                           sortable 
-                          style={{ minWidth: '150px' }}
-                        />
-                        <Column 
-                          field="status" 
-                          header="Status" 
-                          body={stockStatusBodyTemplate}
-                          sortable 
                           style={{ minWidth: '120px' }}
                         />
                         <Column 
-                          header="Actions" 
+                          header="Actions"
                           body={actionsBodyTemplate}
                           style={{ minWidth: '120px' }}
                         />

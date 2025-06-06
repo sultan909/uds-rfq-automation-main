@@ -218,7 +218,10 @@ async function main() {
       const brand = getRandomElement(brands);
       const category = getRandomElement(categories);
       const productType = getRandomElement(productTypes[category as keyof typeof productTypes]);
-      const costCad = parseFloat(faker.commerce.price({ 
+      
+      // Randomly choose currency for cost (80% CAD, 20% USD to reflect North American business)
+      const costCurrency = faker.datatype.boolean(0.8) ? 'CAD' : 'USD';
+      const cost = parseFloat(faker.commerce.price({ 
         min: category === 'TONER' ? 50 : category === 'DRUM' ? 100 : category === 'INK' ? 30 : 40, 
         max: category === 'TONER' ? 200 : category === 'DRUM' ? 400 : category === 'INK' ? 150 : 300 
       }));
@@ -237,8 +240,8 @@ async function main() {
           category === 'INK' ? 'Ink Cartridge' : 
           category === 'PARTS' ? 'Replacement Part' : 'Accessory'}`,
         stock: faker.number.int({ min: 0, max: 100 }),
-        costCad,
-        costUsd: parseFloat((costCad * 0.75).toFixed(2)),
+        cost,
+        costCurrency,
         warehouseLocation: `Aisle ${faker.string.alpha(1).toUpperCase()}${faker.number.int({ min: 1, max: 20 })}-Shelf ${faker.number.int({ min: 1, max: 5 })}`,
         quantityOnHand: faker.number.int({ min: 0, max: 50 }),
         quantityReserved: faker.number.int({ min: 0, max: 10 }),
@@ -388,8 +391,8 @@ async function main() {
         const inventoryItem = availableItems[i];
         usedItems.add(inventoryItem.id);
         
-        if (!inventoryItem || inventoryItem.costCad === null) continue;
-        const costCad = inventoryItem.costCad as number;
+        if (!inventoryItem || inventoryItem.cost === null) continue;
+        const cost = inventoryItem.cost as number;
         
         // Find the SKU variation for this customer and inventory item
         const skuVariation = insertedSkuVariations.find(
@@ -400,7 +403,7 @@ async function main() {
         // Set final price based on RFQ status
         let finalPrice = null;
         if (['PRICED', 'SENT', 'NEGOTIATING', 'ACCEPTED', 'PROCESSED'].includes(rfq.status)) {
-          finalPrice = parseFloat(faker.commerce.price({ min: costCad * 1.1, max: costCad * 1.5 }));
+          finalPrice = parseFloat(faker.commerce.price({ min: cost * 1.1, max: cost * 1.5 }));
         }
 
         rfqItemsData.push({
@@ -411,11 +414,11 @@ async function main() {
           unit: 'pcs',
           customerSku: skuVariation?.variationSku || null,
           internalProductId: inventoryItem.id,
-          suggestedPrice: parseFloat(faker.commerce.price({ min: costCad * 1.1, max: costCad * 1.5 })),
+          suggestedPrice: parseFloat(faker.commerce.price({ min: cost * 1.1, max: cost * 1.5 })),
           finalPrice,
-          currency: 'CAD',
+          currency: inventoryItem.costCurrency || 'CAD',
           status: rfq.status,
-          estimatedPrice: parseFloat(faker.commerce.price({ min: costCad * 1.2, max: costCad * 1.8 }))
+          estimatedPrice: parseFloat(faker.commerce.price({ min: cost * 1.2, max: cost * 1.8 }))
         });
       }
     }
