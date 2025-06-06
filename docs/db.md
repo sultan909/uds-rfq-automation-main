@@ -1,46 +1,51 @@
 # Database Schema Documentation
 
 ## Overview
-This document describes the complete database schema for the UDS RFQ Automation system, including all tables, fields, relationships, and entity-relationship diagrams. The system supports comprehensive RFQ management, inventory tracking, sales history, email automation, and reporting functionality.
+This document describes the complete database schema for the UDS RFQ Automation system, including all tables, fields, relationships, and entity-relationship diagrams. The system supports comprehensive RFQ management, inventory tracking, sales history, email automation, quotation versioning, customer response tracking, and reporting functionality.
 
 ---
 
 ## Entity Summary
-| Table Name              | Description                                    |
-|------------------------|------------------------------------------------|
-| users                  | System users (admins, sales, employees)       |
-| customers              | Customer companies/contacts                    |
-| vendors                | Vendor companies/contacts                      |
-| rfqs                   | Request for Quotation records                  |
-| rfq_items              | Line items for each RFQ                       |
-| quotations             | Quotes submitted for RFQs                     |
-| quotation_items        | Line items for each quote                     |
-| quotation_versions     | Version control for quotations                |
-| customer_responses     | Customer responses to quotation versions      |
-| inventory_items        | Inventory products/items                       |
-| sales_history          | Historical sales records                       |
-| purchase_orders        | Purchase orders to vendors                     |
-| po_items               | Line items for each purchase order            |
-| market_pricing         | Market pricing data for products              |
-| sku_mappings           | Standardized SKU definitions                   |
-| sku_variations         | Customer-specific SKU variations               |
-| audit_log              | System audit logs                              |
-| comments               | Comments on RFQs                               |
-| email_templates        | Email template definitions                     |
-| email_settings         | Email automation configuration                |
-| email_accounts         | Email account configurations                   |
-| email_rules            | Email parsing and processing rules            |
-| email_parsing_results  | Results from email parsing operations        |
-| rfq_templates          | RFQ template definitions                       |
-| reports                | Generated reports and analytics               |
-| settings               | System configuration settings                  |
+| Table Name                    | Description                                    |
+|------------------------------|------------------------------------------------|
+| users                        | System users (admins, sales, employees)       |
+| customers                    | Customer companies/contacts                    |
+| vendors                      | Vendor companies/contacts                      |
+| rfqs                         | Request for Quotation records                  |
+| rfq_items                    | Line items for each RFQ                       |
+| quotations                   | Quotes submitted for RFQs                     |
+| quotation_items              | Line items for each quote                     |
+| quotation_versions           | Version control for quotations                |
+| quotation_version_items      | Line items for each quotation version        |
+| customer_responses           | Simple customer responses to quotation versions |
+| quotation_responses          | Detailed customer responses with metadata     |
+| quotation_response_items     | SKU-level responses within quotation responses |
+| negotiation_communications   | Manual communication tracking                 |
+| sku_negotiation_history      | SKU-level negotiation change tracking        |
+| inventory_items              | Inventory products/items                       |
+| sales_history                | Historical sales records                       |
+| purchase_orders              | Purchase orders to vendors                     |
+| po_items                     | Line items for each purchase order            |
+| market_pricing               | Market pricing data for products              |
+| sku_mappings                 | Standardized SKU definitions                   |
+| sku_variations               | Customer-specific SKU variations               |
+| audit_log                    | System audit logs                              |
+| comments                     | Comments on RFQs                               |
+| email_templates              | Email template definitions                     |
+| email_settings               | Email automation configuration                |
+| email_accounts               | Email account configurations                   |
+| email_rules                  | Email parsing and processing rules            |
+| email_parsing_results        | Results from email parsing operations        |
+| rfq_templates                | RFQ template definitions                       |
+| reports                      | Generated reports and analytics               |
+| settings                     | System configuration settings                  |
 
 ---
 
 ## Enums
 | Enum Name        | Values                                      |
 |------------------|---------------------------------------------|
-| rfq_status       | PENDING, IN_REVIEW, APPROVED, REJECTED, COMPLETED |
+| rfq_status       | NEW, DRAFT, PRICED, SENT, NEGOTIATING, ACCEPTED, DECLINED, PROCESSED |
 | user_role        | ADMIN, MANAGER, EMPLOYEE, SALES             |
 | customer_type    | WHOLESALER, DEALER, RETAILER, DIRECT        |
 
@@ -93,25 +98,26 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | updatedAt      | timestamp | Default now          |
 
 ### rfqs
-| Column         | Type      | Notes                |
-|----------------|-----------|----------------------|
-| id             | serial PK | RFQ ID               |
-| rfqNumber      | varchar   | Unique, not null     |
-| title          | varchar   | Not null             |
-| description    | text      | Not null             |
-| requestorId    | int FK    | users.id             |
-| customerId     | int FK    | customers.id         |
-| vendorId       | int FK    | vendors.id           |
-| status         | enum      | rfq_status           |
-| dueDate        | date      |                      |
-| attachments    | jsonb     | Array of file paths  |
-| totalBudget    | real      |                      |
-| approvedBy     | int FK    | users.id             |
-| rejectionReason| text      |                      |
-| source         | varchar   | Not null (email/manual) |
-| notes          | text      |                      |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
+| Column           | Type      | Notes                |
+|------------------|-----------|----------------------|
+| id               | serial PK | RFQ ID               |
+| rfqNumber        | varchar   | Unique, not null     |
+| title            | varchar   | Not null             |
+| description      | text      | Not null             |
+| requestorId      | int FK    | users.id             |
+| customerId       | int FK    | customers.id         |
+| vendorId         | int FK    | vendors.id           |
+| status           | enum      | rfq_status           |
+| dueDate          | date      |                      |
+| attachments      | jsonb     | Array of file paths  |
+| totalBudget      | real      |                      |
+| approvedBy       | int FK    | users.id             |
+| rejectionReason  | text      |                      |
+| source           | varchar   | Not null (email/manual) |
+| notes            | text      |                      |
+| currentVersionId | int FK    | quotation_versions.id |
+| createdAt        | timestamp | Default now          |
+| updatedAt        | timestamp | Default now          |
 
 ### rfq_items
 | Column            | Type      | Notes                |
@@ -156,20 +162,36 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | updatedAt          | timestamp | Default now          |
 
 ### quotation_versions
-| Column         | Type      | Notes                |
-|----------------|-----------|----------------------|
-| id             | serial PK | Version ID           |
-| rfqId          | int FK    | rfqs.id              |
-| versionNumber  | int       | Not null             |
-| status         | varchar   | Default NEW          |
-| estimatedPrice | int       | Not null             |
-| finalPrice     | int       | Not null             |
-| changes        | text      | Change description   |
-| createdBy      | varchar   | Not null             |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
+| Column            | Type      | Notes                |
+|-------------------|-----------|----------------------|
+| id                | serial PK | Version ID           |
+| rfqId             | int FK    | rfqs.id              |
+| versionNumber     | int       | Not null             |
+| entryType         | varchar   | Default internal_quote |
+| status            | varchar   | Default NEW          |
+| estimatedPrice    | int       | Not null             |
+| finalPrice        | int       | Not null             |
+| changes           | text      | Change description   |
+| notes             | text      |                      |
+| createdBy         | varchar   | Not null             |
+| submittedByUserId | int FK    | users.id             |
+| createdAt         | timestamp | Default now          |
+| updatedAt         | timestamp | Default now          |
 
-### customer_responses
+### quotation_version_items
+| Column     | Type      | Notes                |
+|------------|-----------|----------------------|
+| id         | serial PK | Version Item ID      |
+| versionId  | int FK    | quotation_versions.id |
+| skuId      | int FK    | inventory_items.id   |
+| quantity   | int       | Not null             |
+| unitPrice  | real      | Not null             |
+| totalPrice | real      | Not null (calculated) |
+| comment    | text      | Optional negotiation note |
+| createdAt  | timestamp | Default now          |
+| updatedAt  | timestamp | Default now          |
+
+### customer_responses (Simple)
 | Column           | Type      | Notes                |
 |------------------|-----------|----------------------|
 | id               | serial PK | Response ID          |
@@ -178,6 +200,47 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | comments         | text      |                      |
 | requestedChanges | text      |                      |
 | respondedAt      | timestamp | Default now          |
+
+### quotation_responses (Detailed)
+| Column                 | Type      | Notes                |
+|------------------------|-----------|----------------------|
+| id                     | serial PK | Response ID          |
+| quotationVersionId     | int FK    | quotation_versions.id |
+| responseNumber         | int       | Not null (sequential) |
+| overallStatus          | varchar   | Default PENDING      |
+| responseDate           | timestamp | Not null             |
+| customerContactPerson  | varchar   |                      |
+| communicationMethod    | varchar   | Default EMAIL        |
+| overallComments        | text      |                      |
+| requestedDeliveryDate  | date      |                      |
+| paymentTermsRequested  | varchar   |                      |
+| specialInstructions    | text      |                      |
+| recordedByUserId       | int FK    | users.id             |
+| createdAt              | timestamp | Default now          |
+| updatedAt              | timestamp | Default now          |
+
+**Overall Status Values:** ACCEPTED, DECLINED, PARTIAL_ACCEPTED, NEGOTIATING, PENDING
+**Communication Methods:** EMAIL, PHONE, MEETING, PORTAL
+
+### quotation_response_items
+| Column                   | Type      | Notes                |
+|--------------------------|-----------|----------------------|
+| id                       | serial PK | Response Item ID     |
+| quotationResponseId      | int FK    | quotation_responses.id |
+| quotationVersionItemId   | int FK    | quotation_version_items.id |
+| skuId                    | int FK    | inventory_items.id   |
+| itemStatus               | varchar   | Default PENDING      |
+| requestedQuantity        | int       |                      |
+| requestedUnitPrice       | real      |                      |
+| requestedTotalPrice      | real      |                      |
+| customerSkuReference     | varchar   |                      |
+| itemSpecificComments     | text      |                      |
+| alternativeSuggestions   | text      |                      |
+| deliveryRequirements     | varchar   |                      |
+| createdAt                | timestamp | Default now          |
+| updatedAt                | timestamp | Default now          |
+
+**Item Status Values:** ACCEPTED, DECLINED, COUNTER_PROPOSED, NEEDS_CLARIFICATION, PENDING
 
 ### quotation_items
 | Column         | Type      | Notes                |
@@ -193,6 +256,51 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | description    | text      |                      |
 | createdAt      | timestamp | Default now          |
 | updatedAt      | timestamp | Default now          |
+
+## Negotiation Tracking
+
+### negotiation_communications
+| Column               | Type      | Notes                |
+|----------------------|-----------|----------------------|
+| id                   | serial PK | Communication ID     |
+| rfqId                | int FK    | rfqs.id              |
+| versionId            | int FK    | quotation_versions.id |
+| communicationType    | varchar   | Not null             |
+| direction            | varchar   | Not null             |
+| subject              | varchar   |                      |
+| content              | text      | Not null             |
+| contactPerson        | varchar   |                      |
+| communicationDate    | timestamp | Not null             |
+| followUpRequired     | boolean   | Default false        |
+| followUpDate         | timestamp |                      |
+| followUpCompleted    | boolean   | Default false        |
+| followUpCompletedAt  | timestamp |                      |
+| enteredByUserId      | int FK    | users.id             |
+| createdAt            | timestamp | Default now          |
+| updatedAt            | timestamp | Default now          |
+
+**Communication Types:** EMAIL, PHONE_CALL, MEETING, INTERNAL_NOTE
+**Directions:** OUTBOUND, INBOUND
+
+### sku_negotiation_history
+| Column           | Type      | Notes                |
+|------------------|-----------|----------------------|
+| id               | serial PK | SKU History ID       |
+| rfqId            | int FK    | rfqs.id              |
+| skuId            | int FK    | inventory_items.id   |
+| versionId        | int FK    | quotation_versions.id |
+| communicationId  | int FK    | negotiation_communications.id |
+| changeType       | varchar   | Not null             |
+| oldQuantity      | int       |                      |
+| newQuantity      | int       |                      |
+| oldUnitPrice     | real      |                      |
+| newUnitPrice     | real      |                      |
+| changedBy        | varchar   | Default CUSTOMER     |
+| enteredByUserId  | int FK    | users.id             |
+| createdAt        | timestamp | Default now          |
+
+**Change Types:** PRICE_CHANGE, QUANTITY_CHANGE, BOTH
+**Changed By:** CUSTOMER, INTERNAL
 
 ## Inventory & Sales
 
@@ -439,18 +547,41 @@ This document describes the complete database schema for the UDS RFQ Automation 
 - **rfqs** 1---* **quotations** (rfqId)
 - **rfqs** 1---* **quotation_versions** (rfqId)
 - **rfqs** 1---* **comments** (rfqId)
+- **rfqs** 1---1 **quotation_versions** (currentVersionId)
 
-### Quotation Management
+### Quotation Management & Versioning
 - **quotations** 1---* **quotation_items** (quotationId)
+- **quotation_versions** 1---* **quotation_version_items** (versionId)
 - **quotation_versions** 1---* **customer_responses** (versionId)
+- **quotation_versions** 1---* **quotation_responses** (quotationVersionId)
+- **quotation_responses** 1---* **quotation_response_items** (quotationResponseId)
+- **quotation_version_items** 1---* **quotation_response_items** (quotationVersionItemId)
 - **rfq_items** 1---* **quotation_items** (rfqItemId)
+
+### Negotiation Tracking
+- **rfqs** 1---* **negotiation_communications** (rfqId)
+- **quotation_versions** 1---* **negotiation_communications** (versionId)
+- **rfqs** 1---* **sku_negotiation_history** (rfqId)
+- **quotation_versions** 1---* **sku_negotiation_history** (versionId)
+- **negotiation_communications** 1---* **sku_negotiation_history** (communicationId)
+- **inventory_items** 1---* **sku_negotiation_history** (skuId)
+- **users** 1---* **negotiation_communications** (enteredByUserId)
+- **users** 1---* **sku_negotiation_history** (enteredByUserId)
 
 ### Inventory & Sales
 - **inventory_items** 1---* **rfq_items** (internalProductId)
 - **inventory_items** 1---* **quotation_items** (productId)
+- **inventory_items** 1---* **quotation_version_items** (skuId)
+- **inventory_items** 1---* **quotation_response_items** (skuId)
 - **inventory_items** 1---* **sales_history** (productId)
 - **inventory_items** 1---* **po_items** (productId)
 - **inventory_items** 1---* **market_pricing** (productId)
+
+### Response Tracking
+- **users** 1---* **quotation_responses** (recordedByUserId)
+- **customers** 1---* **sales_history** (customerId)
+- **vendors** 1---* **purchase_orders** (vendorId)
+- **purchase_orders** 1---* **po_items** (poId)
 
 ### SKU Management
 - **sku_mappings** 1---* **sku_variations** (mappingId)
@@ -463,6 +594,7 @@ This document describes the complete database schema for the UDS RFQ Automation 
 - **users** 1---* **rfq_templates** (createdBy)
 - **users** 1---* **reports** (createdBy)
 - **users** 1---* **settings** (updatedBy)
+- **users** 1---* **quotation_versions** (submittedByUserId)
 
 ---
 
@@ -474,6 +606,10 @@ erDiagram
     users ||--o{ comments : "writes"
     users ||--o{ rfq_templates : "creates"
     users ||--o{ reports : "generates"
+    users ||--o{ quotation_versions : "submits"
+    users ||--o{ quotation_responses : "records"
+    users ||--o{ negotiation_communications : "enters"
+    users ||--o{ sku_negotiation_history : "enters"
     
     customers ||--o{ rfqs : "submits"
     customers ||--o{ quotations : "receives"
@@ -489,24 +625,70 @@ erDiagram
     rfqs ||--o{ quotation_versions : "versioned"
     rfqs ||--o{ comments : "discussed"
     rfqs ||--o{ email_parsing_results : "created_from"
+    rfqs ||--o{ negotiation_communications : "tracked"
+    rfqs ||--o{ sku_negotiation_history : "history"
+    rfqs ||--|| quotation_versions : "current_version"
     
     quotations ||--o{ quotation_items : "contains"
     quotation_versions ||--o{ customer_responses : "receives"
+    quotation_versions ||--o{ quotation_version_items : "contains"
+    quotation_versions ||--o{ quotation_responses : "detailed_responses"
+    quotation_versions ||--o{ negotiation_communications : "versioned"
+    quotation_versions ||--o{ sku_negotiation_history : "versioned"
+    
+    quotation_responses ||--o{ quotation_response_items : "contains"
+    quotation_version_items ||--o{ quotation_response_items : "responds_to"
     
     rfq_items ||--o{ quotation_items : "quoted"
     
     inventory_items ||--o{ rfq_items : "requested"
     inventory_items ||--o{ quotation_items : "quoted"
+    inventory_items ||--o{ quotation_version_items : "versioned"
+    inventory_items ||--o{ quotation_response_items : "responded"
     inventory_items ||--o{ sales_history : "sold"
     inventory_items ||--o{ po_items : "ordered"
     inventory_items ||--o{ market_pricing : "priced"
+    inventory_items ||--o{ sku_negotiation_history : "negotiated"
     
     purchase_orders ||--o{ po_items : "contains"
     
     sku_mappings ||--o{ sku_variations : "standardized"
+    
+    negotiation_communications ||--o{ sku_negotiation_history : "generates"
 ```
 
 ---
+
+## Advanced Features
+
+### Quotation Response System
+The system supports comprehensive customer response tracking with two levels:
+
+1. **Simple Customer Responses** (`customer_responses`): Basic status and comments
+2. **Detailed Quotation Responses** (`quotation_responses` + `quotation_response_items`): 
+   - Complete metadata (contact person, communication method, delivery requirements)
+   - SKU-level responses with individual status, pricing, and comments
+   - Sequential response numbering for tracking multiple rounds
+   - Alternative suggestions and delivery requirements per item
+
+### Negotiation Communication Tracking
+- **Manual Entry System**: Track all customer communications
+- **Bidirectional Tracking**: INBOUND and OUTBOUND communications
+- **Multiple Communication Types**: EMAIL, PHONE_CALL, MEETING, INTERNAL_NOTE
+- **Follow-up Management**: Track required follow-ups and completion status
+- **Version Linking**: Link communications to specific quotation versions
+
+### SKU-Level Negotiation History
+- **Change Tracking**: Track price and quantity changes per SKU
+- **Source Attribution**: Identify if changes came from CUSTOMER or INTERNAL sources
+- **Version Correlation**: Link changes to specific quotation versions
+- **Communication Context**: Link changes to specific communications
+
+### Version Control Features
+- **Sequential Versioning**: Automatic version numbering per RFQ
+- **Entry Type Tracking**: Distinguish between internal quotes and customer feedback
+- **Current Version Pointer**: RFQ maintains reference to current active version
+- **Change Documentation**: Track changes and notes per version
 
 ## Currency Support
 The system supports multi-currency operations with the following features:
@@ -531,6 +713,24 @@ Tables with QuickBooks integration capabilities:
 - **Rule-Based Processing**: Customizable email processing rules
 - **Confidence Scoring**: AI-powered confidence levels for automation decisions
 
+## Data Types & Field Specifications
+
+### Date vs Timestamp Fields
+- **timestamp**: Full date and time with timezone support (e.g., `responseDate`, `createdAt`)
+- **date**: Date only without time (e.g., `requestedDeliveryDate`, `saleDate`)
+
+### JSONB Field Usage
+- **attachments**: Array of file paths/URLs
+- **variables**: Template variable definitions
+- **folders**: Email folder configurations
+- **columns**: Template column definitions
+- **metadata**: Flexible configuration data
+- **filters**: Report filter configurations
+- **data**: Report result data
+- **details**: Audit log details
+- **customerInfo**: Parsed customer information
+- **items**: Parsed item arrays
+
 ## Notes
 - All timestamps are in UTC
 - JSONB fields are used for flexible data storage (attachments, metadata, configurations)
@@ -538,3 +738,6 @@ Tables with QuickBooks integration capabilities:
 - Foreign key constraints ensure data integrity
 - Default values are set for operational efficiency
 - The schema supports both manual and automated RFQ creation workflows
+- Sequential numbering is maintained for quotation versions and responses
+- Comprehensive audit trail through negotiation communications and SKU history
+- Response system supports both simple status updates and detailed SKU-level feedback
