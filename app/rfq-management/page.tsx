@@ -4,7 +4,6 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { useEffect, useState } from "react"
 import { rfqApi } from "@/lib/api-client"
@@ -12,7 +11,16 @@ import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
 import { useRouter } from "next/navigation"
 import { useCurrency } from "@/contexts/currency-context"
-import { Search, Plus, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, Plus } from "lucide-react"
+
+// PrimeReact imports
+import { DataTable, DataTablePageEvent, DataTableSortEvent, DataTableRowClickEvent } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { Skeleton } from 'primereact/skeleton';
+import { MultiSelect } from 'primereact/multiselect';
+import 'primereact/resources/themes/lara-light-cyan/theme.css';
+import 'primereact/resources/primereact.min.css';
+import 'primeicons/primeicons.css';
 
 interface RfqData {
   id: number
@@ -48,11 +56,31 @@ export default function RfqManagement() {
   const [totalItems, setTotalItems] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   
-  // Sort state
+  // PrimeReact DataTable state
+  const [first, setFirst] = useState(0)
+  const [rows, setRows] = useState(10)
+  const [sortField, setSortField] = useState<string | undefined>(undefined)
+  const [sortOrder, setSortOrder] = useState<1 | -1 | 0 | null | undefined>(0)
+  
+  // Sort state - keeping for compatibility
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     field: null,
     direction: null
   })
+
+  // Column toggle functionality
+  const columns = [
+    { field: 'rfqNumber', header: 'RFQ Number' },
+    { field: 'customer.name', header: 'Customer' },
+    { field: 'createdAt', header: 'Created' },
+    { field: 'updatedAt', header: 'Updated' },
+    { field: 'source', header: 'Source' },
+    { field: 'itemCount', header: 'Items' },
+    { field: 'totalBudget', header: 'Total Amount' },
+    { field: 'status', header: 'Status' }
+  ];
+
+  const [visibleColumns, setVisibleColumns] = useState(columns);
 
   // Debounced search
   const [searchValue, setSearchValue] = useState("")
@@ -146,111 +174,66 @@ export default function RfqManagement() {
     router.push(`/rfq-management/${rfq.id}`)
   }
 
-  // Client-side sorting function for immediate visual feedback
-  const sortDataLocally = (data: RfqData[], field: string, direction: 'asc' | 'desc') => {
-    return [...data].sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (field) {
-        case 'rfqNumber':
-          aValue = a.rfqNumber;
-          bValue = b.rfqNumber;
-          break;
-        case 'customer.name':
-          aValue = a.customer?.name || '';
-          bValue = b.customer?.name || '';
-          break;
-        case 'createdAt':
-          aValue = new Date(a.createdAt);
-          bValue = new Date(b.createdAt);
-          break;
-        case 'updatedAt':
-          aValue = new Date(a.updatedAt);
-          bValue = new Date(b.updatedAt);
-          break;
-        case 'source':
-          aValue = a.source;
-          bValue = b.source;
-          break;
-        case 'status':
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        case 'totalBudget':
-          aValue = a.totalBudget || 0;
-          bValue = b.totalBudget || 0;
-          break;
-        case 'itemCount':
-          aValue = a.itemCount || 0;
-          bValue = b.itemCount || 0;
-          break;
-        default:
-          return 0;
-      }
-      
-      if (aValue < bValue) return direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return direction === 'asc' ? 1 : -1;
-      return 0;
+  // These functions are now handled by PrimeReact DataTable internally
+
+  // PrimeReact pagination handler
+  const onPage = (event: DataTablePageEvent) => {
+    setFirst(event.first);
+    setRows(event.rows);
+    setCurrentPage(Math.floor(event.first / event.rows) + 1);
+    setItemsPerPage(event.rows);
+  };
+
+  // PrimeReact sort handler
+  const onSort = (event: DataTableSortEvent) => {
+    setSortField(event.sortField || '');
+    setSortOrder(event.sortOrder || 0);
+    
+    // Update old sort config for compatibility
+    setSortConfig({
+      field: event.sortField || null,
+      direction: event.sortOrder === 1 ? 'asc' : event.sortOrder === -1 ? 'desc' : null
     });
   };
 
-  // Column sorting handler
-  const handleSort = (field: string) => {
-    setSortConfig(prevSort => {
-      let newSort;
-      
-      if (prevSort.field === field) {
-        // Toggle direction if same field
-        if (prevSort.direction === 'asc') {
-          newSort = { field, direction: 'desc' as const };
-        } else if (prevSort.direction === 'desc') {
-          newSort = { field: null, direction: null };
-        } else {
-          newSort = { field, direction: 'asc' as const };
-        }
-      } else {
-        // New field, start with ascending
-        newSort = { field, direction: 'asc' as const };
-      }
-      
-      // Apply client-side sorting immediately for visual feedback
-      if (newSort.field && newSort.direction) {
-        const sortedData = sortDataLocally(filteredRfqs, newSort.field, newSort.direction);
-        setFilteredRfqs(sortedData);
-      }
-      
-      return newSort;
-    });
-    setCurrentPage(1); // Reset to first page when sorting
+  // Handle row click with proper typing
+  const onRowClick = (event: DataTableRowClickEvent) => {
+    handleRowClick(event.data as RfqData);
   };
 
-  // Get sort icon for column
-  const getSortIcon = (field: string) => {
-    if (sortConfig.field !== field) {
-      return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-    }
-    
-    if (sortConfig.direction === 'asc') {
-      return <ArrowUp className="ml-2 h-4 w-4 text-primary" />
-    } else if (sortConfig.direction === 'desc') {
-      return <ArrowDown className="ml-2 h-4 w-4 text-primary" />
-    }
-    
-    return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-  }
+  // Column toggle functionality
+  const onColumnToggle = (event: any) => {
+    let selectedColumns = event.value;
+    let orderedSelectedColumns = columns.filter((col) => 
+      selectedColumns.some((sCol: any) => sCol.field === col.field)
+    );
+    setVisibleColumns(orderedSelectedColumns);
+  };
 
-  // Sortable header component
-  const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
-    <TableHead 
-      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center">
-        {children}
-        {getSortIcon(field)}
+  // Create header with column toggle
+  const tableHeader = (
+    <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
+      {/* <span className="text-lg font-semibold">RFQ Management</span> */}
+      <MultiSelect 
+        value={visibleColumns} 
+        options={columns} 
+        optionLabel="header" 
+        onChange={onColumnToggle} 
+        className="w-full sm:w-20rem" 
+        display="chip"
+        placeholder="Select Columns"
+      />
+    </div>
+  );
+
+  // Loading template for lazy loading
+  const loadingTemplate = () => {
+    return (
+      <div className="flex items-center p-2">
+        <Skeleton width="100%" height="1rem" />
       </div>
-    </TableHead>
-  )
+    );
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -353,123 +336,154 @@ export default function RfqManagement() {
                     </div>
                   ) : (
                     <div className="border rounded-lg">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <SortableHeader field="rfqNumber">RFQ Number</SortableHeader>
-                            <SortableHeader field="customer.name">Customer</SortableHeader>
-                            <SortableHeader field="createdAt">Created</SortableHeader>
-                            <SortableHeader field="updatedAt">Updated</SortableHeader>
-                            <SortableHeader field="source">Source</SortableHeader>
-                            <SortableHeader field="itemCount">Items</SortableHeader>
-                            <SortableHeader field="totalBudget">Total Amount</SortableHeader>
-                            <SortableHeader field="status">Status</SortableHeader>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredRfqs.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                {globalFilterValue ? `No RFQs found matching "${globalFilterValue}"` : "No RFQs found."}
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            filteredRfqs.map((rfq) => {
-                              const createdDate = formatDate(rfq.createdAt)
-                              const updatedDate = formatDate(rfq.updatedAt)
-                              const isRecent = Date.now() - new Date(rfq.updatedAt).getTime() < 24 * 60 * 60 * 1000
-                              
+                      <DataTable 
+                        value={filteredRfqs}
+                        lazy
+                        paginator
+                        first={first}
+                        rows={rows}
+                        totalRecords={totalItems}
+                        onPage={onPage}
+                        loading={loading}
+                        sortField={sortField}
+                        sortOrder={sortOrder}
+                        onSort={onSort}
+                        stripedRows
+                        rowHover
+                        scrollable
+                        scrollHeight="600px"
+                        resizableColumns
+                        tableStyle={{ minWidth: '50rem' }}
+                        emptyMessage={globalFilterValue ? `No RFQs found matching "${globalFilterValue}"` : "No RFQs found."}
+                        loadingIcon={loadingTemplate}
+                        rowsPerPageOptions={[5, 10, 25, 50]}
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+                        onRowClick={onRowClick}
+                        selectionMode="single"
+                        header={tableHeader}
+                      >
+                        {visibleColumns.map((col) => {
+                          switch (col.field) {
+                            case 'rfqNumber':
                               return (
-                                <TableRow 
-                                  key={rfq.id} 
-                                  className="cursor-pointer hover:bg-muted/50"
-                                  onClick={() => handleRowClick(rfq)}
-                                >
-                                  <TableCell className="font-medium">{rfq.rfqNumber}</TableCell>
-                                  <TableCell>{rfq.customer?.name || "Unknown"}</TableCell>
-                                  <TableCell>
-                                    <div className="text-sm">
-                                      <div className="font-medium">{createdDate.date}</div>
-                                      <div className="text-muted-foreground text-xs">{createdDate.time}</div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="text-sm">
-                                      <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
-                                        {updatedDate.date}
+                                <Column 
+                                  key={col.field}
+                                  field="rfqNumber" 
+                                  header="RFQ Number" 
+                                  sortable 
+                                  style={{ width: '15%' }}
+                                  body={(rowData) => (
+                                    <span className="font-medium">{rowData.rfqNumber}</span>
+                                  )}
+                                />
+                              );
+                            case 'customer.name':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="customer.name" 
+                                  header="Customer" 
+                                  sortable 
+                                  style={{ width: '15%' }}
+                                  body={(rowData) => rowData.customer?.name || "Unknown"}
+                                />
+                              );
+                            case 'createdAt':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="createdAt" 
+                                  header="Created" 
+                                  sortable 
+                                  style={{ width: '12%' }}
+                                  body={(rowData) => {
+                                    const createdDate = formatDate(rowData.createdAt);
+                                    return (
+                                      <div className="text-sm">
+                                        <div className="font-medium">{createdDate.date}</div>
+                                        <div className="text-muted-foreground text-xs">{createdDate.time}</div>
                                       </div>
-                                      <div className="text-muted-foreground text-xs">
-                                        {updatedDate.time}
-                                        {isRecent && <span className="ml-1 text-primary">•</span>}
+                                    );
+                                  }}
+                                />
+                              );
+                            case 'updatedAt':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="updatedAt" 
+                                  header="Updated" 
+                                  sortable 
+                                  style={{ width: '12%' }}
+                                  body={(rowData) => {
+                                    const updatedDate = formatDate(rowData.updatedAt);
+                                    const isRecent = Date.now() - new Date(rowData.updatedAt).getTime() < 24 * 60 * 60 * 1000;
+                                    return (
+                                      <div className="text-sm">
+                                        <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
+                                          {updatedDate.date}
+                                        </div>
+                                        <div className="text-muted-foreground text-xs">
+                                          {updatedDate.time}
+                                          {isRecent && <span className="ml-1 text-primary">•</span>}
+                                        </div>
                                       </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>{rfq.source}</TableCell>
-                                  <TableCell>{rfq.itemCount}</TableCell>
-                                  <TableCell>
+                                    );
+                                  }}
+                                />
+                              );
+                            case 'source':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="source" 
+                                  header="Source" 
+                                  sortable 
+                                  style={{ width: '10%' }}
+                                />
+                              );
+                            case 'itemCount':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="itemCount" 
+                                  header="Items" 
+                                  sortable 
+                                  style={{ width: '8%' }}
+                                />
+                              );
+                            case 'totalBudget':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="totalBudget" 
+                                  header="Total Amount" 
+                                  sortable 
+                                  style={{ width: '12%' }}
+                                  body={(rowData) => (
                                     <div className="text-sm font-medium">
-                                      {formatAmount(rfq.totalBudget)}
+                                      {formatAmount(rowData.totalBudget)}
                                     </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    {getStatusBadge(rfq.status)}
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })
-                          )}
-                        </TableBody>
-                      </Table>
-                      
-                      <div className="flex items-center justify-between px-2 py-4">
-                        <div className="text-sm text-muted-foreground">
-                          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
-                          {sortConfig.field && (
-                            <span className="ml-2 text-primary">
-                              (sorted by {sortConfig.field} {sortConfig.direction === 'asc' ? '↑' : '↓'})
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm">Rows per page:</span>
-                            <select 
-                              value={itemsPerPage} 
-                              onChange={(e) => {
-                                setItemsPerPage(Number(e.target.value))
-                                setCurrentPage(1)
-                              }}
-                              className="border rounded px-2 py-1 text-sm"
-                            >
-                              <option value={5}>5</option>
-                              <option value={10}>10</option>
-                              <option value={25}>25</option>
-                              <option value={50}>50</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCurrentPage(currentPage - 1)}
-                              disabled={currentPage <= 1}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <span className="text-sm">
-                              Page {currentPage} of {totalPages}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCurrentPage(currentPage + 1)}
-                              disabled={currentPage >= totalPages}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                                  )}
+                                />
+                              );
+                            case 'status':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="status" 
+                                  header="Status" 
+                                  sortable 
+                                  style={{ width: '16%' }}
+                                  body={(rowData) => getStatusBadge(rowData.status)}
+                                />
+                              );
+                            default:
+                              return null;
+                          }
+                        })}
+                      </DataTable>
                     </div>
                   )}
                 </TabsContent>
