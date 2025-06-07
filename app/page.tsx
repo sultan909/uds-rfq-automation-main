@@ -266,7 +266,7 @@ export default function Dashboard() {
                 <DataTable 
                   value={rfqList?.activeRfqs || []}
                   paginator
-                  rows={10}
+                  rows={5}
                   rowsPerPageOptions={[5, 10, 15, 25]}
                   dataKey="id"
                   emptyMessage="No active RFQs found."
@@ -344,7 +344,7 @@ export default function Dashboard() {
                 <DataTable 
                   value={rfqList?.processedRfqs || []}
                   paginator
-                  rows={10}
+                  rows={5}
                   rowsPerPageOptions={[5, 10, 15, 25]}
                   dataKey="id"
                   emptyMessage="No processed RFQs found."
