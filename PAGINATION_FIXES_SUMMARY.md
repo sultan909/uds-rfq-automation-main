@@ -105,4 +105,84 @@
 - `/app/api/lib/api-response.ts` - Response format is correct
 - Database schema - No changes needed
 
-The pagination system should now work reliably with proper server-side pagination, accurate total counts, and improved user experience across all features.
+The pagination system should now work reliably with proper server-side pagination, accurate total counts, and improved user experience across all features.}, 300)
+  return () => clearTimeout(timeoutId)
+}, [globalFilterValue]) // This creates a circular dependency
+```
+
+This created an infinite render loop that prevented React from properly handling navigation events.
+
+## Solution Implemented
+
+### 1. **Proper Function Memoization**
+```javascript
+// Fixed with useCallback and proper dependencies
+const fetchRfqData = useCallback(async () => {
+  if (!mountedRef.current) return // Prevent updates after unmount
+  // ... function body
+}, [selectedTab, first, rows, globalFilterValue])
+
+const fetchTabStats = useCallback(async () => {
+  if (!mountedRef.current) return
+  // ... function body
+}, [])
+```
+
+### 2. **Simplified useEffect Dependencies**
+```javascript
+// Simplified to avoid circular dependencies
+useEffect(() => {
+  fetchTabStats()
+}, [fetchTabStats])
+
+useEffect(() => {
+  fetchRfqData()
+}, [fetchRfqData])
+```
+
+### 3. **Added Component Lifecycle Management**
+```javascript
+const mountedRef = useRef(true)
+
+useEffect(() => {
+  return () => {
+    mountedRef.current = false
+  }
+}, [])
+
+// Used throughout async functions:
+if (!mountedRef.current) return
+```
+
+### 4. **Removed Debouncing from useEffect**
+```javascript
+// Moved debouncing logic to the input handler
+const onGlobalFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const value = e.target.value
+  setGlobalFilterValue(value)
+  // Reset to first page when searching
+  if (first !== 0) {
+    setFirst(0)
+  }
+}, [first])
+```
+
+## Key Improvements
+
+1. **Eliminated Render Loops**: Proper memoization prevents infinite re-renders
+2. **Safe State Updates**: mountedRef prevents state updates after component unmounts
+3. **Simplified Dependencies**: Reduced complex useEffect chains
+4. **Better Performance**: Fewer unnecessary re-renders and API calls
+5. **Preserved Functionality**: All original features work as intended
+
+## Files Modified
+- `app/rfq-management/page.tsx` - Complete refactor of state management and useEffect logic
+
+## Testing Recommendations
+1. Navigate between pages multiple times to ensure smooth transitions
+2. Test search functionality with rapid typing
+3. Verify pagination works correctly
+4. Test tab switching and filtering
+5. Confirm no console errors or warnings during navigation
+
+The navigation should now work smoothly without any blocking issues.

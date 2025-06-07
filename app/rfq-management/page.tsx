@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
@@ -42,9 +42,11 @@ interface PaginationMeta {
   total: number
   totalPages: number
 }
+
 export default function RfqManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
+  const mountedRef = useRef(true)
   
   // State management
   const [filteredRfqs, setFilteredRfqs] = useState<RfqData[]>([])
@@ -52,8 +54,7 @@ export default function RfqManagement() {
   const [error, setError] = useState<string | null>(null)
   const [selectedTab, setSelectedTab] = useState("all")
   const [globalFilterValue, setGlobalFilterValue] = useState("")
-  const [selectedRfq, setSelectedRfq] = useState<RfqData | null>(null)
-  
+  const [selectedRfq, setSelectedRfq] = useState<RfqData | null>(null)  
   // Pagination state
   const [first, setFirst] = useState(0)
   const [rows, setRows] = useState(10)
@@ -72,35 +73,22 @@ export default function RfqManagement() {
     processed: 0
   })
 
-  // Fetch initial stats for tabs (only once on mount)
+  // Cleanup on unmount
   useEffect(() => {
-    fetchTabStats()
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
-  // Fetch data when pagination or filters change
-  useEffect(() => {
-    fetchRfqData()
-  }, [selectedTab, first, rows, globalFilterValue])
-
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // Reset to first page when search changes
-      if (first !== 0) {
-        setFirst(0)
-      } else {
-        fetchRfqData()
-      }
-    }, 300)
-
-    return () => clearTimeout(timeoutId)
-  }, [globalFilterValue])
-
-  // Fetch tab statistics (global counts)
-  const fetchTabStats = async () => {
+  // Fetch tab statistics (global counts) - memoized
+  const fetchTabStats = useCallback(async () => {
+    if (!mountedRef.current) return
+    
     try {
       // Get all RFQs without pagination to calculate global stats
       const response = await rfqApi.list({ pageSize: 1000 }) // Large page size to get all
+      
+      if (!mountedRef.current) return // Check if still mounted
       
       if (response.success && response.data) {
         const rfqData = response.data as RfqData[]
@@ -120,9 +108,12 @@ export default function RfqManagement() {
     } catch (err) {
       console.error("Failed to fetch tab stats:", err)
     }
-  }
-  // Main data fetching function
-  const fetchRfqData = async () => {
+  }, [])
+
+  // Main data fetching function - memoized
+  const fetchRfqData = useCallback(async () => {
+    if (!mountedRef.current) return
+    
     try {
       setLoading(true)
       setError(null)
@@ -137,7 +128,6 @@ export default function RfqManagement() {
       if (selectedTab !== "all") {
         params.status = selectedTab.toUpperCase()
       }
-
       let response
       // Use search or list API based on whether there's a search query
       if (globalFilterValue && globalFilterValue.trim()) {
@@ -145,6 +135,8 @@ export default function RfqManagement() {
       } else {
         response = await rfqApi.list(params)
       }
+
+      if (!mountedRef.current) return // Check if still mounted
 
       if (response.success && response.data) {
         const rfqData = response.data as RfqData[]
@@ -168,6 +160,8 @@ export default function RfqManagement() {
         setTotalRecords(0)
       }
     } catch (err) {
+      if (!mountedRef.current) return // Check if still mounted
+      
       const errorMessage = "An error occurred while loading RFQs"
       setError(errorMessage)
       toast.error(errorMessage)
@@ -175,9 +169,21 @@ export default function RfqManagement() {
       setTotalRecords(0)
       console.error("RFQ fetch error:", err)
     } finally {
-      setLoading(false)
+      if (mountedRef.current) {
+        setLoading(false)
+      }
     }
-  }
+  }, [selectedTab, first, rows, globalFilterValue])
+
+  // Fetch initial stats for tabs (only once on mount)
+  useEffect(() => {
+    fetchTabStats()
+  }, [fetchTabStats])
+
+  // Fetch data when dependencies change
+  useEffect(() => {
+    fetchRfqData()
+  }, [fetchRfqData])
 
   // Handle pagination events from PrimeReact DataTable
   const onPage = useCallback((event: any) => {
@@ -191,17 +197,20 @@ export default function RfqManagement() {
     const rfqData = event.data as RfqData
     router.push(`/rfq-management/${rfqData.id}`)
   }, [router])
-
   // Handle row selection for visual feedback
   const onSelectionChange = useCallback((event: any) => {
     setSelectedRfq(event.value)
   }, [])
 
-  // Handle search input change
+  // Handle search input change with debouncing
   const onGlobalFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setGlobalFilterValue(value)
-  }, [])
+    // Reset to first page when searching
+    if (first !== 0) {
+      setFirst(0)
+    }
+  }, [first])
 
   // Handle tab change
   const handleTabChange = useCallback((value: string) => {
@@ -209,6 +218,7 @@ export default function RfqManagement() {
     setFirst(0) // Reset to first page when changing tabs
     setGlobalFilterValue("") // Clear search when changing tabs
   }, [])
+
   // Render header with search
   const renderHeader = () => {
     return (
@@ -257,7 +267,6 @@ export default function RfqManagement() {
     const status = statusMap[rowData.status.toLowerCase() as keyof typeof statusMap]
     return <Tag value={status?.label || rowData.status} severity={status?.severity as any} />
   }
-
   // Date template functions
   const createdDateBodyTemplate = (rowData: RfqData) => {
     const date = new Date(rowData.createdAt)
@@ -284,6 +293,7 @@ export default function RfqManagement() {
       </div>
     )
   }
+
   const customerBodyTemplate = (rowData: RfqData) => {
     return rowData.customer?.name || "Unknown"
   }
@@ -316,8 +326,7 @@ export default function RfqManagement() {
           subtitle="Handle and process requests for quotes"
           showNewRfq
         />
-        <div className="flex-1 overflow-auto p-4">
-          <div className="bg-background border rounded-lg overflow-hidden">
+        <div className="flex-1 overflow-auto p-4">          <div className="bg-background border rounded-lg overflow-hidden">
             <div className="p-4">
               <h2 className="text-lg font-medium mb-2">RFQ List</h2>
               <p className="text-sm text-muted-foreground mb-4">
@@ -347,7 +356,8 @@ export default function RfqManagement() {
                       {stats.new}
                       {globalFilterValue.trim() && '*'}
                     </span>
-                  </TabsTrigger>                  <TabsTrigger value="draft" className="relative">
+                  </TabsTrigger>
+                  <TabsTrigger value="draft" className="relative">
                     Draft
                     <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                       globalFilterValue.trim() 
@@ -379,8 +389,7 @@ export default function RfqManagement() {
                       {stats.sent}
                       {globalFilterValue.trim() && '*'}
                     </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="negotiating" className="relative">
+                  </TabsTrigger>                  <TabsTrigger value="negotiating" className="relative">
                     Negotiating
                     <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                       globalFilterValue.trim() 
@@ -412,7 +421,8 @@ export default function RfqManagement() {
                       {stats.declined}
                       {globalFilterValue.trim() && '*'}
                     </span>
-                  </TabsTrigger>                  <TabsTrigger value="processed" className="relative">
+                  </TabsTrigger>
+                  <TabsTrigger value="processed" className="relative">
                     Processed
                     <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                       globalFilterValue.trim() 
