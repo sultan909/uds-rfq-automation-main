@@ -18,6 +18,7 @@ import { Column } from 'primereact/column';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { InputTextarea } from 'primereact/inputtextarea';
+import { MultiSelect } from 'primereact/multiselect';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import 'primeicons/primeicons.css';
@@ -83,6 +84,20 @@ export function EditableItemsTable({
 
   // Refs for auto-focus
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Column toggle functionality
+  const columns = [
+    { field: 'customerSku', header: 'SKU' },
+    { field: 'description', header: 'Description' },
+    { field: 'quantity', header: 'Quantity' },
+    { field: 'unitPrice', header: 'Unit Price' },
+    { field: 'total', header: 'Total' },
+    { field: 'comment', header: 'Comment' },
+    { field: 'status', header: 'Status' },
+    { field: 'history', header: 'History' }
+  ];
+
+  const [visibleColumns, setVisibleColumns] = useState(columns);
 
   // Initialize editing state when items change or when entering negotiation mode
   useEffect(() => {
@@ -493,6 +508,31 @@ export function EditableItemsTable({
     });
   };
 
+  // Column toggle functionality
+  const onColumnToggle = (event: any) => {
+    let selectedColumns = event.value;
+    let orderedSelectedColumns = columns.filter((col) => 
+      selectedColumns.some((sCol: any) => sCol.field === col.field)
+    );
+    setVisibleColumns(orderedSelectedColumns);
+  };
+
+  // Create header with column toggle
+  const tableHeader = (
+    <div className="flex justify-between items-center">
+      {/* <span className="text-lg font-semibold">Columns</span> */}
+      <MultiSelect 
+        value={visibleColumns} 
+        options={columns} 
+        optionLabel="header" 
+        onChange={onColumnToggle} 
+        className="w-full sm:w-20rem" 
+        display="chip"
+        placeholder="Select Columns"
+      />
+    </div>
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -569,60 +609,100 @@ export function EditableItemsTable({
           onRowEditCancel={onRowEditCancel}
           editingRows={editingRows}
           onRowEditChange={(event) => setEditingRows(event.data)}
+          header={tableHeader}
           tableStyle={{ minWidth: '50rem' }}
           scrollable
+          resizableColumns
           scrollHeight="600px"
           emptyMessage="No items found for this RFQ"
         >
-          <Column 
-            field="customerSku" 
-            header="SKU" 
-            body={skuBodyTemplate}
-            style={{ width: '15%' }}
-          />
-          <Column 
-            field="description" 
-            header="Description"
-            body={(rowData) => rowData.description || rowData.inventory?.description || 'N/A'}
-            style={{ width: '25%' }}
-          />
-          <Column 
-            field="quantity" 
-            header="Quantity"
-            body={quantityBodyTemplate}
-            editor={quantityEditor}
-            style={{ width: '10%' }}
-          />
-          <Column 
-            field="unitPrice" 
-            header="Unit Price"
-            body={priceBodyTemplate}
-            editor={priceEditor}
-            style={{ width: '15%' }}
-          />
-          <Column 
-            header="Total"
-            body={totalBodyTemplate}
-            style={{ width: '15%' }}
-          />
-          <Column 
-            field="comment" 
-            header="Comment"
-            body={(rowData) => rowData.comment || '-'}
-            editor={commentEditor}
-            style={{ width: '15%' }}
-          />
-          <Column 
-            field="status" 
-            header="Status"
-            body={statusBodyTemplate}
-            style={{ width: '10%' }}
-          />
-          <Column 
-            header="History"
-            body={historyBodyTemplate}
-            style={{ width: '10%' }}
-          />
+          {visibleColumns.map((col) => {
+            switch (col.field) {
+              case 'customerSku':
+                return (
+                  <Column 
+                    key={col.field}
+                    field="customerSku" 
+                    header="SKU" 
+                    body={skuBodyTemplate}
+                    style={{ width: '15%' }}
+                  />
+                );
+              case 'description':
+                return (
+                  <Column 
+                    key={col.field}
+                    field="description" 
+                    header="Description"
+                    body={(rowData) => rowData.description || rowData.inventory?.description || 'N/A'}
+                    style={{ width: '25%' }}
+                  />
+                );
+              case 'quantity':
+                return (
+                  <Column 
+                    key={col.field}
+                    field="quantity" 
+                    header="Quantity"
+                    body={quantityBodyTemplate}
+                    editor={quantityEditor}
+                    style={{ width: '10%' }}
+                  />
+                );
+              case 'unitPrice':
+                return (
+                  <Column 
+                    key={col.field}
+                    field="unitPrice" 
+                    header="Unit Price"
+                    body={priceBodyTemplate}
+                    editor={priceEditor}
+                    style={{ width: '15%' }}
+                  />
+                );
+              case 'total':
+                return (
+                  <Column 
+                    key={col.field}
+                    header="Total"
+                    body={totalBodyTemplate}
+                    style={{ width: '15%' }}
+                  />
+                );
+              case 'comment':
+                return (
+                  <Column 
+                    key={col.field}
+                    field="comment" 
+                    header="Comment"
+                    body={(rowData) => rowData.comment || '-'}
+                    editor={commentEditor}
+                    style={{ width: '15%' }}
+                  />
+                );
+              case 'status':
+                return (
+                  <Column 
+                    key={col.field}
+                    field="status" 
+                    header="Status"
+                    body={statusBodyTemplate}
+                    style={{ width: '10%' }}
+                  />
+                );
+              case 'history':
+                return (
+                  <Column 
+                    key={col.field}
+                    header="History"
+                    body={historyBodyTemplate}
+                    style={{ width: '10%' }}
+                  />
+                );
+              default:
+                return null;
+            }
+          })}
         </DataTable>
 
         {/* Expandable negotiation history */}
