@@ -352,11 +352,11 @@ export default function RfqManagement() {
                         rowHover
                         scrollable
                         scrollHeight="600px"
-                        resizableColumns
+                        // resizableColumns
                         tableStyle={{ minWidth: '50rem' }}
                         emptyMessage={globalFilterValue ? `No RFQs found matching "${globalFilterValue}"` : "No RFQs found."}
                         loadingIcon={loadingTemplate}
-                        rowsPerPageOptions={[5, 10, 25, 50]}
+                        rowsPerPageOptions={[5, 10, 25, 50, 100]}
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
                         onRowClick={onRowClick}
