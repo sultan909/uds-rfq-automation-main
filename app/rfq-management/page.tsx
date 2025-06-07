@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
@@ -14,11 +14,8 @@ import { useCurrency } from "@/contexts/currency-context"
 // PrimeReact imports
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
-import { FilterMatchMode } from 'primereact/api'
 import { InputText } from 'primereact/inputtext'
-import { Dropdown } from 'primereact/dropdown'
 import { Tag } from 'primereact/tag'
-import { Calendar } from 'primereact/calendar'
 
 // PrimeReact CSS imports
 import 'primereact/resources/themes/lara-light-blue/theme.css'
@@ -39,17 +36,30 @@ interface RfqData {
   status: string
 }
 
+interface PaginationMeta {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
 export default function RfqManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [allRfqs, setAllRfqs] = useState<RfqData[]>([])
+  
+  // State management
   const [filteredRfqs, setFilteredRfqs] = useState<RfqData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
   const [globalFilterValue, setGlobalFilterValue] = useState("")
   const [selectedRfq, setSelectedRfq] = useState<RfqData | null>(null)
+  
+  // Pagination state
+  const [first, setFirst] = useState(0)
+  const [rows, setRows] = useState(10)
+  const [totalRecords, setTotalRecords] = useState(0)
+  
+  // Tab statistics state
   const [stats, setStats] = useState({
     total: 0,
     new: 0,
@@ -61,50 +71,39 @@ export default function RfqManagement() {
     declined: 0,
     processed: 0
   })
-  const [filters, setFilters] = useState({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    rfqNumber: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'customer.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    source: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    status: { value: null, matchMode: FilterMatchMode.EQUALS }
-  })
 
-  const statusOptions = [
-    { label: 'New', value: 'NEW' },
-    { label: 'Draft', value: 'DRAFT' },
-    { label: 'Priced', value: 'PRICED' },
-    { label: 'Sent', value: 'SENT' },
-    { label: 'Negotiating', value: 'NEGOTIATING' },
-    { label: 'Accepted', value: 'ACCEPTED' },
-    { label: 'Declined', value: 'DECLINED' },
-    { label: 'Processed', value: 'PROCESSED' }
-  ]
-
-
-
-  // Fetch all RFQ data once
+  // Fetch initial stats for tabs (only once on mount)
   useEffect(() => {
-    fetchAllRfqs()
+    fetchTabStats()
   }, [])
 
-  // Filter RFQs when tab changes
+  // Fetch data when pagination or filters change
   useEffect(() => {
-    filterRfqsByTab()
-  }, [selectedTab, allRfqs])
+    fetchRfqData()
+  }, [selectedTab, first, rows, globalFilterValue])
 
-  const fetchAllRfqs = async () => {
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Reset to first page when search changes
+      if (first !== 0) {
+        setFirst(0)
+      } else {
+        fetchRfqData()
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [globalFilterValue])
+
+  // Fetch tab statistics (global counts)
+  const fetchTabStats = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      
-      // Fetch all RFQs without status filter
-      const response = await rfqApi.list({})
+      // Get all RFQs without pagination to calculate global stats
+      const response = await rfqApi.list({ pageSize: 1000 }) // Large page size to get all
       
       if (response.success && response.data) {
         const rfqData = response.data as RfqData[]
-        setAllRfqs(rfqData)
-        
-        // Calculate stats by status
         const statusStats = {
           total: rfqData.length,
           new: rfqData.filter(rfq => rfq.status.toLowerCase() === 'new').length,
@@ -117,87 +116,104 @@ export default function RfqManagement() {
           processed: rfqData.filter(rfq => rfq.status.toLowerCase() === 'processed').length,
         }
         setStats(statusStats)
-      } else {
-        setError("Failed to load RFQs")
-        toast.error("Failed to load RFQs")
       }
     } catch (err) {
-      setError("An error occurred while loading RFQs")
-      toast.error("An error occurred while loading RFQs")
-    } finally {
-      setLoading(false)
+      console.error("Failed to fetch tab stats:", err)
     }
   }
-
-  const filterRfqsByTab = () => {
-    let filtered = [...allRfqs]
-
-    if (selectedTab !== "all") {
-      filtered = allRfqs.filter(rfq => 
-        rfq.status.toLowerCase() === selectedTab.toLowerCase()
-      )
-    }
-
-    setFilteredRfqs(filtered)
-  }
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      filterRfqsByTab()
-      return
-    }
-
+  // Main data fetching function
+  const fetchRfqData = async () => {
     try {
       setLoading(true)
-      const response = await rfqApi.search(searchQuery, {})
-      if (response.success && response.data) {
-        const searchData = response.data as RfqData[]
-        
-        // Apply tab filter to search results
-        let filtered = searchData
-        if (selectedTab !== "all") {
-          filtered = searchData.filter(rfq => 
-            rfq.status.toLowerCase() === selectedTab.toLowerCase()
-          )
-        }
-        
-        setFilteredRfqs(filtered)
+      setError(null)
+      
+      const page = Math.floor(first / rows) + 1
+      const params: any = {
+        page: page,
+        pageSize: rows
+      }
+
+      // Add status filter if not "all"
+      if (selectedTab !== "all") {
+        params.status = selectedTab.toUpperCase()
+      }
+
+      let response
+      // Use search or list API based on whether there's a search query
+      if (globalFilterValue && globalFilterValue.trim()) {
+        response = await rfqApi.search(globalFilterValue.trim(), params)
       } else {
-        setError("Failed to search RFQs")
-        toast.error("Failed to search RFQs")
+        response = await rfqApi.list(params)
+      }
+
+      if (response.success && response.data) {
+        const rfqData = response.data as RfqData[]
+        setFilteredRfqs(rfqData)
+        
+        // Set total records from API response meta
+        if (response.meta?.pagination && typeof response.meta.pagination.totalItems === 'number') {
+          setTotalRecords(response.meta.pagination.totalItems)
+        } else {
+          // Fallback: estimate based on current data
+          if (rfqData.length >= rows) {
+            setTotalRecords((page * rows) + 1)
+          } else {
+            setTotalRecords(first + rfqData.length)
+          }
+        }
+      } else {
+        setError(response.error || "Failed to load RFQs")
+        toast.error(response.error || "Failed to load RFQs")
+        setFilteredRfqs([])
+        setTotalRecords(0)
       }
     } catch (err) {
-      setError("An error occurred while searching RFQs")
-      toast.error("An error occurred while searching RFQs")
+      const errorMessage = "An error occurred while loading RFQs"
+      setError(errorMessage)
+      toast.error(errorMessage)
+      setFilteredRfqs([])
+      setTotalRecords(0)
+      console.error("RFQ fetch error:", err)
     } finally {
       setLoading(false)
     }
   }
 
+  // Handle pagination events from PrimeReact DataTable
+  const onPage = useCallback((event: any) => {
+    console.log('Pagination event:', event)
+    setFirst(event.first)
+    setRows(event.rows)
+  }, [])
+
   // Handle row click to navigate to RFQ details
-  const onRowClick = (event: any) => {
+  const onRowClick = useCallback((event: any) => {
     const rfqData = event.data as RfqData
     router.push(`/rfq-management/${rfqData.id}`)
-  }
+  }, [router])
 
   // Handle row selection for visual feedback
-  const onSelectionChange = (event: any) => {
+  const onSelectionChange = useCallback((event: any) => {
     setSelectedRfq(event.value)
-  }
+  }, [])
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle search input change
+  const onGlobalFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    let _filters = { ...filters }
-    // @ts-ignore
-    _filters['global'].value = value
-    setFilters(_filters)
     setGlobalFilterValue(value)
-  }
+  }, [])
+
+  // Handle tab change
+  const handleTabChange = useCallback((value: string) => {
+    setSelectedTab(value)
+    setFirst(0) // Reset to first page when changing tabs
+    setGlobalFilterValue("") // Clear search when changing tabs
+  }, [])
+  // Render header with search
   const renderHeader = () => {
     return (
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
-
           {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
@@ -212,7 +228,6 @@ export default function RfqManagement() {
               />
             </div>
             <div className="flex gap-2">
-             
               <Button asChild className="gap-2 h-10 px-4">
                 <a href="/rfq-management/new">
                   <i className="pi pi-plus" />
@@ -226,6 +241,7 @@ export default function RfqManagement() {
     )
   }
 
+  // Status body template for DataTable
   const statusBodyTemplate = (rowData: RfqData) => {
     const statusMap = {
       new: { severity: 'info', label: 'New' },
@@ -239,7 +255,7 @@ export default function RfqManagement() {
     }
     
     const status = statusMap[rowData.status.toLowerCase() as keyof typeof statusMap]
-    return <Tag value={status?.label} severity={status?.severity as any} />
+    return <Tag value={status?.label || rowData.status} severity={status?.severity as any} />
   }
 
   // Date template functions
@@ -268,7 +284,6 @@ export default function RfqManagement() {
       </div>
     )
   }
-
   const customerBodyTemplate = (rowData: RfqData) => {
     return rowData.customer?.name || "Unknown"
   }
@@ -285,25 +300,10 @@ export default function RfqManagement() {
     
     return (
       <div className="text-sm font-medium">
-        {formatCurrency(convertedAmount)}
+        {formatCurrency(convertedAmount || 0)}
       </div>
     )
   }
-
-  const statusFilterTemplate = (options: any) => {
-    return (
-      <Dropdown 
-        value={options.value} 
-        options={statusOptions} 
-        onChange={(e) => options.filterCallback(e.value)} 
-        placeholder="Select Status"
-        className="p-column-filter"
-        showClear
-      />
-    )
-  }
-
-
 
   const header = renderHeader()
 
@@ -324,60 +324,103 @@ export default function RfqManagement() {
                 Review and manage all request for quotes. Click on any row to view details.
               </p>
 
-              <Tabs defaultValue="all" onValueChange={setSelectedTab}>
+              <Tabs value={selectedTab} onValueChange={handleTabChange}>
                 <TabsList className="mb-4">
                   <TabsTrigger value="all" className="relative">
                     All
-                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
                       {stats.total}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="new" className="relative">
                     New
-                    <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
                       {stats.new}
+                      {globalFilterValue.trim() && '*'}
                     </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="draft" className="relative">
+                  </TabsTrigger>                  <TabsTrigger value="draft" className="relative">
                     Draft
-                    <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
                       {stats.draft}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="priced" className="relative">
                     Priced
-                    <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-purple-100 text-purple-800'
+                    }`}>
                       {stats.priced}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="sent" className="relative">
                     Sent
-                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-indigo-100 text-indigo-800'
+                    }`}>
                       {stats.sent}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="negotiating" className="relative">
                     Negotiating
-                    <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
                       {stats.negotiating}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="accepted" className="relative">
                     Accepted
-                    <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}>
                       {stats.accepted}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="declined" className="relative">
                     Declined
-                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
                       {stats.declined}
+                      {globalFilterValue.trim() && '*'}
                     </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="processed" className="relative">
+                  </TabsTrigger>                  <TabsTrigger value="processed" className="relative">
                     Processed
-                    <span className="ml-2 text-xs bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full">
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      globalFilterValue.trim() 
+                        ? 'bg-orange-100 text-orange-800' 
+                        : 'bg-cyan-100 text-cyan-800'
+                    }`}>
                       {stats.processed}
+                      {globalFilterValue.trim() && '*'}
                     </span>
                   </TabsTrigger>
                 </TabsList>
@@ -395,15 +438,19 @@ export default function RfqManagement() {
                   ) : (
                     <div className="card">
                       <DataTable 
-                        key={`rfq-table-${currency}`}
+                        key={`rfq-table-${currency}-${rows}-${selectedTab}`}
                         value={filteredRfqs}
+                        lazy
                         paginator 
-                        rows={10} 
+                        first={first}
+                        rows={rows} 
+                        totalRecords={totalRecords}
+                        onPage={onPage}
                         rowsPerPageOptions={[5, 10, 25, 50]}
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                        currentPageReportTemplate="{first} to {last} of {totalRecords} entries"
                         dataKey="id"
-                        filters={filters}
-                        globalFilterFields={['rfqNumber', 'customer.name', 'source', 'status']}
-                        emptyMessage="No RFQs found."
+                        emptyMessage={globalFilterValue ? `No RFQs found matching "${globalFilterValue}"` : "No RFQs found."}
                         loading={loading}
                         sortMode="multiple"
                         removableSort
@@ -417,8 +464,7 @@ export default function RfqManagement() {
                         onRowClick={onRowClick}
                         rowHover
                         tableStyle={{ minWidth: '50rem' }}
-                      >
-                        <Column 
+                      >                        <Column 
                           field="rfqNumber" 
                           header="RFQ Number" 
                           sortable 

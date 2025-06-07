@@ -95,7 +95,7 @@ export const rfqApi = {
     if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
     if (params?.status) queryParams.append('status', params.status);
     if (params?.search) queryParams.append('search', params.search);
-    return apiFetch("/api/rfq/", { params: Object.fromEntries(queryParams.entries()) });
+    return apiFetch("/api/rfq", { params: Object.fromEntries(queryParams.entries()) });
   },
   create: (data: any) =>
     apiFetch("/api/rfq/create", {
@@ -274,7 +274,7 @@ export const rfqApi = {
 export const customerApi = {
   getById: (id: string) => apiFetch(`/api/customers/${id}`),
   list: (params?: Record<string, string | undefined>) =>
-    apiFetch("/api/customers/", { params }),
+    apiFetch("/api/customers", { params }),
   create: (data: any) =>
     apiFetch("/api/customers/create", {
       method: "POST",
@@ -298,7 +298,7 @@ export const customerApi = {
 // Inventory API endpoints
 export const inventoryApi = {
   list: (params?: Record<string, string | undefined>) =>
-    apiFetch("/api/inventory/", { params }),
+    apiFetch("/api/inventory", { params }),
   search: (query: string, params?: Record<string, string | undefined>) =>
     apiFetch("/api/inventory/search", {
       params: { query, ...params },
