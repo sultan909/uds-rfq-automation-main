@@ -28,9 +28,7 @@ interface DashboardMetrics {
     activeRfqs: number
     completedRfqs: number
     declinedRfqs: number
-    conversionRate: number
-    weeklyConversionRate: number
-    weeklyConversionChange: number
+    weeklyProcessedRfqs: number
   }
   customerMetrics: {
     totalCustomers: number
@@ -237,7 +235,7 @@ export default function Dashboard() {
               value={metrics.rfqMetrics.activeRfqs.toString()}
               color="blue"
             />
-            <ConversionRateMetric rfqMetrics={metrics.rfqMetrics} />
+            <WeeklyProcessedRfqsMetric rfqMetrics={metrics.rfqMetrics} />
             <SalesVolumeMetric salesData={metrics.salesMetrics} />
             <MetricCard
               label="Low Stock Alert"
@@ -409,29 +407,16 @@ export default function Dashboard() {
   );
 }
 
-// Conversion Rate metric with weekly data
-function ConversionRateMetric({
+// Weekly Processed RFQs metric
+function WeeklyProcessedRfqsMetric({
   rfqMetrics,
 }: {
   rfqMetrics: DashboardMetrics["rfqMetrics"];
 }) {
-  const trend = rfqMetrics.weeklyConversionChange >= 0 ? "up" : "down";
-  const changeValue = Math.abs(rfqMetrics.weeklyConversionChange || 0);
-
   return (
     <div className="metric-card bg-green-50 dark:bg-green-950/30">
       <div className="metric-label">Weekly Processed RFQs</div>
-      <div className="metric-value">{rfqMetrics.conversionRate.toFixed(1)}%</div>
-      {/* <div className={`metric-change ${
-        trend === "up" ? "metric-positive" : "metric-negative"
-      }`}>
-        {trend === "up" ? (
-          <ArrowUpIcon className="inline w-3 h-3 mr-1" />
-        ) : (
-          <ArrowDownIcon className="inline w-3 h-3 mr-1" />
-        )}
-        {changeValue.toFixed(1)}% this week
-      </div> */}
+      <div className="metric-value">{rfqMetrics.weeklyProcessedRfqs}</div>
     </div>
   );
 }

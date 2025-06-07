@@ -140,11 +140,9 @@ export const rfqItems = pgTable('rfq_items', {
   unit: varchar('unit', { length: 50 }),
   customerSku: varchar('customer_sku', { length: 100 }),
   internalProductId: integer('internal_product_id').references(() => inventoryItems.id),
-  suggestedPrice: real('suggested_price'),
-  finalPrice: real('final_price'),
+  unitPrice: real('unit_price'),
   currency: varchar('currency', { length: 3 }).notNull().default('CAD'),
   status: varchar('status', { length: 50 }).notNull().default('PENDING'),
-  estimatedPrice: real('estimated_price'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

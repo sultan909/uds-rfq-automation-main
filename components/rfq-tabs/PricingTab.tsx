@@ -15,8 +15,7 @@ import type { BaseTabProps, ColumnDefinition } from "@/lib/types/rfq-tabs";
 
 const PRICING_COLUMNS: ColumnDefinition[] = [
   { id: 'sku', label: 'SKU' },
-  { id: 'requestedPrice', label: 'Requested Price' },
-  { id: 'suggestedPrice', label: 'Suggested Price' },
+  { id: 'unitPrice', label: 'Unit Price' },
   { id: 'marketPrice', label: 'Market Price' },
   { id: 'cost', label: 'Cost' },
   { id: 'margin', label: 'Margin' }
@@ -29,7 +28,8 @@ export function PricingTab({
   visibleColumns,
   onColumnToggle,
   renderPagination,
-  formatCurrency
+  formatCurrency,
+  convertCurrency
 }: PricingTabProps) {
   return (
     <Card>
@@ -60,22 +60,30 @@ export function PricingTab({
                 {visibleColumns.includes('sku') && (
                   <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
                 )}
-                {visibleColumns.includes('requestedPrice') && (
-                  <TableCell>{formatCurrency(item.estimatedPrice || 0)}</TableCell>
-                )}
-                {visibleColumns.includes('suggestedPrice') && (
-                  <TableCell>{formatCurrency(item.suggestedPrice || 0)}</TableCell>
+                {visibleColumns.includes('unitPrice') && (
+                  <TableCell>
+                    {formatCurrency(convertCurrency(item.unitPrice || 0, item.currency))}
+                  </TableCell>
                 )}
                 {visibleColumns.includes('marketPrice') && (
                   <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
                 )}
                 {visibleColumns.includes('cost') && (
-                  <TableCell>{formatCurrency(item.inventory?.costCad || 0)}</TableCell>
+                  <TableCell>
+                    {item.inventory?.cost 
+                      ? formatCurrency(convertCurrency(item.inventory.cost, item.inventory.costCurrency))
+                      : 'N/A'
+                    }
+                  </TableCell>
                 )}
                 {visibleColumns.includes('margin') && (
                   <TableCell>
-                    {item.suggestedPrice && item.inventory?.costCad
-                      ? `${((item.suggestedPrice - item.inventory.costCad) / item.suggestedPrice * 100).toFixed(1)}%`
+                    {item.unitPrice && item.inventory?.cost
+                      ? (() => {
+                          const convertedUnitPrice = convertCurrency(item.unitPrice, item.currency);
+                          const convertedCost = convertCurrency(item.inventory.cost, item.inventory.costCurrency);
+                          return `${((convertedUnitPrice - convertedCost) / convertedUnitPrice * 100).toFixed(1)}%`;
+                        })()
                       : 'N/A'}
                   </TableCell>
                 )}

@@ -34,12 +34,16 @@ interface OriginalRequestItem {
 interface OriginalRequestTabProps {
   items: OriginalRequestItem[];
   formatCurrency: (amount: number) => string;
+  convertCurrency: (amount: number, sourceCurrency?: "CAD" | "USD") => number;
 }
 
 export function OriginalRequestTab({ 
   items, 
-  formatCurrency 
+  formatCurrency,
+  convertCurrency
 }: OriginalRequestTabProps) {
+  // Use the currency context directly to ensure reactivity to currency changes
+  const { currency } = useCurrency();
   // Custom body templates for original request display
   const skuBodyTemplate = (rowData: OriginalRequestItem) => {
     return (
@@ -79,11 +83,16 @@ export function OriginalRequestTab({
   const priceBodyTemplate = (rowData: OriginalRequestItem) => {
     // Show the original requested price or estimated price
     const originalPrice = rowData.originalPrice || rowData.requestedPrice || rowData.estimatedPrice || rowData.unitPrice || 0;
+    // Use the currency from the item data, fallback to CAD if not available
+    const itemCurrency = (rowData as any).currency || 'CAD';
+    const convertedPrice = convertCurrency(originalPrice, itemCurrency as "CAD" | "USD");
+    
+
     
     return (
       <div className="flex items-center justify-end">
         <span className="font-mono text-sm">
-          {formatCurrency(originalPrice)}
+          {formatCurrency(convertedPrice)}
         </span>
       </div>
     );
@@ -92,7 +101,10 @@ export function OriginalRequestTab({
   const totalBodyTemplate = (rowData: OriginalRequestItem) => {
     const originalQty = rowData.originalQuantity || rowData.requestedQuantity || rowData.quantity;
     const originalPrice = rowData.originalPrice || rowData.requestedPrice || rowData.estimatedPrice || rowData.unitPrice || 0;
-    const total = originalQty * originalPrice;
+    // Use the currency from the item data, fallback to CAD if not available
+    const itemCurrency = (rowData as any).currency || 'CAD';
+    const convertedPrice = convertCurrency(originalPrice, itemCurrency as "CAD" | "USD");
+    const total = originalQty * convertedPrice;
     
     return (
       <div className="flex items-center justify-end">
@@ -130,7 +142,10 @@ export function OriginalRequestTab({
   const totalAmount = items.reduce((sum, item) => {
     const qty = item.originalQuantity || item.requestedQuantity || item.quantity;
     const price = item.originalPrice || item.requestedPrice || item.estimatedPrice || item.unitPrice || 0;
-    return sum + (qty * price);
+    // Use the currency from the item data, fallback to CAD if not available
+    const itemCurrency = (item as any).currency || 'CAD';
+    const convertedPrice = convertCurrency(price, itemCurrency as "CAD" | "USD");
+    return sum + (qty * convertedPrice);
   }, 0);
 
   return (
@@ -156,6 +171,7 @@ export function OriginalRequestTab({
       </CardHeader>
       <CardContent>
         <DataTable 
+          key={currency} // Force re-render when currency changes
           value={items}
           tableStyle={{ minWidth: '50rem' }}
           scrollable

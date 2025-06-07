@@ -62,242 +62,240 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | password    | varchar   | Not null             |
 | role        | enum      | user_role, default EMPLOYEE |
 | department  | varchar   |                      |
-| createdAt   | timestamp | Default now          |
-| updatedAt   | timestamp | Default now          |
+| created_at  | timestamp | Default now          |
+| updated_at  | timestamp | Default now          |
 
 ### customers
-| Column         | Type      | Notes                |
-|----------------|-----------|----------------------|
-| id             | serial PK | Customer ID          |
-| name           | varchar   | Not null             |
-| type           | enum      | customer_type        |
-| region         | varchar   |                      |
-| email          | varchar   |                      |
-| phone          | varchar   |                      |
-| address        | text      |                      |
-| contactPerson  | varchar   |                      |
-| quickbooksId   | varchar   | QuickBooks integration |
-| isActive       | boolean   | Default true         |
-| main_customer  | boolean   | Default false        |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
-
-### vendors
-| Column         | Type      | Notes                |
-|----------------|-----------|----------------------|
-| id             | serial PK | Vendor ID            |
-| name           | varchar   | Not null             |
-| email          | varchar   |                      |
-| phone          | varchar   |                      |
-| address        | text      |                      |
-| contactPerson  | varchar   |                      |
-| category       | varchar   |                      |
-| isActive       | boolean   | Default true         |
-| quickbooksId   | varchar   | QuickBooks integration |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
-
-### rfqs
 | Column           | Type      | Notes                |
 |------------------|-----------|----------------------|
-| id               | serial PK | RFQ ID               |
-| rfqNumber        | varchar   | Unique, not null     |
-| title            | varchar   | Not null             |
-| description      | text      | Not null             |
-| requestorId      | int FK    | users.id             |
-| customerId       | int FK    | customers.id         |
-| vendorId         | int FK    | vendors.id           |
-| status           | enum      | rfq_status           |
-| dueDate          | date      |                      |
-| attachments      | jsonb     | Array of file paths  |
-| totalBudget      | real      |                      |
-| approvedBy       | int FK    | users.id             |
-| rejectionReason  | text      |                      |
-| source           | varchar   | Not null (email/manual) |
-| notes            | text      |                      |
-| currentVersionId | int FK    | quotation_versions.id |
-| createdAt        | timestamp | Default now          |
-| updatedAt        | timestamp | Default now          |
+| id               | serial PK | Customer ID          |
+| name             | varchar   | Not null             |
+| type             | enum      | customer_type        |
+| region           | varchar   |                      |
+| email            | varchar   |                      |
+| phone            | varchar   |                      |
+| address          | text      |                      |
+| contact_person   | varchar   |                      |
+| quickbooks_id    | varchar   | QuickBooks integration |
+| is_active        | boolean   | Default true         |
+| main_customer    | boolean   | Default false        |
+| created_at       | timestamp | Default now          |
+| updated_at       | timestamp | Default now          |
+
+### vendors
+| Column           | Type      | Notes                |
+|------------------|-----------|----------------------|
+| id               | serial PK | Vendor ID            |
+| name             | varchar   | Not null             |
+| email            | varchar   |                      |
+| phone            | varchar   |                      |
+| address          | text      |                      |
+| contact_person   | varchar   |                      |
+| category         | varchar   |                      |
+| is_active        | boolean   | Default true         |
+| quickbooks_id    | varchar   | QuickBooks integration |
+| created_at       | timestamp | Default now          |
+| updated_at       | timestamp | Default now          |
+
+### rfqs
+| Column             | Type      | Notes                |
+|--------------------|-----------|----------------------|
+| id                 | serial PK | RFQ ID               |
+| rfq_number         | varchar   | Unique, not null     |
+| title              | varchar   | Not null             |
+| description        | text      | Not null             |
+| requestor_id       | int FK    | users.id             |
+| customer_id        | int FK    | customers.id         |
+| vendor_id          | int FK    | vendors.id           |
+| status             | enum      | rfq_status           |
+| due_date           | date      |                      |
+| attachments        | jsonb     | Array of file paths  |
+| total_budget       | real      |                      |
+| approved_by        | int FK    | users.id             |
+| rejection_reason   | text      |                      |
+| source             | varchar   | Not null (email/manual) |
+| notes              | text      |                      |
+| current_version_id | int FK    | quotation_versions.id |
+| created_at         | timestamp | Default now          |
+| updated_at         | timestamp | Default now          |
 
 ### rfq_items
-| Column            | Type      | Notes                |
-|-------------------|-----------|----------------------|
-| id                | serial PK | RFQ Item ID          |
-| rfqId             | int FK    | rfqs.id              |
-| name              | varchar   | Not null             |
-| description       | text      |                      |
-| quantity          | int       | Not null             |
-| unit              | varchar   |                      |
-| customerSku       | varchar   |                      |
-| internalProductId | int FK    | inventory_items.id   |
-| suggestedPrice    | real      |                      |
-| finalPrice        | real      |                      |
-| currency          | varchar   | Default CAD          |
-| status            | varchar   | Default PENDING      |
-| estimatedPrice    | real      |                      |
-| createdAt         | timestamp | Default now          |
-| updatedAt         | timestamp | Default now          |
+| Column               | Type      | Notes                |
+|----------------------|-----------|----------------------|
+| id                   | serial PK | RFQ Item ID          |
+| rfq_id               | int FK    | rfqs.id              |
+| name                 | varchar   | Not null             |
+| description          | text      |                      |
+| quantity             | int       | Not null             |
+| unit                 | varchar   |                      |
+| customer_sku         | varchar   |                      |
+| internal_product_id  | int FK    | inventory_items.id   |
+| unit_price           | real      |                      |
+| currency             | varchar   | Default CAD          |
+| status               | varchar   | Default PENDING      |
+| created_at           | timestamp | Default now          |
+| updated_at           | timestamp | Default now          |
 
 ## Quotation & Version Control
 
 ### quotations
-| Column             | Type      | Notes                |
-|--------------------|-----------|----------------------|
-| id                 | serial PK | Quotation ID         |
-| quoteNumber        | varchar   | Unique, not null     |
-| rfqId              | int FK    | rfqs.id              |
-| customerId         | int FK    | customers.id         |
-| vendorId           | int FK    | vendors.id           |
-| totalAmount        | real      | Not null             |
-| deliveryTime       | varchar   |                      |
-| validUntil         | date      |                      |
-| termsAndConditions | text      |                      |
-| attachments        | jsonb     | Array of file paths  |
-| isSelected         | boolean   | Default false        |
-| status             | varchar   | Default PENDING      |
-| notes              | text      |                      |
-| expiryDate         | date      |                      |
-| createdBy          | int FK    | users.id             |
-| createdAt          | timestamp | Default now          |
-| updatedAt          | timestamp | Default now          |
+| Column                | Type      | Notes                |
+|-----------------------|-----------|----------------------|
+| id                    | serial PK | Quotation ID         |
+| quote_number          | varchar   | Unique, not null     |
+| rfq_id                | int FK    | rfqs.id              |
+| customer_id           | int FK    | customers.id         |
+| vendor_id             | int FK    | vendors.id           |
+| total_amount          | real      | Not null             |
+| delivery_time         | varchar   |                      |
+| valid_until           | date      |                      |
+| terms_and_conditions  | text      |                      |
+| attachments           | jsonb     | Array of file paths  |
+| is_selected           | boolean   | Default false        |
+| status                | varchar   | Default PENDING      |
+| notes                 | text      |                      |
+| expiry_date           | date      |                      |
+| created_by            | int FK    | users.id             |
+| created_at            | timestamp | Default now          |
+| updated_at            | timestamp | Default now          |
 
 ### quotation_versions
-| Column            | Type      | Notes                |
-|-------------------|-----------|----------------------|
-| id                | serial PK | Version ID           |
-| rfqId             | int FK    | rfqs.id              |
-| versionNumber     | int       | Not null             |
-| entryType         | varchar   | Default internal_quote |
-| status            | varchar   | Default NEW          |
-| estimatedPrice    | int       | Not null             |
-| finalPrice        | int       | Not null             |
-| changes           | text      | Change description   |
-| notes             | text      |                      |
-| createdBy         | varchar   | Not null             |
-| submittedByUserId | int FK    | users.id             |
-| createdAt         | timestamp | Default now          |
-| updatedAt         | timestamp | Default now          |
+| Column                | Type      | Notes                |
+|-----------------------|-----------|----------------------|
+| id                    | serial PK | Version ID           |
+| rfq_id                | int FK    | rfqs.id              |
+| version_number        | int       | Not null             |
+| entry_type            | varchar   | Default internal_quote |
+| status                | varchar   | Default NEW          |
+| estimated_price       | int       | Not null             |
+| final_price           | int       | Not null             |
+| changes               | text      | Change description   |
+| notes                 | text      |                      |
+| created_by            | varchar   | Not null             |
+| submitted_by_user_id  | int FK    | users.id             |
+| created_at            | timestamp | Default now          |
+| updated_at            | timestamp | Default now          |
 
 ### quotation_version_items
-| Column     | Type      | Notes                |
-|------------|-----------|----------------------|
-| id         | serial PK | Version Item ID      |
-| versionId  | int FK    | quotation_versions.id |
-| skuId      | int FK    | inventory_items.id   |
-| quantity   | int       | Not null             |
-| unitPrice  | real      | Not null             |
-| totalPrice | real      | Not null (calculated) |
-| comment    | text      | Optional negotiation note |
-| createdAt  | timestamp | Default now          |
-| updatedAt  | timestamp | Default now          |
+| Column       | Type      | Notes                |
+|--------------|-----------|----------------------|
+| id           | serial PK | Version Item ID      |
+| version_id   | int FK    | quotation_versions.id |
+| sku_id       | int FK    | inventory_items.id   |
+| quantity     | int       | Not null             |
+| unit_price   | real      | Not null             |
+| total_price  | real      | Not null (calculated) |
+| comment      | text      | Optional negotiation note |
+| created_at   | timestamp | Default now          |
+| updated_at   | timestamp | Default now          |
 
 ### customer_responses (Simple)
-| Column           | Type      | Notes                |
-|------------------|-----------|----------------------|
-| id               | serial PK | Response ID          |
-| versionId        | int FK    | quotation_versions.id |
-| status           | varchar   | Not null             |
-| comments         | text      |                      |
-| requestedChanges | text      |                      |
-| respondedAt      | timestamp | Default now          |
+| Column             | Type      | Notes                |
+|--------------------|-----------|----------------------|
+| id                 | serial PK | Response ID          |
+| version_id         | int FK    | quotation_versions.id |
+| status             | varchar   | Not null             |
+| comments           | text      |                      |
+| requested_changes  | text      |                      |
+| responded_at       | timestamp | Default now          |
 
 ### quotation_responses (Detailed)
-| Column                 | Type      | Notes                |
-|------------------------|-----------|----------------------|
-| id                     | serial PK | Response ID          |
-| quotationVersionId     | int FK    | quotation_versions.id |
-| responseNumber         | int       | Not null (sequential) |
-| overallStatus          | varchar   | Default PENDING      |
-| responseDate           | timestamp | Not null             |
-| customerContactPerson  | varchar   |                      |
-| communicationMethod    | varchar   | Default EMAIL        |
-| overallComments        | text      |                      |
-| requestedDeliveryDate  | date      |                      |
-| paymentTermsRequested  | varchar   |                      |
-| specialInstructions    | text      |                      |
-| recordedByUserId       | int FK    | users.id             |
-| createdAt              | timestamp | Default now          |
-| updatedAt              | timestamp | Default now          |
+| Column                       | Type      | Notes                |
+|------------------------------|-----------|----------------------|
+| id                           | serial PK | Response ID          |
+| quotation_version_id         | int FK    | quotation_versions.id |
+| response_number              | int       | Not null (sequential) |
+| overall_status               | varchar   | Default PENDING      |
+| response_date                | timestamp | Not null             |
+| customer_contact_person      | varchar   |                      |
+| communication_method         | varchar   | Default EMAIL        |
+| overall_comments             | text      |                      |
+| requested_delivery_date      | date      |                      |
+| payment_terms_requested      | varchar   |                      |
+| special_instructions         | text      |                      |
+| recorded_by_user_id          | int FK    | users.id             |
+| created_at                   | timestamp | Default now          |
+| updated_at                   | timestamp | Default now          |
 
 **Overall Status Values:** ACCEPTED, DECLINED, PARTIAL_ACCEPTED, NEGOTIATING, PENDING
 **Communication Methods:** EMAIL, PHONE, MEETING, PORTAL
 
 ### quotation_response_items
-| Column                   | Type      | Notes                |
-|--------------------------|-----------|----------------------|
-| id                       | serial PK | Response Item ID     |
-| quotationResponseId      | int FK    | quotation_responses.id |
-| quotationVersionItemId   | int FK    | quotation_version_items.id |
-| skuId                    | int FK    | inventory_items.id   |
-| itemStatus               | varchar   | Default PENDING      |
-| requestedQuantity        | int       |                      |
-| requestedUnitPrice       | real      |                      |
-| requestedTotalPrice      | real      |                      |
-| customerSkuReference     | varchar   |                      |
-| itemSpecificComments     | text      |                      |
-| alternativeSuggestions   | text      |                      |
-| deliveryRequirements     | varchar   |                      |
-| createdAt                | timestamp | Default now          |
-| updatedAt                | timestamp | Default now          |
+| Column                     | Type      | Notes                |
+|----------------------------|-----------|----------------------|
+| id                         | serial PK | Response Item ID     |
+| quotation_response_id      | int FK    | quotation_responses.id |
+| quotation_version_item_id  | int FK    | quotation_version_items.id |
+| sku_id                     | int FK    | inventory_items.id   |
+| item_status                | varchar   | Default PENDING      |
+| requested_quantity         | int       |                      |
+| requested_unit_price       | real      |                      |
+| requested_total_price      | real      |                      |
+| customer_sku_reference     | varchar   |                      |
+| item_specific_comments     | text      |                      |
+| alternative_suggestions    | text      |                      |
+| delivery_requirements      | varchar   |                      |
+| created_at                 | timestamp | Default now          |
+| updated_at                 | timestamp | Default now          |
 
 **Item Status Values:** ACCEPTED, DECLINED, COUNTER_PROPOSED, NEEDS_CLARIFICATION, PENDING
 
 ### quotation_items
-| Column         | Type      | Notes                |
-|----------------|-----------|----------------------|
-| id             | serial PK | Quotation Item ID    |
-| quotationId    | int FK    | quotations.id        |
-| rfqItemId      | int FK    | rfq_items.id         |
-| productId      | int FK    | inventory_items.id   |
-| unitPrice      | real      | Not null             |
-| quantity       | int       | Not null             |
-| extendedPrice  | real      | Not null             |
-| currency       | varchar   | Default CAD          |
-| description    | text      |                      |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
+| Column          | Type      | Notes                |
+|-----------------|-----------|----------------------|
+| id              | serial PK | Quotation Item ID    |
+| quotation_id    | int FK    | quotations.id        |
+| rfq_item_id     | int FK    | rfq_items.id         |
+| product_id      | int FK    | inventory_items.id   |
+| unit_price      | real      | Not null             |
+| quantity        | int       | Not null             |
+| extended_price  | real      | Not null             |
+| currency        | varchar   | Default CAD          |
+| description     | text      |                      |
+| created_at      | timestamp | Default now          |
+| updated_at      | timestamp | Default now          |
 
 ## Negotiation Tracking
 
 ### negotiation_communications
-| Column               | Type      | Notes                |
-|----------------------|-----------|----------------------|
-| id                   | serial PK | Communication ID     |
-| rfqId                | int FK    | rfqs.id              |
-| versionId            | int FK    | quotation_versions.id |
-| communicationType    | varchar   | Not null             |
-| direction            | varchar   | Not null             |
-| subject              | varchar   |                      |
-| content              | text      | Not null             |
-| contactPerson        | varchar   |                      |
-| communicationDate    | timestamp | Not null             |
-| followUpRequired     | boolean   | Default false        |
-| followUpDate         | timestamp |                      |
-| followUpCompleted    | boolean   | Default false        |
-| followUpCompletedAt  | timestamp |                      |
-| enteredByUserId      | int FK    | users.id             |
-| createdAt            | timestamp | Default now          |
-| updatedAt            | timestamp | Default now          |
+| Column                    | Type      | Notes                |
+|---------------------------|-----------|----------------------|
+| id                        | serial PK | Communication ID     |
+| rfq_id                    | int FK    | rfqs.id              |
+| version_id                | int FK    | quotation_versions.id |
+| communication_type        | varchar   | Not null             |
+| direction                 | varchar   | Not null             |
+| subject                   | varchar   |                      |
+| content                   | text      | Not null             |
+| contact_person            | varchar   |                      |
+| communication_date        | timestamp | Not null             |
+| follow_up_required        | boolean   | Default false        |
+| follow_up_date            | timestamp |                      |
+| follow_up_completed       | boolean   | Default false        |
+| follow_up_completed_at    | timestamp |                      |
+| entered_by_user_id        | int FK    | users.id             |
+| created_at                | timestamp | Default now          |
+| updated_at                | timestamp | Default now          |
 
 **Communication Types:** EMAIL, PHONE_CALL, MEETING, INTERNAL_NOTE
 **Directions:** OUTBOUND, INBOUND
 
 ### sku_negotiation_history
-| Column           | Type      | Notes                |
-|------------------|-----------|----------------------|
-| id               | serial PK | SKU History ID       |
-| rfqId            | int FK    | rfqs.id              |
-| skuId            | int FK    | inventory_items.id   |
-| versionId        | int FK    | quotation_versions.id |
-| communicationId  | int FK    | negotiation_communications.id |
-| changeType       | varchar   | Not null             |
-| oldQuantity      | int       |                      |
-| newQuantity      | int       |                      |
-| oldUnitPrice     | real      |                      |
-| newUnitPrice     | real      |                      |
-| changedBy        | varchar   | Default CUSTOMER     |
-| enteredByUserId  | int FK    | users.id             |
-| createdAt        | timestamp | Default now          |
+| Column              | Type      | Notes                |
+|---------------------|-----------|----------------------|
+| id                  | serial PK | SKU History ID       |
+| rfq_id              | int FK    | rfqs.id              |
+| sku_id              | int FK    | inventory_items.id   |
+| version_id          | int FK    | quotation_versions.id |
+| communication_id    | int FK    | negotiation_communications.id |
+| change_type         | varchar   | Not null             |
+| old_quantity        | int       |                      |
+| new_quantity        | int       |                      |
+| old_unit_price      | real      |                      |
+| new_unit_price      | real      |                      |
+| changed_by          | varchar   | Default CUSTOMER     |
+| entered_by_user_id  | int FK    | users.id             |
+| created_at          | timestamp | Default now          |
 
 **Change Types:** PRICE_CHANGE, QUANTITY_CHANGE, BOTH
 **Changed By:** CUSTOMER, INTERNAL
@@ -305,117 +303,117 @@ This document describes the complete database schema for the UDS RFQ Automation 
 ## Inventory & Sales
 
 ### inventory_items
-| Column           | Type      | Notes                |
-|------------------|-----------|----------------------|
-| id               | serial PK | Inventory Item ID    |
-| sku              | varchar   | Unique, not null     |
-| mpn              | varchar   | Manufacturer Part Number |
-| brand            | varchar   | Not null             |
-| category         | varchar   | Default OTHER        |
-| description      | text      | Not null             |
-| stock            | int       | Default 0            |
-| costCad          | real      | Cost in CAD          |
-| costUsd          | real      | Cost in USD          |
-| warehouseLocation| varchar   |                      |
-| quantityOnHand   | int       | Default 0            |
-| quantityReserved | int       | Default 0            |
-| lowStockThreshold| int       | Default 5            |
-| lastSaleDate     | date      |                      |
-| quickbooksItemId | varchar   | QuickBooks integration |
-| createdAt        | timestamp | Default now          |
-| updatedAt        | timestamp | Default now          |
+| Column               | Type      | Notes                |
+|----------------------|-----------|----------------------|
+| id                   | serial PK | Inventory Item ID    |
+| sku                  | varchar   | Unique, not null     |
+| mpn                  | varchar   | Manufacturer Part Number |
+| brand                | varchar   | Not null             |
+| category             | varchar   | Default OTHER        |
+| description          | text      | Not null             |
+| stock                | int       | Default 0            |
+| cost                 | real      | Cost amount          |
+| cost_currency        | varchar   | Default CAD          |
+| warehouse_location   | varchar   |                      |
+| quantity_on_hand     | int       | Default 0            |
+| quantity_reserved    | int       | Default 0            |
+| low_stock_threshold  | int       | Default 5            |
+| last_sale_date       | date      |                      |
+| quickbooks_item_id   | varchar   | QuickBooks integration |
+| created_at           | timestamp | Default now          |
+| updated_at           | timestamp | Default now          |
 
 ### sales_history
-| Column            | Type      | Notes                |
-|-------------------|-----------|----------------------|
-| id                | serial PK | Sales History ID     |
-| invoiceNumber     | varchar   | Not null             |
-| customerId        | int FK    | customers.id         |
-| productId         | int FK    | inventory_items.id   |
-| quantity          | int       | Not null             |
-| unitPrice         | real      | Not null             |
-| extendedPrice     | real      | Not null             |
-| currency          | varchar   | Default CAD          |
-| saleDate          | date      | Not null             |
-| quickbooksInvoiceId| varchar  | QuickBooks integration |
-| createdAt         | timestamp | Default now          |
-| updatedAt         | timestamp | Default now          |
+| Column                 | Type      | Notes                |
+|------------------------|-----------|----------------------|
+| id                     | serial PK | Sales History ID     |
+| invoice_number         | varchar   | Not null             |
+| customer_id            | int FK    | customers.id         |
+| product_id             | int FK    | inventory_items.id   |
+| quantity               | int       | Not null             |
+| unit_price             | real      | Not null             |
+| extended_price         | real      | Not null             |
+| currency               | varchar   | Default CAD          |
+| sale_date              | date      | Not null             |
+| quickbooks_invoice_id  | varchar   | QuickBooks integration |
+| created_at             | timestamp | Default now          |
+| updated_at             | timestamp | Default now          |
 
 ### purchase_orders
-| Column           | Type      | Notes                |
-|------------------|-----------|----------------------|
-| id               | serial PK | Purchase Order ID    |
-| poNumber         | varchar   | Unique, not null     |
-| vendorId         | int FK    | vendors.id           |
-| status           | varchar   | Not null             |
-| orderDate        | timestamp | Not null             |
-| expectedArrivalDate| date    |                      |
-| totalAmount      | real      | Not null             |
-| currency         | varchar   | Default CAD          |
-| quickbooksPoId   | varchar   | QuickBooks integration |
-| createdAt        | timestamp | Default now          |
-| updatedAt        | timestamp | Default now          |
+| Column                 | Type      | Notes                |
+|------------------------|-----------|----------------------|
+| id                     | serial PK | Purchase Order ID    |
+| po_number              | varchar   | Unique, not null     |
+| vendor_id              | int FK    | vendors.id           |
+| status                 | varchar   | Not null             |
+| order_date             | timestamp | Not null             |
+| expected_arrival_date  | date      |                      |
+| total_amount           | real      | Not null             |
+| currency               | varchar   | Default CAD          |
+| quickbooks_po_id       | varchar   | QuickBooks integration |
+| created_at             | timestamp | Default now          |
+| updated_at             | timestamp | Default now          |
 
 ### po_items
-| Column         | Type      | Notes                |
-|----------------|-----------|----------------------|
-| id             | serial PK | PO Item ID           |
-| poId           | int FK    | purchase_orders.id   |
-| productId      | int FK    | inventory_items.id   |
-| quantity       | int       | Not null             |
-| unitCost       | real      | Not null             |
-| extendedCost   | real      | Not null             |
-| currency       | varchar   | Default CAD          |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
+| Column          | Type      | Notes                |
+|-----------------|-----------|----------------------|
+| id              | serial PK | PO Item ID           |
+| po_id           | int FK    | purchase_orders.id   |
+| product_id      | int FK    | inventory_items.id   |
+| quantity        | int       | Not null             |
+| unit_cost       | real      | Not null             |
+| extended_cost   | real      | Not null             |
+| currency        | varchar   | Default CAD          |
+| created_at      | timestamp | Default now          |
+| updated_at      | timestamp | Default now          |
 
 ### market_pricing
-| Column       | Type      | Notes                |
-|--------------|-----------|----------------------|
-| id           | serial PK | Market Pricing ID    |
-| productId    | int FK    | inventory_items.id   |
-| source       | varchar   | Pricing source       |
-| price        | real      | Not null             |
-| currency     | varchar   | Default CAD          |
-| lastUpdated  | timestamp | Default now          |
+| Column        | Type      | Notes                |
+|---------------|-----------|----------------------|
+| id            | serial PK | Market Pricing ID    |
+| product_id    | int FK    | inventory_items.id   |
+| source        | varchar   | Pricing source       |
+| price         | real      | Not null             |
+| currency      | varchar   | Default CAD          |
+| last_updated  | timestamp | Default now          |
 
 ## SKU Management
 
 ### sku_mappings
-| Column           | Type      | Notes                |
-|------------------|-----------|----------------------|
-| id               | serial PK | SKU Mapping ID       |
-| standardSku      | varchar   | Unique, not null     |
-| standardDescription| text    | Not null             |
-| createdAt        | timestamp | Default now          |
-| updatedAt        | timestamp | Default now          |
+| Column               | Type      | Notes                |
+|----------------------|-----------|----------------------|
+| id                   | serial PK | SKU Mapping ID       |
+| standard_sku         | varchar   | Unique, not null     |
+| standard_description | text      | Not null             |
+| created_at           | timestamp | Default now          |
+| updated_at           | timestamp | Default now          |
 
 ### sku_variations
 | Column         | Type      | Notes                |
 |----------------|-----------|----------------------|
 | id             | serial PK | SKU Variation ID     |
-| mappingId      | int FK    | sku_mappings.id (cascade) |
-| customerId     | int FK    | customers.id (cascade) |
-| variationSku   | varchar   | Not null             |
+| mapping_id     | int FK    | sku_mappings.id (cascade) |
+| customer_id    | int FK    | customers.id (cascade) |
+| variation_sku  | varchar   | Not null             |
 | source         | varchar   | Not null             |
-| createdAt      | timestamp | Default now          |
-| updatedAt      | timestamp | Default now          |
+| created_at     | timestamp | Default now          |
+| updated_at     | timestamp | Default now          |
 
 ## Email Automation
 
 ### email_settings
-| Column                      | Type      | Notes                |
-|-----------------------------|-----------|----------------------|
-| id                          | serial PK | Email Settings ID    |
-| enabled                     | boolean   | Default true         |
-| checkInterval               | int       | Default 5 minutes    |
-| skuDetectionEnabled         | boolean   | Default true         |
-| skuAutoMap                  | boolean   | Default true         |
-| skuConfidenceThreshold      | int       | Default 85           |
-| customerDetectionEnabled    | boolean   | Default true         |
-| customerAutoAssign          | boolean   | Default true         |
-| customerConfidenceThreshold | int       | Default 80           |
-| updatedAt                   | timestamp | Default now          |
+| Column                        | Type      | Notes                |
+|-------------------------------|-----------|----------------------|
+| id                            | serial PK | Email Settings ID    |
+| enabled                       | boolean   | Default true         |
+| check_interval                | int       | Default 5 minutes    |
+| sku_detection_enabled         | boolean   | Default true         |
+| sku_auto_map                  | boolean   | Default true         |
+| sku_confidence_threshold      | int       | Default 85           |
+| customer_detection_enabled    | boolean   | Default true         |
+| customer_auto_assign          | boolean   | Default true         |
+| customer_confidence_threshold | int       | Default 80           |
+| updated_at                    | timestamp | Default now          |
 
 ### email_accounts
 | Column     | Type      | Notes                |
@@ -429,9 +427,9 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | username   | varchar   | Not null             |
 | password   | varchar   | Not null             |
 | folders    | jsonb     | Default ['INBOX']    |
-| isActive   | boolean   | Default true         |
-| createdAt  | timestamp | Default now          |
-| updatedAt  | timestamp | Default now          |
+| is_active  | boolean   | Default true         |
+| created_at | timestamp | Default now          |
+| updated_at | timestamp | Default now          |
 
 ### email_rules
 | Column     | Type      | Notes                |
@@ -441,25 +439,25 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | condition  | varchar   | Not null             |
 | action     | varchar   | Default parse        |
 | prioritize | boolean   | Default false        |
-| isActive   | boolean   | Default true         |
-| createdAt  | timestamp | Default now          |
-| updatedAt  | timestamp | Default now          |
+| is_active  | boolean   | Default true         |
+| created_at | timestamp | Default now          |
+| updated_at | timestamp | Default now          |
 
 ### email_parsing_results
-| Column       | Type      | Notes                |
-|--------------|-----------|----------------------|
-| id           | serial PK | Parsing Result ID    |
-| messageId    | varchar   |                      |
-| subject      | varchar   |                      |
-| sender       | varchar   |                      |
-| receivedAt   | timestamp |                      |
-| parsedAt     | timestamp | Default now          |
-| customerInfo | jsonb     |                      |
-| items        | jsonb     | Array of items       |
-| confidence   | int       |                      |
-| status       | varchar   | Default PROCESSED    |
-| rfqId        | int FK    | rfqs.id              |
-| notes        | text      |                      |
+| Column        | Type      | Notes                |
+|---------------|-----------|----------------------|
+| id            | serial PK | Parsing Result ID    |
+| message_id    | varchar   |                      |
+| subject       | varchar   |                      |
+| sender        | varchar   |                      |
+| received_at   | timestamp |                      |
+| parsed_at     | timestamp | Default now          |
+| customer_info | jsonb     |                      |
+| items         | jsonb     | Array of items       |
+| confidence    | int       |                      |
+| status        | varchar   | Default PROCESSED    |
+| rfq_id        | int FK    | rfqs.id              |
+| notes         | text      |                      |
 
 ## Templates & Configuration
 
@@ -471,9 +469,9 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | subject    | varchar   | Not null             |
 | body       | text      | Not null             |
 | variables  | jsonb     | Array of variables   |
-| isActive   | boolean   | Default true         |
-| createdAt  | timestamp | Default now          |
-| updatedAt  | timestamp | Default now          |
+| is_active  | boolean   | Default true         |
+| created_at | timestamp | Default now          |
+| updated_at | timestamp | Default now          |
 
 ### rfq_templates
 | Column      | Type      | Notes                |
@@ -482,11 +480,11 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | name        | varchar   | Not null             |
 | description | text      |                      |
 | columns     | jsonb     | Array of columns     |
-| isActive    | boolean   | Default true         |
-| createdBy   | int FK    | users.id             |
+| is_active   | boolean   | Default true         |
+| created_by  | int FK    | users.id             |
 | metadata    | jsonb     |                      |
-| createdAt   | timestamp | Default now          |
-| updatedAt   | timestamp | Default now          |
+| created_at  | timestamp | Default now          |
+| updated_at  | timestamp | Default now          |
 
 ### settings
 | Column      | Type      | Notes                |
@@ -495,9 +493,9 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | key         | varchar   | Unique, not null     |
 | value       | text      | Not null             |
 | description | text      |                      |
-| updatedBy   | int FK    | users.id             |
-| createdAt   | timestamp | Default now          |
-| updatedAt   | timestamp | Default now          |
+| updated_by  | int FK    | users.id             |
+| created_at  | timestamp | Default now          |
+| updated_at  | timestamp | Default now          |
 
 ## Reporting & Audit
 
@@ -508,9 +506,9 @@ This document describes the complete database schema for the UDS RFQ Automation 
 | name        | varchar   | Not null             |
 | description | text      |                      |
 | type        | varchar   | Not null             |
-| createdAt   | timestamp | Default now          |
-| updatedAt   | timestamp | Default now          |
-| createdBy   | int FK    | users.id             |
+| created_at  | timestamp | Default now          |
+| updated_at  | timestamp | Default now          |
+| created_by  | int FK    | users.id             |
 | filters     | jsonb     | Report filters       |
 | data        | jsonb     | Report data          |
 
@@ -519,82 +517,82 @@ This document describes the complete database schema for the UDS RFQ Automation 
 |-------------|-----------|----------------------|
 | id          | serial PK | Audit Log ID         |
 | timestamp   | timestamp | Default now          |
-| userId      | int FK    | users.id             |
+| user_id     | int FK    | users.id             |
 | action      | varchar   | Not null             |
-| entityType  | varchar   |                      |
-| entityId    | int       |                      |
+| entity_type | varchar   |                      |
+| entity_id   | int       |                      |
 | details     | jsonb     |                      |
 
 ### comments
-| Column      | Type      | Notes                |
-|-------------|-----------|----------------------|
-| id          | serial PK | Comment ID           |
-| content     | text      | Not null             |
-| userId      | int FK    | users.id             |
-| rfqId       | int FK    | rfqs.id              |
-| createdAt   | timestamp | Default now          |
-| updatedAt   | timestamp | Default now          |
+| Column     | Type      | Notes                |
+|------------|-----------|----------------------|
+| id         | serial PK | Comment ID           |
+| content    | text      | Not null             |
+| user_id    | int FK    | users.id             |
+| rfq_id     | int FK    | rfqs.id              |
+| created_at | timestamp | Default now          |
+| updated_at | timestamp | Default now          |
 
 ---
 
 ## Key Relationships
 
 ### Core RFQ Flow
-- **users** 1---* **rfqs** (requestorId, approvedBy)
-- **customers** 1---* **rfqs** (customerId)
-- **vendors** 1---* **rfqs** (vendorId)
-- **rfqs** 1---* **rfq_items** (rfqId)
-- **rfqs** 1---* **quotations** (rfqId)
-- **rfqs** 1---* **quotation_versions** (rfqId)
-- **rfqs** 1---* **comments** (rfqId)
-- **rfqs** 1---1 **quotation_versions** (currentVersionId)
+- **users** 1---* **rfqs** (requestor_id, approved_by)
+- **customers** 1---* **rfqs** (customer_id)
+- **vendors** 1---* **rfqs** (vendor_id)
+- **rfqs** 1---* **rfq_items** (rfq_id)
+- **rfqs** 1---* **quotations** (rfq_id)
+- **rfqs** 1---* **quotation_versions** (rfq_id)
+- **rfqs** 1---* **comments** (rfq_id)
+- **rfqs** 1---1 **quotation_versions** (current_version_id)
 
 ### Quotation Management & Versioning
-- **quotations** 1---* **quotation_items** (quotationId)
-- **quotation_versions** 1---* **quotation_version_items** (versionId)
-- **quotation_versions** 1---* **customer_responses** (versionId)
-- **quotation_versions** 1---* **quotation_responses** (quotationVersionId)
-- **quotation_responses** 1---* **quotation_response_items** (quotationResponseId)
-- **quotation_version_items** 1---* **quotation_response_items** (quotationVersionItemId)
-- **rfq_items** 1---* **quotation_items** (rfqItemId)
+- **quotations** 1---* **quotation_items** (quotation_id)
+- **quotation_versions** 1---* **quotation_version_items** (version_id)
+- **quotation_versions** 1---* **customer_responses** (version_id)
+- **quotation_versions** 1---* **quotation_responses** (quotation_version_id)
+- **quotation_responses** 1---* **quotation_response_items** (quotation_response_id)
+- **quotation_version_items** 1---* **quotation_response_items** (quotation_version_item_id)
+- **rfq_items** 1---* **quotation_items** (rfq_item_id)
 
 ### Negotiation Tracking
-- **rfqs** 1---* **negotiation_communications** (rfqId)
-- **quotation_versions** 1---* **negotiation_communications** (versionId)
-- **rfqs** 1---* **sku_negotiation_history** (rfqId)
-- **quotation_versions** 1---* **sku_negotiation_history** (versionId)
-- **negotiation_communications** 1---* **sku_negotiation_history** (communicationId)
-- **inventory_items** 1---* **sku_negotiation_history** (skuId)
-- **users** 1---* **negotiation_communications** (enteredByUserId)
-- **users** 1---* **sku_negotiation_history** (enteredByUserId)
+- **rfqs** 1---* **negotiation_communications** (rfq_id)
+- **quotation_versions** 1---* **negotiation_communications** (version_id)
+- **rfqs** 1---* **sku_negotiation_history** (rfq_id)
+- **quotation_versions** 1---* **sku_negotiation_history** (version_id)
+- **negotiation_communications** 1---* **sku_negotiation_history** (communication_id)
+- **inventory_items** 1---* **sku_negotiation_history** (sku_id)
+- **users** 1---* **negotiation_communications** (entered_by_user_id)
+- **users** 1---* **sku_negotiation_history** (entered_by_user_id)
 
 ### Inventory & Sales
-- **inventory_items** 1---* **rfq_items** (internalProductId)
-- **inventory_items** 1---* **quotation_items** (productId)
-- **inventory_items** 1---* **quotation_version_items** (skuId)
-- **inventory_items** 1---* **quotation_response_items** (skuId)
-- **inventory_items** 1---* **sales_history** (productId)
-- **inventory_items** 1---* **po_items** (productId)
-- **inventory_items** 1---* **market_pricing** (productId)
+- **inventory_items** 1---* **rfq_items** (internal_product_id)
+- **inventory_items** 1---* **quotation_items** (product_id)
+- **inventory_items** 1---* **quotation_version_items** (sku_id)
+- **inventory_items** 1---* **quotation_response_items** (sku_id)
+- **inventory_items** 1---* **sales_history** (product_id)
+- **inventory_items** 1---* **po_items** (product_id)
+- **inventory_items** 1---* **market_pricing** (product_id)
 
 ### Response Tracking
-- **users** 1---* **quotation_responses** (recordedByUserId)
-- **customers** 1---* **sales_history** (customerId)
-- **vendors** 1---* **purchase_orders** (vendorId)
-- **purchase_orders** 1---* **po_items** (poId)
+- **users** 1---* **quotation_responses** (recorded_by_user_id)
+- **customers** 1---* **sales_history** (customer_id)
+- **vendors** 1---* **purchase_orders** (vendor_id)
+- **purchase_orders** 1---* **po_items** (po_id)
 
 ### SKU Management
-- **sku_mappings** 1---* **sku_variations** (mappingId)
-- **customers** 1---* **sku_variations** (customerId)
+- **sku_mappings** 1---* **sku_variations** (mapping_id)
+- **customers** 1---* **sku_variations** (customer_id)
 
 ### Email Automation
-- **email_parsing_results** *---1 **rfqs** (rfqId)
+- **email_parsing_results** *---1 **rfqs** (rfq_id)
 
 ### Templates & Configuration
-- **users** 1---* **rfq_templates** (createdBy)
-- **users** 1---* **reports** (createdBy)
-- **users** 1---* **settings** (updatedBy)
-- **users** 1---* **quotation_versions** (submittedByUserId)
+- **users** 1---* **rfq_templates** (created_by)
+- **users** 1---* **reports** (created_by)
+- **users** 1---* **settings** (updated_by)
+- **users** 1---* **quotation_versions** (submitted_by_user_id)
 
 ---
 
@@ -659,9 +657,73 @@ erDiagram
 
 ---
 
-## Advanced Features
+## Current Schema Changes & Notes
 
-### Quotation Response System
+### Recent Updates to inventory_items Table
+The inventory_items table now uses a unified cost structure:
+- **cost**: Real number for cost amount
+- **cost_currency**: Varchar (3) for currency code (default: CAD)
+
+This replaces the previous separate `cost_cad` and `cost_usd` fields, providing more flexibility for multi-currency operations.
+
+### Simplified RFQ Items Pricing Structure
+The rfq_items table has been simplified to use a single pricing field:
+- **unit_price**: Real number for the price per unit
+
+This replaces the previous three separate price fields (`suggested_price`, `final_price`, `estimated_price`), providing a cleaner and more straightforward pricing model for RFQ items.
+
+### Field Naming Convention
+The database uses snake_case naming convention for all column names (e.g., `created_at`, `customer_id`, `total_budget`), which differs from the camelCase used in the application layer.
+
+### Currency Support
+The system supports multi-currency operations with the following features:
+- **Default Currency**: CAD (Canadian Dollar)
+- **Secondary Currency**: USD (US Dollar)
+- **Currency Fields**: All monetary fields include currency specification
+- **Exchange Rate Management**: Manual and automatic exchange rate handling
+- **Consistent Display**: Always shows "1 USD = X CAD" format
+
+### Seeding & Data Integrity
+- **Total Budget Calculation**: RFQ total_budget is now calculated from actual RFQ items (price × quantity)
+- **Cost-Based Pricing**: Suggested prices are calculated based on inventory item costs with markup
+- **Currency Distribution**: Seeded data uses 80% CAD, 20% USD to reflect North American business
+
+### QuickBooks Integration
+Tables with QuickBooks integration capabilities:
+- **customers** (quickbooks_id)
+- **vendors** (quickbooks_id)
+- **inventory_items** (quickbooks_item_id)
+- **sales_history** (quickbooks_invoice_id)
+- **purchase_orders** (quickbooks_po_id)
+
+### Email Automation Features
+- **Automated Email Processing**: Configurable email account monitoring
+- **SKU Detection**: Automatic SKU recognition and mapping
+- **Customer Detection**: Automatic customer identification
+- **Rule-Based Processing**: Customizable email processing rules
+- **Confidence Scoring**: AI-powered confidence levels for automation decisions
+
+### Data Types & Field Specifications
+
+#### Date vs Timestamp Fields
+- **timestamp**: Full date and time with timezone support (e.g., `response_date`, `created_at`)
+- **date**: Date only without time (e.g., `requested_delivery_date`, `sale_date`)
+
+#### JSONB Field Usage
+- **attachments**: Array of file paths/URLs
+- **variables**: Template variable definitions
+- **folders**: Email folder configurations
+- **columns**: Template column definitions
+- **metadata**: Flexible configuration data
+- **filters**: Report filter configurations
+- **data**: Report result data
+- **details**: Audit log details
+- **customer_info**: Parsed customer information
+- **items**: Parsed item arrays
+
+### Advanced Features
+
+#### Quotation Response System
 The system supports comprehensive customer response tracking with two levels:
 
 1. **Simple Customer Responses** (`customer_responses`): Basic status and comments
@@ -671,65 +733,24 @@ The system supports comprehensive customer response tracking with two levels:
    - Sequential response numbering for tracking multiple rounds
    - Alternative suggestions and delivery requirements per item
 
-### Negotiation Communication Tracking
+#### Negotiation Communication Tracking
 - **Manual Entry System**: Track all customer communications
 - **Bidirectional Tracking**: INBOUND and OUTBOUND communications
 - **Multiple Communication Types**: EMAIL, PHONE_CALL, MEETING, INTERNAL_NOTE
 - **Follow-up Management**: Track required follow-ups and completion status
 - **Version Linking**: Link communications to specific quotation versions
 
-### SKU-Level Negotiation History
+#### SKU-Level Negotiation History
 - **Change Tracking**: Track price and quantity changes per SKU
 - **Source Attribution**: Identify if changes came from CUSTOMER or INTERNAL sources
 - **Version Correlation**: Link changes to specific quotation versions
 - **Communication Context**: Link changes to specific communications
 
-### Version Control Features
+#### Version Control Features
 - **Sequential Versioning**: Automatic version numbering per RFQ
 - **Entry Type Tracking**: Distinguish between internal quotes and customer feedback
 - **Current Version Pointer**: RFQ maintains reference to current active version
 - **Change Documentation**: Track changes and notes per version
-
-## Currency Support
-The system supports multi-currency operations with the following features:
-- **Default Currency**: CAD (Canadian Dollar)
-- **Secondary Currency**: USD (US Dollar)
-- **Currency Fields**: All monetary fields include currency specification
-- **Exchange Rate Management**: Manual and automatic exchange rate handling
-- **Consistent Display**: Always shows "1 USD = X CAD" format
-
-## QuickBooks Integration
-Tables with QuickBooks integration capabilities:
-- **customers** (quickbooksId)
-- **vendors** (quickbooksId)
-- **inventory_items** (quickbooksItemId)
-- **sales_history** (quickbooksInvoiceId)
-- **purchase_orders** (quickbooksPoId)
-
-## Email Automation Features
-- **Automated Email Processing**: Configurable email account monitoring
-- **SKU Detection**: Automatic SKU recognition and mapping
-- **Customer Detection**: Automatic customer identification
-- **Rule-Based Processing**: Customizable email processing rules
-- **Confidence Scoring**: AI-powered confidence levels for automation decisions
-
-## Data Types & Field Specifications
-
-### Date vs Timestamp Fields
-- **timestamp**: Full date and time with timezone support (e.g., `responseDate`, `createdAt`)
-- **date**: Date only without time (e.g., `requestedDeliveryDate`, `saleDate`)
-
-### JSONB Field Usage
-- **attachments**: Array of file paths/URLs
-- **variables**: Template variable definitions
-- **folders**: Email folder configurations
-- **columns**: Template column definitions
-- **metadata**: Flexible configuration data
-- **filters**: Report filter configurations
-- **data**: Report result data
-- **details**: Audit log details
-- **customerInfo**: Parsed customer information
-- **items**: Parsed item arrays
 
 ## Notes
 - All timestamps are in UTC
@@ -741,3 +762,4 @@ Tables with QuickBooks integration capabilities:
 - Sequential numbering is maintained for quotation versions and responses
 - Comprehensive audit trail through negotiation communications and SKU history
 - Response system supports both simple status updates and detailed SKU-level feedback
+- Field names use snake_case convention in database, converted to camelCase in application

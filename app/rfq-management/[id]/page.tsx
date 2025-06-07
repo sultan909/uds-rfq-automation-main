@@ -1015,11 +1015,14 @@ export default function RfqDetail({
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Budget:</span>
                       <span className="font-medium">
-                        {formatCurrency(
-                          currency === "CAD"
-                            ? (rfq.totalBudget || 0)
-                            : convertCurrency(rfq.totalBudget || 0, "CAD")
-                        )}
+                        {(() => {
+                          // Calculate the actual total budget by converting each item's price to display currency
+                          const actualTotalBudget = items.reduce((sum: number, item: any) => {
+                            const convertedPrice = convertCurrency(item.unitPrice || 0, item.currency as "CAD" | "USD");
+                            return sum + (convertedPrice * item.quantity);
+                          }, 0);
+                          return formatCurrency(actualTotalBudget);
+                        })()}
                       </span>
                     </div>
                   )}
@@ -1114,6 +1117,7 @@ export default function RfqDetail({
               <OriginalRequestTab
                 items={items}
                 formatCurrency={formatCurrency}
+                convertCurrency={convertCurrency}
               />
               {renderPagination()}
             </TabsContent>
@@ -1133,6 +1137,7 @@ export default function RfqDetail({
                 onColumnToggle={(columnId) => handleColumnToggle('pricing', columnId)}
                 renderPagination={renderPagination}
                 formatCurrency={formatCurrency}
+                convertCurrency={convertCurrency}
               />
             </TabsContent>
 
@@ -1143,6 +1148,7 @@ export default function RfqDetail({
                 onColumnToggle={(columnId) => handleColumnToggle('inventory', columnId)}
                 renderPagination={renderPagination}
                 formatCurrency={formatCurrency}
+                convertCurrency={convertCurrency}
                 skuDetails={skuDetails}
               />
             </TabsContent>
@@ -1154,6 +1160,7 @@ export default function RfqDetail({
                 onColumnToggle={(columnId) => handleColumnToggle('history', columnId)}
                 renderPagination={renderPagination}
                 formatCurrency={formatCurrency}
+                convertCurrency={convertCurrency}
                 history={history}
                 historyLoading={historyLoading}
                 historyError={historyError}
@@ -1171,6 +1178,7 @@ export default function RfqDetail({
                 onColumnToggle={(columnId) => handleColumnToggle('market', columnId)}
                 renderPagination={renderPagination}
                 formatCurrency={formatCurrency}
+                convertCurrency={convertCurrency}
               />
             </TabsContent>
 
@@ -1181,6 +1189,7 @@ export default function RfqDetail({
                 onColumnToggle={(columnId) => handleColumnToggle('settings', columnId)}
                 renderPagination={renderPagination}
                 formatCurrency={formatCurrency}
+                convertCurrency={convertCurrency}
                 onStatusChange={handleStatusChange}
                 onEditItem={handleEditItem}
               />
