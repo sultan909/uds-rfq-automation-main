@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPaginatedResponse } from '../../lib/api-response';
+import { createSuccessResponse, createPaginatedResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
 import { db } from '../../../../db';
-import { rfqs, customers, users } from '../../../../db/schema';
-import { eq, and, like, gte, lte, desc, sql, count, or } from 'drizzle-orm';
+import { rfqs, customers, users, rfqItems } from '../../../../db/schema';
+import { eq, and, like, ilike, gte, lte, desc, asc, or, sql, count, isNotNull } from 'drizzle-orm';
 
 interface TransformedRfq {
   id: number;
@@ -53,27 +53,76 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
     
+    // Extract sorting parameters
+    const sortField = searchParams.get('sortField');
+    const sortOrder = searchParams.get('sortOrder');
+    
     // Extract pagination parameters
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10) || 10));
     
-    // Build search conditions - search in RFQ number, customer name, and source
-    const searchQuery = query.trim().toLowerCase();
+    // Build search conditions with customer join
+    const searchQuery = query.trim();
+    
+    // Search in RFQ number, source, customer name, title, and description
     const searchConditions = or(
-      like(rfqs.rfqNumber, `%${searchQuery}%`),
-      like(customers.name, `%${searchQuery}%`),
-      like(rfqs.source, `%${searchQuery}%`),
-      like(rfqs.title, `%${searchQuery}%`),
-      like(rfqs.description, `%${searchQuery}%`)
+      ilike(rfqs.rfqNumber, `%${searchQuery}%`),
+      ilike(rfqs.source, `%${searchQuery}%`),
+      ilike(customers.name, `%${searchQuery}%`),
+      and(isNotNull(rfqs.title), ilike(rfqs.title, `%${searchQuery}%`)),
+      and(isNotNull(rfqs.description), ilike(rfqs.description, `%${searchQuery}%`))
     );
     
     // Build additional filter conditions
     const conditions = [searchConditions];
-    if (status) conditions.push(eq(rfqs.status, status as 'NEGOTIATING' | 'DRAFT' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED'));
-    if (customerId) conditions.push(eq(rfqs.customerId, parseInt(customerId)));
-    if (dateFrom) conditions.push(gte(rfqs.createdAt, new Date(dateFrom)));
-    if (dateTo) conditions.push(lte(rfqs.createdAt, new Date(dateTo)));
+    if (status) {
+      conditions.push(eq(rfqs.status, status as 'NEGOTIATING' | 'DRAFT' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED' | 'SENT' | 'NEW' | 'PRICED'));
+    }
+    if (customerId) {
+      conditions.push(eq(rfqs.customerId, parseInt(customerId)));
+    }
+    if (dateFrom) {
+      conditions.push(gte(rfqs.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      conditions.push(lte(rfqs.createdAt, new Date(dateTo)));
+    }
 
+    // Build sorting
+    let orderBy = desc(rfqs.createdAt); // Default sort
+    if (sortField && sortOrder) {
+      const direction = sortOrder === 'desc' ? desc : asc;
+      
+      switch (sortField) {
+        case 'rfqNumber':
+          orderBy = direction(rfqs.rfqNumber);
+          break;
+        case 'customer.name':
+          orderBy = direction(customers.name);
+          break;
+        case 'createdAt':
+          orderBy = direction(rfqs.createdAt);
+          break;
+        case 'updatedAt':
+          orderBy = direction(rfqs.updatedAt);
+          break;
+        case 'source':
+          orderBy = direction(rfqs.source);
+          break;
+        case 'status':
+          orderBy = direction(rfqs.status);
+          break;
+        case 'totalBudget':
+          orderBy = direction(rfqs.totalBudget);
+          break;
+        case 'itemCount':
+          orderBy = direction(sql`(SELECT COUNT(*) FROM rfq_items WHERE rfq_id = ${rfqs.id})`);
+          break;
+        default:
+          orderBy = desc(rfqs.createdAt);
+      }
+    }
+    
     // Get total count for search results
     const totalCount = await db
       .select({ value: count() })
@@ -82,7 +131,7 @@ export async function GET(request: NextRequest) {
       .where(and(...conditions))
       .then(result => result[0].value);
 
-    // Get paginated search results
+    // Get paginated search results with customer data
     const offset = (page - 1) * pageSize;
     const searchResults = await db
       .select({
@@ -95,6 +144,9 @@ export async function GET(request: NextRequest) {
         totalBudget: rfqs.totalBudget,
         createdAt: rfqs.createdAt,
         updatedAt: rfqs.updatedAt,
+        customerId: rfqs.customerId,
+        // Get actual item count
+        itemCount: sql<number>`(SELECT COUNT(*) FROM rfq_items WHERE rfq_id = ${rfqs.id})`,
         customer: {
           id: customers.id,
           name: customers.name,
@@ -105,12 +157,13 @@ export async function GET(request: NextRequest) {
       .from(rfqs)
       .leftJoin(customers, eq(rfqs.customerId, customers.id))
       .where(and(...conditions))
-      .orderBy(desc(rfqs.createdAt))
+      .orderBy(orderBy)
       .limit(pageSize)
       .offset(offset);
 
     return createPaginatedResponse(searchResults, page, pageSize, totalCount);
   } catch (error) {
+    console.error('Search API Error:', error);
     return handleApiError(error);
   }
 }
