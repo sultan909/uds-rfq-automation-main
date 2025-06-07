@@ -56,9 +56,15 @@ export async function GET(request: NextRequest) {
       ['ACCEPTED', 'PROCESSED', 'DECLINED'].includes(rfq.status)
     );
 
+    // Separate processed RFQs (only PROCESSED status)
+    const processedRfqs = rfqList.filter(rfq => 
+      rfq.status === 'PROCESSED'
+    );
+
     return NextResponse.json(createSuccessResponse({
       activeRfqs,
-      completedRfqs
+      completedRfqs,
+      processedRfqs
     }));
   } catch (error) {
     return handleApiError(error);

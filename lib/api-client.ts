@@ -89,13 +89,15 @@ export const rfqApi = {
     console.log('RFQ API Response:', response);
     return response;
   },
-  list: async (params?: { page?: number; pageSize?: number; status?: string; search?: string }) => {
+  list: async (params?: { page?: string; pageSize?: string; status?: string; search?: string; sortField?: string; sortOrder?: string }) => {
     const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    if (params?.page) queryParams.append('page', params.page);
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize);
     if (params?.status) queryParams.append('status', params.status);
     if (params?.search) queryParams.append('search', params.search);
-    return apiFetch("/api/rfq/", { params: Object.fromEntries(queryParams.entries()) });
+    if (params?.sortField) queryParams.append('sortField', params.sortField);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    return apiFetch("/api/rfq", { params: Object.fromEntries(queryParams.entries()) });
   },
   create: (data: any) =>
     apiFetch("/api/rfq/create", {
@@ -274,7 +276,7 @@ export const rfqApi = {
 export const customerApi = {
   getById: (id: string) => apiFetch(`/api/customers/${id}`),
   list: (params?: Record<string, string | undefined>) =>
-    apiFetch("/api/customers/", { params }),
+    apiFetch("/api/customers", { params }),
   create: (data: any) =>
     apiFetch("/api/customers/create", {
       method: "POST",
@@ -298,7 +300,7 @@ export const customerApi = {
 // Inventory API endpoints
 export const inventoryApi = {
   list: (params?: Record<string, string | undefined>) =>
-    apiFetch("/api/inventory/", { params }),
+    apiFetch("/api/inventory", { params }),
   search: (query: string, params?: Record<string, string | undefined>) =>
     apiFetch("/api/inventory/search", {
       params: { query, ...params },

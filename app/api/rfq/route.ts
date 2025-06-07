@@ -101,7 +101,7 @@ import { createSuccessResponse, createPaginatedResponse } from '../lib/api-respo
 import { handleApiError, ApiError } from '../lib/error-handler';
 import { db } from '../../../db';
 import { rfqs, customers, users, rfqItems } from '../../../db/schema';
-import { eq, and, like, gte, lte, desc, sql, count } from 'drizzle-orm';
+import { eq, and, like, gte, lte, desc, asc, sql, count } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 interface TransformedRfq {
@@ -136,7 +136,7 @@ interface TransformedRfq {
 
 /**
  * GET /api/rfq/list
- * Get all RFQs with filters and pagination
+ * Get all RFQs with filters, sorting and pagination
  */
 export async function GET(request: NextRequest) {
   try {
@@ -149,6 +149,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+    
+    // Extract sorting parameters
+    const sortField = searchParams.get('sortField');
+    const sortOrder = searchParams.get('sortOrder'); // 'asc' or 'desc'
     
     // Extract pagination parameters
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
@@ -166,10 +170,49 @@ export async function GET(request: NextRequest) {
     if (dateFrom) conditions.push(gte(rfqs.createdAt, new Date(dateFrom)));
     if (dateTo) conditions.push(lte(rfqs.createdAt, new Date(dateTo)));
 
+    // Build sorting
+    let orderBy;
+    if (sortField && sortOrder) {
+      const direction = sortOrder === 'desc' ? desc : asc;
+      
+      switch (sortField) {
+        case 'rfqNumber':
+          orderBy = direction(rfqs.rfqNumber);
+          break;
+        case 'customer.name':
+          orderBy = direction(customers.name);
+          break;
+        case 'createdAt':
+          orderBy = direction(rfqs.createdAt);
+          break;
+        case 'updatedAt':
+          orderBy = direction(rfqs.updatedAt);
+          break;
+        case 'source':
+          orderBy = direction(rfqs.source);
+          break;
+        case 'status':
+          orderBy = direction(rfqs.status);
+          break;
+        case 'totalBudget':
+          orderBy = direction(rfqs.totalBudget);
+          break;
+        case 'itemCount':
+          // For itemCount, we'll use a subquery in the order by
+          orderBy = direction(sql`(SELECT COUNT(*) FROM rfq_items WHERE rfq_id = ${rfqs.id})`);
+          break;
+        default:
+          orderBy = desc(rfqs.createdAt); // Default sort
+      }
+    } else {
+      orderBy = desc(rfqs.createdAt); // Default sort
+    }
+
     // Get total count
     const totalCount = await db
       .select({ value: count() })
       .from(rfqs)
+      .leftJoin(customers, eq(rfqs.customerId, customers.id))
       .where(and(...conditions))
       .then(result => result[0].value);
 
@@ -196,7 +239,7 @@ export async function GET(request: NextRequest) {
       .leftJoin(customers, eq(rfqs.customerId, customers.id))
       .leftJoin(users, eq(rfqs.requestorId, users.id))
       .where(and(...conditions))
-      .orderBy(desc(rfqs.createdAt))
+      .orderBy(orderBy)
       .limit(pageSize)
       .offset((page - 1) * pageSize);
 

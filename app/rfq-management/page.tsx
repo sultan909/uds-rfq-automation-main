@@ -4,26 +4,23 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 import { useEffect, useState } from "react"
 import { rfqApi } from "@/lib/api-client"
 import { toast } from "sonner"
 import { Spinner } from "@/components/spinner"
 import { useRouter } from "next/navigation"
 import { useCurrency } from "@/contexts/currency-context"
+import { Search, Plus } from "lucide-react"
 
 // PrimeReact imports
-import { DataTable } from 'primereact/datatable'
-import { Column } from 'primereact/column'
-import { FilterMatchMode } from 'primereact/api'
-import { InputText } from 'primereact/inputtext'
-import { Dropdown } from 'primereact/dropdown'
-import { Tag } from 'primereact/tag'
-import { Calendar } from 'primereact/calendar'
-
-// PrimeReact CSS imports
-import 'primereact/resources/themes/lara-light-blue/theme.css'
-import 'primereact/resources/primereact.min.css'
-import 'primeicons/primeicons.css'
+import { DataTable, DataTablePageEvent, DataTableSortEvent, DataTableRowClickEvent } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { Skeleton } from 'primereact/skeleton';
+import { MultiSelect } from 'primereact/multiselect';
+import 'primereact/resources/themes/lara-light-cyan/theme.css';
+import 'primereact/resources/primereact.min.css';
+import 'primeicons/primeicons.css';
 
 interface RfqData {
   id: number
@@ -39,273 +36,240 @@ interface RfqData {
   status: string
 }
 
+interface SortConfig {
+  field: string | null
+  direction: 'asc' | 'desc' | null
+}
+
 export default function RfqManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [allRfqs, setAllRfqs] = useState<RfqData[]>([])
+  
+  // Simplified state management
   const [filteredRfqs, setFilteredRfqs] = useState<RfqData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
   const [globalFilterValue, setGlobalFilterValue] = useState("")
-  const [selectedRfq, setSelectedRfq] = useState<RfqData | null>(null)
-  const [stats, setStats] = useState({
-    total: 0,
-    new: 0,
-    draft: 0,
-    priced: 0,
-    sent: 0,
-    negotiating: 0,
-    accepted: 0,
-    declined: 0,
-    processed: 0
-  })
-  const [filters, setFilters] = useState({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    rfqNumber: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'customer.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
-    source: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    status: { value: null, matchMode: FilterMatchMode.EQUALS }
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  
+  // PrimeReact DataTable state
+  const [first, setFirst] = useState(0)
+  const [rows, setRows] = useState(10)
+  const [sortField, setSortField] = useState<string | undefined>(undefined)
+  const [sortOrder, setSortOrder] = useState<1 | -1 | 0 | null | undefined>(0)
+  
+  // Sort state - keeping for compatibility
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: null,
+    direction: null
   })
 
-  const statusOptions = [
-    { label: 'New', value: 'NEW' },
-    { label: 'Draft', value: 'DRAFT' },
-    { label: 'Priced', value: 'PRICED' },
-    { label: 'Sent', value: 'SENT' },
-    { label: 'Negotiating', value: 'NEGOTIATING' },
-    { label: 'Accepted', value: 'ACCEPTED' },
-    { label: 'Declined', value: 'DECLINED' },
-    { label: 'Processed', value: 'PROCESSED' }
-  ]
+  // Column toggle functionality
+  const columns = [
+    { field: 'rfqNumber', header: 'RFQ Number' },
+    { field: 'customer.name', header: 'Customer' },
+    { field: 'createdAt', header: 'Created' },
+    { field: 'updatedAt', header: 'Updated' },
+    { field: 'source', header: 'Source' },
+    { field: 'itemCount', header: 'Items' },
+    { field: 'totalBudget', header: 'Total Amount' },
+    { field: 'status', header: 'Status' }
+  ];
 
+  const [visibleColumns, setVisibleColumns] = useState(columns);
 
+  // Debounced search
+  const [searchValue, setSearchValue] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
 
-  // Fetch all RFQ data once
+  // Debounce search input
   useEffect(() => {
-    fetchAllRfqs()
-  }, [])
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchValue)
+      setCurrentPage(1) // Reset to first page when searching
+    }, 300)
 
-  // Filter RFQs when tab changes
+    return () => clearTimeout(timer)
+  }, [searchValue])
+
+  // Update globalFilterValue when debounced search changes
   useEffect(() => {
-    filterRfqsByTab()
-  }, [selectedTab, allRfqs])
+    setGlobalFilterValue(debouncedSearch)
+  }, [debouncedSearch])
 
-  const fetchAllRfqs = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      // Fetch all RFQs without status filter
-      const response = await rfqApi.list({})
-      
-      if (response.success && response.data) {
-        const rfqData = response.data as RfqData[]
-        setAllRfqs(rfqData)
+  // Simplified data fetching
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
         
-        // Calculate stats by status
-        const statusStats = {
-          total: rfqData.length,
-          new: rfqData.filter(rfq => rfq.status.toLowerCase() === 'new').length,
-          draft: rfqData.filter(rfq => rfq.status.toLowerCase() === 'draft').length,
-          priced: rfqData.filter(rfq => rfq.status.toLowerCase() === 'priced').length,
-          sent: rfqData.filter(rfq => rfq.status.toLowerCase() === 'sent').length,
-          negotiating: rfqData.filter(rfq => rfq.status.toLowerCase() === 'negotiating').length,
-          accepted: rfqData.filter(rfq => rfq.status.toLowerCase() === 'accepted').length,
-          declined: rfqData.filter(rfq => rfq.status.toLowerCase() === 'declined').length,
-          processed: rfqData.filter(rfq => rfq.status.toLowerCase() === 'processed').length,
+        const params: any = {
+          page: currentPage.toString(),
+          pageSize: itemsPerPage.toString()
         }
-        setStats(statusStats)
-      } else {
-        setError("Failed to load RFQs")
-        toast.error("Failed to load RFQs")
-      }
-    } catch (err) {
-      setError("An error occurred while loading RFQs")
-      toast.error("An error occurred while loading RFQs")
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  const filterRfqsByTab = () => {
-    let filtered = [...allRfqs]
-
-    if (selectedTab !== "all") {
-      filtered = allRfqs.filter(rfq => 
-        rfq.status.toLowerCase() === selectedTab.toLowerCase()
-      )
-    }
-
-    setFilteredRfqs(filtered)
-  }
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      filterRfqsByTab()
-      return
-    }
-
-    try {
-      setLoading(true)
-      const response = await rfqApi.search(searchQuery, {})
-      if (response.success && response.data) {
-        const searchData = response.data as RfqData[]
-        
-        // Apply tab filter to search results
-        let filtered = searchData
         if (selectedTab !== "all") {
-          filtered = searchData.filter(rfq => 
-            rfq.status.toLowerCase() === selectedTab.toLowerCase()
-          )
+          params.status = selectedTab.toUpperCase()
+        }
+
+        // Add sorting parameters
+        if (sortConfig.field && sortConfig.direction) {
+          params.sortField = sortConfig.field
+          params.sortOrder = sortConfig.direction
         }
         
-        setFilteredRfqs(filtered)
-      } else {
-        setError("Failed to search RFQs")
-        toast.error("Failed to search RFQs")
+        let response
+        if (globalFilterValue && globalFilterValue.trim()) {
+          response = await rfqApi.search(globalFilterValue.trim(), params)
+        } else {
+          response = await rfqApi.list(params)
+        }
+
+        if (response.success && response.data) {
+          const rfqData = response.data as RfqData[]
+          setFilteredRfqs(rfqData)
+          
+          if (response.meta?.pagination) {
+            setTotalItems(response.meta.pagination.totalItems || 0)
+            setTotalPages(response.meta.pagination.totalPages || 1)
+          }
+        } else {
+          const errorMessage = response.error || "Failed to load RFQs"
+          setError(errorMessage)
+          toast.error(errorMessage)
+          setFilteredRfqs([])
+        }
+      } catch (err: any) {
+        const errorMessage = "An error occurred while loading RFQs"
+        setError(errorMessage)
+        toast.error(errorMessage)
+        setFilteredRfqs([])
+        console.error("RFQ fetch error:", err)
+      } finally {
+        setLoading(false)
       }
-    } catch (err) {
-      setError("An error occurred while searching RFQs")
-      toast.error("An error occurred while searching RFQs")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Handle row click to navigate to RFQ details
-  const onRowClick = (event: any) => {
-    const rfqData = event.data as RfqData
-    router.push(`/rfq-management/${rfqData.id}`)
-  }
-
-  // Handle row selection for visual feedback
-  const onSelectionChange = (event: any) => {
-    setSelectedRfq(event.value)
-  }
-
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    let _filters = { ...filters }
-    // @ts-ignore
-    _filters['global'].value = value
-    setFilters(_filters)
-    setGlobalFilterValue(value)
-  }
-  const renderHeader = () => {
-    return (
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
-
-          {/* Search and Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:flex-none">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <i className="pi pi-search" />
-              </span>
-              <InputText 
-                value={globalFilterValue} 
-                onChange={onGlobalFilterChange} 
-                placeholder="Search RFQs by number, customer, or source..."
-                className="w-full sm:w-[400px] pl-9 h-10 border rounded-md bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
-            </div>
-            <div className="flex gap-2">
-             
-              <Button asChild className="gap-2 h-10 px-4">
-                <a href="/rfq-management/new">
-                  <i className="pi pi-plus" />
-                  New RFQ
-                </a>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const statusBodyTemplate = (rowData: RfqData) => {
-    const statusMap = {
-      new: { severity: 'info', label: 'New' },
-      draft: { severity: 'warning', label: 'Draft' },
-      priced: { severity: 'success', label: 'Priced' },
-      sent: { severity: 'info', label: 'Sent' },
-      negotiating: { severity: 'warning', label: 'Negotiating' },
-      accepted: { severity: 'success', label: 'Accepted' },
-      declined: { severity: 'danger', label: 'Declined' },
-      processed: { severity: 'success', label: 'Processed' }
     }
     
-    const status = statusMap[rowData.status.toLowerCase() as keyof typeof statusMap]
-    return <Tag value={status?.label} severity={status?.severity as any} />
+    loadData()
+  }, [selectedTab, currentPage, itemsPerPage, globalFilterValue, sortConfig])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchValue(e.target.value)
   }
 
-  // Date template functions
-  const createdDateBodyTemplate = (rowData: RfqData) => {
-    const date = new Date(rowData.createdAt)
-    return (
-      <div className="text-sm">
-        <div className="font-medium">{date.toLocaleDateString()}</div>
-        <div className="text-muted-foreground text-xs">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-      </div>
-    )
+  const handleTabChange = (value: string) => {
+    setSelectedTab(value)
+    setCurrentPage(1)
+    setSearchValue("")
+    setGlobalFilterValue("")
+    setSortConfig({ field: null, direction: null }) // Reset sort when changing tabs
   }
 
-  const updatedDateBodyTemplate = (rowData: RfqData) => {
-    const date = new Date(rowData.updatedAt)
-    const isRecent = Date.now() - date.getTime() < 24 * 60 * 60 * 1000 // Less than 24 hours
-    return (
-      <div className="text-sm">
-        <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
-          {date.toLocaleDateString()}
-        </div>
-        <div className="text-muted-foreground text-xs">
-          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          {isRecent && <span className="ml-1 text-primary">•</span>}
-        </div>
-      </div>
-    )
+  const handleRowClick = (rfq: RfqData) => {
+    router.push(`/rfq-management/${rfq.id}`)
   }
 
-  const customerBodyTemplate = (rowData: RfqData) => {
-    return rowData.customer?.name || "Unknown"
-  }
+  // These functions are now handled by PrimeReact DataTable internally
 
-  const totalAmountBodyTemplate = (rowData: RfqData) => {
-    if (!rowData.totalBudget) {
-      return <span className="text-muted-foreground">-</span>
-    }
+  // PrimeReact pagination handler
+  const onPage = (event: DataTablePageEvent) => {
+    setFirst(event.first);
+    setRows(event.rows);
+    setCurrentPage(Math.floor(event.first / event.rows) + 1);
+    setItemsPerPage(event.rows);
+  };
+
+  // PrimeReact sort handler
+  const onSort = (event: DataTableSortEvent) => {
+    setSortField(event.sortField || '');
+    setSortOrder(event.sortOrder || 0);
     
-    // Convert from CAD (database stores in CAD) to selected currency if needed
-    const convertedAmount = currency === 'CAD' 
-      ? rowData.totalBudget 
-      : convertCurrency(rowData.totalBudget, 'CAD')
-    
-    return (
-      <div className="text-sm font-medium">
-        {formatCurrency(convertedAmount)}
-      </div>
-    )
-  }
+    // Update old sort config for compatibility
+    setSortConfig({
+      field: event.sortField || null,
+      direction: event.sortOrder === 1 ? 'asc' : event.sortOrder === -1 ? 'desc' : null
+    });
+  };
 
-  const statusFilterTemplate = (options: any) => {
-    return (
-      <Dropdown 
-        value={options.value} 
-        options={statusOptions} 
-        onChange={(e) => options.filterCallback(e.value)} 
-        placeholder="Select Status"
-        className="p-column-filter"
-        showClear
+  // Handle row click with proper typing
+  const onRowClick = (event: DataTableRowClickEvent) => {
+    handleRowClick(event.data as RfqData);
+  };
+
+  // Column toggle functionality
+  const onColumnToggle = (event: any) => {
+    let selectedColumns = event.value;
+    let orderedSelectedColumns = columns.filter((col) => 
+      selectedColumns.some((sCol: any) => sCol.field === col.field)
+    );
+    setVisibleColumns(orderedSelectedColumns);
+  };
+
+  // Create header with column toggle
+  const tableHeader = (
+    <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
+      {/* <span className="text-lg font-semibold">RFQ Management</span> */}
+      <MultiSelect 
+        value={visibleColumns} 
+        options={columns} 
+        optionLabel="header" 
+        onChange={onColumnToggle} 
+        className="w-full sm:w-20rem" 
+        display="chip"
+        placeholder="Select Columns"
       />
-    )
+    </div>
+  );
+
+  // Loading template for lazy loading
+  const loadingTemplate = () => {
+    return (
+      <div className="flex items-center p-2">
+        <Skeleton width="100%" height="1rem" />
+      </div>
+    );
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      new: { variant: "secondary" as const, label: "New" },
+      draft: { variant: "outline" as const, label: "Draft" },
+      priced: { variant: "default" as const, label: "Priced" },
+      sent: { variant: "secondary" as const, label: "Sent" },
+      negotiating: { variant: "destructive" as const, label: "Negotiating" },
+      accepted: { variant: "default" as const, label: "Accepted" },
+      declined: { variant: "destructive" as const, label: "Declined" },
+      processed: { variant: "default" as const, label: "Processed" }
+    }
+    
+    const config = statusConfig[status.toLowerCase() as keyof typeof statusConfig] || 
+                   { variant: "outline" as const, label: status }
+    
+    return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  }
 
-
-  const header = renderHeader()
+  const formatAmount = (amount: number | null) => {
+    if (!amount) return "-"
+    
+    const convertedAmount = currency === 'CAD' 
+      ? amount 
+      : convertCurrency(amount, 'CAD')
+    
+    return formatCurrency(convertedAmount || 0)
+  }
 
   return (
     <div className="flex h-screen">
@@ -324,66 +288,44 @@ export default function RfqManagement() {
                 Review and manage all request for quotes. Click on any row to view details.
               </p>
 
-              <Tabs defaultValue="all" onValueChange={setSelectedTab}>
+              <Tabs value={selectedTab} onValueChange={handleTabChange}>
                 <TabsList className="mb-4">
-                  <TabsTrigger value="all" className="relative">
-                    All
-                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                      {stats.total}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="new" className="relative">
-                    New
-                    <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                      {stats.new}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="draft" className="relative">
-                    Draft
-                    <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
-                      {stats.draft}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="priced" className="relative">
-                    Priced
-                    <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
-                      {stats.priced}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="sent" className="relative">
-                    Sent
-                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                      {stats.sent}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="negotiating" className="relative">
-                    Negotiating
-                    <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                      {stats.negotiating}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="accepted" className="relative">
-                    Accepted
-                    <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                      {stats.accepted}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="declined" className="relative">
-                    Declined
-                    <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
-                      {stats.declined}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="processed" className="relative">
-                    Processed
-                    <span className="ml-2 text-xs bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full">
-                      {stats.processed}
-                    </span>
-                  </TabsTrigger>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="new">New</TabsTrigger>
+                  <TabsTrigger value="draft">Draft</TabsTrigger>
+                  <TabsTrigger value="priced">Priced</TabsTrigger>
+                  <TabsTrigger value="sent">Sent</TabsTrigger>
+                  <TabsTrigger value="negotiating">Negotiating</TabsTrigger>
+                  <TabsTrigger value="accepted">Accepted</TabsTrigger>
+                  <TabsTrigger value="declined">Declined</TabsTrigger>
+                  <TabsTrigger value="processed">Processed</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={selectedTab} className="m-0">
-                  {header}
+                  <div className="space-y-4 mb-4">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
+                      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:flex-none">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input 
+                            value={searchValue} 
+                            onChange={handleSearchChange} 
+                            placeholder="Search RFQs by number, customer, or source..."
+                            className="w-full sm:w-[400px] pl-9"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button asChild className="gap-2">
+                            <a href="/rfq-management/new">
+                              <Plus className="h-4 w-4" />
+                              New RFQ
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {loading ? (
                     <div className="flex justify-center items-center py-8">
                       <Spinner size={32} />
@@ -393,85 +335,154 @@ export default function RfqManagement() {
                       {error}
                     </div>
                   ) : (
-                    <div className="card">
+                    <div className="border rounded-lg">
                       <DataTable 
-                        key={`rfq-table-${currency}`}
                         value={filteredRfqs}
-                        paginator 
-                        rows={10} 
-                        rowsPerPageOptions={[5, 10, 25, 50]}
-                        dataKey="id"
-                        filters={filters}
-                        globalFilterFields={['rfqNumber', 'customer.name', 'source', 'status']}
-                        emptyMessage="No RFQs found."
+                        lazy
+                        paginator
+                        first={first}
+                        rows={rows}
+                        totalRecords={totalItems}
+                        onPage={onPage}
                         loading={loading}
-                        sortMode="multiple"
-                        removableSort
-                        showGridlines
+                        sortField={sortField}
+                        sortOrder={sortOrder}
+                        onSort={onSort}
                         stripedRows
-                        size="small"
-                        className="p-datatable-sm cursor-pointer"
-                        selectionMode="single"
-                        selection={selectedRfq}
-                        onSelectionChange={onSelectionChange}
-                        onRowClick={onRowClick}
                         rowHover
+                        scrollable
+                        scrollHeight="600px"
+                        // resizableColumns
                         tableStyle={{ minWidth: '50rem' }}
+                        emptyMessage={globalFilterValue ? `No RFQs found matching "${globalFilterValue}"` : "No RFQs found."}
+                        loadingIcon={loadingTemplate}
+                        rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+                        onRowClick={onRowClick}
+                        selectionMode="single"
+                        header={tableHeader}
                       >
-                        <Column 
-                          field="rfqNumber" 
-                          header="RFQ Number" 
-                          sortable 
-                          style={{ minWidth: '150px' }}
-                        />
-                        <Column 
-                          field="customer.name" 
-                          header="Customer" 
-                          body={customerBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '200px' }}
-                        />
-                        <Column 
-                          field="createdAt" 
-                          header="Created" 
-                          body={createdDateBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                        />
-                        <Column 
-                          field="updatedAt" 
-                          header="Updated" 
-                          body={updatedDateBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                        />
-                        <Column 
-                          field="source" 
-                          header="Source" 
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                        />
-                        <Column 
-                          field="itemCount" 
-                          header="Items" 
-                          sortable 
-                          style={{ minWidth: '100px' }}
-                        />
-                        <Column 
-                          field="totalBudget" 
-                          header="Total Amount" 
-                          body={totalAmountBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                          key={`total-amount-rfq-${currency}`}
-                        />
-                        <Column 
-                          field="status" 
-                          header="Status" 
-                          body={statusBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '150px' }}
-                        />
+                        {visibleColumns.map((col) => {
+                          switch (col.field) {
+                            case 'rfqNumber':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="rfqNumber" 
+                                  header="RFQ Number" 
+                                  sortable 
+                                  style={{ width: '15%' }}
+                                  body={(rowData) => (
+                                    <span className="font-medium">{rowData.rfqNumber}</span>
+                                  )}
+                                />
+                              );
+                            case 'customer.name':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="customer.name" 
+                                  header="Customer" 
+                                  sortable 
+                                  style={{ width: '15%' }}
+                                  body={(rowData) => rowData.customer?.name || "Unknown"}
+                                />
+                              );
+                            case 'createdAt':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="createdAt" 
+                                  header="Created" 
+                                  sortable 
+                                  style={{ width: '12%' }}
+                                  body={(rowData) => {
+                                    const createdDate = formatDate(rowData.createdAt);
+                                    return (
+                                      <div className="text-sm">
+                                        <div className="font-medium">{createdDate.date}</div>
+                                        <div className="text-muted-foreground text-xs">{createdDate.time}</div>
+                                      </div>
+                                    );
+                                  }}
+                                />
+                              );
+                            case 'updatedAt':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="updatedAt" 
+                                  header="Updated" 
+                                  sortable 
+                                  style={{ width: '12%' }}
+                                  body={(rowData) => {
+                                    const updatedDate = formatDate(rowData.updatedAt);
+                                    const isRecent = Date.now() - new Date(rowData.updatedAt).getTime() < 24 * 60 * 60 * 1000;
+                                    return (
+                                      <div className="text-sm">
+                                        <div className={`font-medium ${isRecent ? 'text-primary' : ''}`}>
+                                          {updatedDate.date}
+                                        </div>
+                                        <div className="text-muted-foreground text-xs">
+                                          {updatedDate.time}
+                                          {isRecent && <span className="ml-1 text-primary">•</span>}
+                                        </div>
+                                      </div>
+                                    );
+                                  }}
+                                />
+                              );
+                            case 'source':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="source" 
+                                  header="Source" 
+                                  sortable 
+                                  style={{ width: '10%' }}
+                                />
+                              );
+                            case 'itemCount':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="itemCount" 
+                                  header="Items" 
+                                  sortable 
+                                  style={{ width: '8%' }}
+                                />
+                              );
+                            case 'totalBudget':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="totalBudget" 
+                                  header="Total Amount" 
+                                  sortable 
+                                  style={{ width: '12%' }}
+                                  body={(rowData) => (
+                                    <div className="text-sm font-medium">
+                                      {formatAmount(rowData.totalBudget)}
+                                    </div>
+                                  )}
+                                />
+                              );
+                            case 'status':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="status" 
+                                  header="Status" 
+                                  sortable 
+                                  style={{ width: '16%' }}
+                                  body={(rowData) => getStatusBadge(rowData.status)}
+                                />
+                              );
+                            default:
+                              return null;
+                          }
+                        })}
                       </DataTable>
                     </div>
                   )}
