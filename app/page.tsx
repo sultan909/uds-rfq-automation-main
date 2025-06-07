@@ -83,9 +83,14 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Calculate date range for past week
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 7);
+        
         const [metricsResponse, rfqListResponse] = await Promise.all([
           fetch('/api/dashboard/metrics'),
-          fetch('/api/dashboard/rfq-list')
+          fetch(`/api/dashboard/rfq-list?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&includeProcessed=true`)
         ]);
 
         if (!metricsResponse.ok)
@@ -260,9 +265,9 @@ export default function Dashboard() {
               <div className="card">
                 <DataTable 
                   value={rfqList?.activeRfqs || []}
-                  paginator={rfqList?.activeRfqs && rfqList.activeRfqs.length > 5}
-                  rows={5}
-                  rowsPerPageOptions={[5, 10, 15]}
+                  paginator
+                  rows={10}
+                  rowsPerPageOptions={[5, 10, 15, 25]}
                   dataKey="id"
                   emptyMessage="No active RFQs found."
                   loading={loading}
@@ -338,9 +343,9 @@ export default function Dashboard() {
               <div className="card">
                 <DataTable 
                   value={rfqList?.processedRfqs || []}
-                  paginator={rfqList?.processedRfqs && rfqList.processedRfqs.length > 5}
-                  rows={5}
-                  rowsPerPageOptions={[5, 10, 15]}
+                  paginator
+                  rows={10}
+                  rowsPerPageOptions={[5, 10, 15, 25]}
                   dataKey="id"
                   emptyMessage="No processed RFQs found."
                   loading={loading}
@@ -417,7 +422,7 @@ function WeeklyProcessedRfqsMetric({
   return (
     <div className="metric-card bg-green-50 dark:bg-green-950/30">
       <div className="metric-label">Weekly Processed RFQs</div>
-      <div className="metric-value">{rfqMetrics.weeklyProcessedCount}</div>
+      <div className="metric-value">{rfqMetrics.weeklyProcessedRfqs}</div>
     </div>
   );
 }
