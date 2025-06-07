@@ -63,7 +63,7 @@ export function EditableItemsTable({
   onCreateSkuChange,
   onRefreshNegotiation
 }: EditableItemsTableProps) {
-  const { formatCurrency, convertCurrency } = useCurrency();
+  const { formatCurrency, convertCurrency, currency } = useCurrency();
   const [editingItems, setEditingItems] = useState<Record<number, EditableItem>>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -407,7 +407,8 @@ export function EditableItemsTable({
       : rowData.unitPrice;
     
     // Convert currency if the item has a different currency than display currency
-    const convertedPrice = convertCurrency(currentPrice || 0, rowData.currency as "CAD" | "USD");
+    const itemCurrency = rowData.currency || 'CAD'; // Fallback to CAD if currency not specified
+    const convertedPrice = convertCurrency(currentPrice || 0, itemCurrency as "CAD" | "USD");
     
     return (
       <div className="space-y-1">
@@ -429,7 +430,8 @@ export function EditableItemsTable({
   };
 
   const totalBodyTemplate = (rowData: EditableItem) => {
-    const convertedPrice = convertCurrency(rowData.unitPrice || 0, rowData.currency as "CAD" | "USD");
+    const itemCurrency = rowData.currency || 'CAD'; // Fallback to CAD if currency not specified
+    const convertedPrice = convertCurrency(rowData.unitPrice || 0, itemCurrency as "CAD" | "USD");
     return formatCurrency((rowData.quantity || 0) * convertedPrice);
   };
 
@@ -464,11 +466,13 @@ export function EditableItemsTable({
   // Calculate total amount using current editing state when available
   const totalAmount = (isEditMode || isNegotiationMode) && Object.keys(editingItems).length > 0
     ? Object.values(editingItems).reduce((sum, item) => {
-        const convertedPrice = convertCurrency(item.unitPrice, item.currency as "CAD" | "USD");
+        const itemCurrency = item.currency || 'CAD'; // Fallback to CAD if currency not specified
+        const convertedPrice = convertCurrency(item.unitPrice, itemCurrency as "CAD" | "USD");
         return sum + (item.quantity * convertedPrice);
       }, 0)
     : items.reduce((sum, item) => {
-        const convertedPrice = convertCurrency(item.unitPrice || 0, item.currency as "CAD" | "USD");
+        const itemCurrency = item.currency || 'CAD'; // Fallback to CAD if currency not specified
+        const convertedPrice = convertCurrency(item.unitPrice || 0, itemCurrency as "CAD" | "USD");
         return sum + (item.quantity * convertedPrice);
       }, 0);
 
@@ -558,6 +562,7 @@ export function EditableItemsTable({
       </CardHeader>
       <CardContent>
         <DataTable 
+          key={currency} // Force re-render when currency changes
           value={tableData}
           editMode="cell"
           onRowEditComplete={onRowEditComplete}
