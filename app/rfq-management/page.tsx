@@ -310,7 +310,7 @@ export default function RfqManagement() {
                           <Input 
                             value={searchValue} 
                             onChange={handleSearchChange} 
-                            placeholder="Search RFQs by number, customer, or source..."
+                            placeholder="Search RFQs by number, customer, source, status, description, contact person, email, phone, department..."
                             className="w-full sm:w-[400px] pl-9"
                           />
                         </div>

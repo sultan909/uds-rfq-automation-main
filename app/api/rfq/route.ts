@@ -101,7 +101,7 @@ import { createSuccessResponse, createPaginatedResponse } from '../lib/api-respo
 import { handleApiError, ApiError } from '../lib/error-handler';
 import { db } from '../../../db';
 import { rfqs, customers, users, rfqItems } from '../../../db/schema';
-import { eq, and, like, gte, lte, desc, asc, sql, count } from 'drizzle-orm';
+import { eq, and, like, gte, lte, desc, asc, sql, count, or, ilike, isNotNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 interface TransformedRfq {
@@ -163,8 +163,30 @@ export async function GET(request: NextRequest) {
     if (status) conditions.push(eq(rfqs.status, status as 'NEGOTIATING' | 'DRAFT' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED'));
     if (customerId) conditions.push(eq(rfqs.customerId, parseInt(customerId)));
     if (search) {
+      // Comprehensive search across all relevant fields with proper enum casting
+      const searchQuery = search.trim();
       conditions.push(
-        like(rfqs.rfqNumber, `%${search}%`)
+        or(
+          // RFQ specific fields
+          ilike(rfqs.rfqNumber, `%${searchQuery}%`),
+          ilike(rfqs.source, `%${searchQuery}%`),
+          ilike(sql`${rfqs.status}::text`, `%${searchQuery}%`), // Cast enum to text
+          and(isNotNull(rfqs.title), ilike(rfqs.title, `%${searchQuery}%`)),
+          and(isNotNull(rfqs.description), ilike(rfqs.description, `%${searchQuery}%`)),
+          and(isNotNull(rfqs.rejectionReason), ilike(rfqs.rejectionReason, `%${searchQuery}%`)),
+          // Customer related fields
+          ilike(customers.name, `%${searchQuery}%`),
+          ilike(sql`${customers.type}::text`, `%${searchQuery}%`), // Cast enum to text
+          and(isNotNull(customers.email), ilike(customers.email, `%${searchQuery}%`)),
+          and(isNotNull(customers.phone), ilike(customers.phone, `%${searchQuery}%`)),
+          and(isNotNull(customers.contactPerson), ilike(customers.contactPerson, `%${searchQuery}%`)),
+          and(isNotNull(customers.region), ilike(customers.region, `%${searchQuery}%`)),
+          // User/Requestor related fields
+          ilike(users.name, `%${searchQuery}%`),
+          and(isNotNull(users.email), ilike(users.email, `%${searchQuery}%`)),
+          and(isNotNull(users.department), ilike(users.department, `%${searchQuery}%`)),
+          ilike(sql`${users.role}::text`, `%${searchQuery}%`) // Cast enum to text
+        )
       );
     }
     if (dateFrom) conditions.push(gte(rfqs.createdAt, new Date(dateFrom)));
@@ -213,6 +235,7 @@ export async function GET(request: NextRequest) {
       .select({ value: count() })
       .from(rfqs)
       .leftJoin(customers, eq(rfqs.customerId, customers.id))
+      .leftJoin(users, eq(rfqs.requestorId, users.id))
       .where(and(...conditions))
       .then(result => result[0].value);
 
