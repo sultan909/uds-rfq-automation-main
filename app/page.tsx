@@ -62,6 +62,7 @@ interface RfqListItem {
 interface DashboardRfqList {
   activeRfqs: RfqListItem[]
   completedRfqs: RfqListItem[]
+  processedRfqs: RfqListItem[]
 }
 
 export default function Dashboard() {
@@ -323,7 +324,7 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {/* Completed RFQs Table */}
+            {/* Processed RFQs Table */}
             <Card className="p-4 bg-card text-card-foreground">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Processed RFQs</h2>
@@ -336,19 +337,19 @@ export default function Dashboard() {
               </div>
               <div className="card">
                 <DataTable 
-                  value={rfqList?.completedRfqs || []}
-                  paginator={rfqList?.completedRfqs && rfqList.completedRfqs.length > 5}
+                  value={rfqList?.processedRfqs || []}
+                  paginator={rfqList?.processedRfqs && rfqList.processedRfqs.length > 5}
                   rows={5}
                   rowsPerPageOptions={[5, 10, 15]}
                   dataKey="id"
-                  emptyMessage="No completed RFQs found."
+                  emptyMessage="No processed RFQs found."
                   loading={loading}
                   className="p-datatable-sm"
                   onRowClick={onRowClick}
                   rowHover
                   size="small"
                   tableStyle={{ minWidth: '50rem', cursor: 'pointer' }}
-                  key={`completed-rfqs-${currency}-${currencyKey}`}
+                  key={`processed-rfqs-${currency}-${currencyKey}`}
                 >
                   <Column 
                     field="rfqNumber" 
@@ -388,7 +389,7 @@ export default function Dashboard() {
                     body={totalAmountBodyTemplate}
                     sortable 
                     style={{ minWidth: '120px' }}
-                    key={`total-amount-completed-${currency}`}
+                    key={`total-amount-processed-${currency}`}
                   />
                   <Column 
                     field="status" 
@@ -416,7 +417,7 @@ function WeeklyProcessedRfqsMetric({
   return (
     <div className="metric-card bg-green-50 dark:bg-green-950/30">
       <div className="metric-label">Weekly Processed RFQs</div>
-      <div className="metric-value">{rfqMetrics.weeklyProcessedRfqs}</div>
+      <div className="metric-value">{rfqMetrics.weeklyProcessedCount}</div>
     </div>
   );
 }
