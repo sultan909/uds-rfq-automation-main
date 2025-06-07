@@ -99,6 +99,7 @@ export interface BaseTabProps {
   onColumnToggle: (columnId: string) => void;
   renderPagination: () => React.ReactNode | null;
   formatCurrency: (amount: number) => string;
+  convertCurrency: (amount: number, sourceCurrency?: "CAD" | "USD") => number;
 }
 
 // Customer interface

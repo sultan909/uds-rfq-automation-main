@@ -11,7 +11,7 @@ interface CreateRfqRequest {
     sku: string;
     description: string;
     quantity: number;
-    price?: number | null;
+    unitPrice?: number | null;
     unit?: string;
   }>;
   currency: 'CAD' | 'USD';
@@ -101,11 +101,10 @@ export async function POST(request: NextRequest) {
           .where(eq(inventoryItems.sku, item.sku))
           .limit(1);
 
-        // Calculate suggested price from inventory cost if available
-        let suggestedPrice = null;
-        let estimatedPrice = null;
+        // Calculate suggested unit price from inventory cost if available and no price provided
+        let unitPrice = item.unitPrice;
         
-        if (inventoryItem?.cost) {
+        if (!unitPrice && inventoryItem?.cost) {
           // Apply a default markup of 30% for suggested price
           // Convert cost to the requested currency if needed
           let cost = inventoryItem.cost;
@@ -115,15 +114,11 @@ export async function POST(request: NextRequest) {
               ? cost * 0.75 
               : cost * 1.35;
           }
-          suggestedPrice = Math.round(cost * 1.3 * 100) / 100;
-          estimatedPrice = suggestedPrice;
+          unitPrice = Math.round(cost * 1.3 * 100) / 100;
         }
-
-        // Use provided price or fallback to suggested price
-        const finalPrice = item.price || suggestedPrice;
         
-        if (finalPrice) {
-          totalBudget += finalPrice * item.quantity;
+        if (unitPrice) {
+          totalBudget += unitPrice * item.quantity;
           hasPrices = true;
         }
 
@@ -135,11 +130,9 @@ export async function POST(request: NextRequest) {
           unit: item.unit || 'EA',
           customerSku: item.sku,
           internalProductId: inventoryItem?.id || null,
-          suggestedPrice,
-          finalPrice: item.price || null,
+          unitPrice,
           currency: body.currency,
           status: 'PENDING',
-          estimatedPrice,
         });
       }
 

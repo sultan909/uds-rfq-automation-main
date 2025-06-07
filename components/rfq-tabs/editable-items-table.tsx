@@ -29,6 +29,7 @@ interface EditableItem {
   description?: string;
   quantity: number;
   unitPrice: number;
+  currency?: string;
   comment?: string;
   status?: string;
   inventory?: {
@@ -62,7 +63,7 @@ export function EditableItemsTable({
   onCreateSkuChange,
   onRefreshNegotiation
 }: EditableItemsTableProps) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, convertCurrency } = useCurrency();
   const [editingItems, setEditingItems] = useState<Record<number, EditableItem>>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -405,6 +406,9 @@ export function EditableItemsTable({
       ? editingItems[rowData.id].unitPrice 
       : rowData.unitPrice;
     
+    // Convert currency if the item has a different currency than display currency
+    const convertedPrice = convertCurrency(currentPrice || 0, rowData.currency as "CAD" | "USD");
+    
     return (
       <div className="space-y-1">
         <div 
@@ -413,7 +417,7 @@ export function EditableItemsTable({
           title="Double-click to edit"
         >
           <div className="flex items-center gap-2">
-            <span>{formatCurrency(currentPrice || 0)}</span>
+            <span>{formatCurrency(convertedPrice)}</span>
             {isLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
           </div>
         </div>
@@ -425,7 +429,8 @@ export function EditableItemsTable({
   };
 
   const totalBodyTemplate = (rowData: EditableItem) => {
-    return formatCurrency((rowData.quantity || 0) * (rowData.unitPrice || 0));
+    const convertedPrice = convertCurrency(rowData.unitPrice || 0, rowData.currency as "CAD" | "USD");
+    return formatCurrency((rowData.quantity || 0) * convertedPrice);
   };
 
   const statusBodyTemplate = (rowData: EditableItem) => {
@@ -458,8 +463,14 @@ export function EditableItemsTable({
 
   // Calculate total amount using current editing state when available
   const totalAmount = (isEditMode || isNegotiationMode) && Object.keys(editingItems).length > 0
-    ? Object.values(editingItems).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
-    : items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    ? Object.values(editingItems).reduce((sum, item) => {
+        const convertedPrice = convertCurrency(item.unitPrice, item.currency as "CAD" | "USD");
+        return sum + (item.quantity * convertedPrice);
+      }, 0)
+    : items.reduce((sum, item) => {
+        const convertedPrice = convertCurrency(item.unitPrice || 0, item.currency as "CAD" | "USD");
+        return sum + (item.quantity * convertedPrice);
+      }, 0);
 
   const isValidForEdit = isEditable && ['DRAFT', 'SENT', 'NEGOTIATING'].includes(rfqStatus || '');
 
