@@ -31,6 +31,7 @@ interface QuotationHistoryTabProps {
   }) => Promise<void>;
   onRecordQuotationResponse?: (versionId: number, data: CreateQuotationResponseRequest) => Promise<void>;
   rfqId: string;
+  customerEmail?: string;
 }
 
 export function QuotationHistoryTab({
@@ -46,7 +47,8 @@ export function QuotationHistoryTab({
   onCreateVersion,
   onRecordResponse,
   onRecordQuotationResponse,
-  rfqId
+  rfqId,
+  customerEmail
 }: QuotationHistoryTabProps) {
   const [isQuotationResponseModalOpen, setIsQuotationResponseModalOpen] = useState(false);
   const [selectedVersionForResponse, setSelectedVersionForResponse] = useState<QuotationVersionWithItems | null>(null);
@@ -75,6 +77,7 @@ export function QuotationHistoryTab({
         onRecordQuotationResponse={handleOpenQuotationResponseModal}
         onCreateVersion={onOpenVersionModal}
         rfqId={rfqId}
+        customerEmail={customerEmail}
       />
 
       <VersionCreationModal
