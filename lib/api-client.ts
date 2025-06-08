@@ -270,6 +270,20 @@ export const rfqApi = {
       return { success: false, error: 'Failed to record item customer response' };
     }
   },
+  getAllTabData: async (rfqId: string, params?: { page?: number; pageSize?: number }) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+      
+      const response = await fetch(`/api/rfq/${rfqId}/all-data?${queryParams.toString()}`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching ALL tab data:', error);
+      return { success: false, error: 'Failed to fetch ALL tab data' };
+    }
+  },
 };
 
 // Customer API endpoints

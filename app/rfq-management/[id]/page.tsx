@@ -44,6 +44,7 @@ import type {
 
 // Import the new tab components
 import {
+  AllTab,
   PricingTab,
   InventoryTab,
   MarketDataTab,
@@ -146,6 +147,7 @@ export default function RfqDetail({
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [visibleColumns, setVisibleColumns] = useState<Record<TabName, string[]>>({
+    all: [], // Will be managed internally by AllTab component
     items: ITEMS_COLUMNS.map(col => col.id),
     pricing: PRICING_COLUMNS.map(col => col.id),
     inventory: INVENTORY_COLUMNS.map(col => col.id),
@@ -1056,49 +1058,57 @@ export default function RfqDetail({
             </Card>
           </div>
 
-          <Tabs defaultValue="items" className="w-full">
-            <TabsList className="grid w-full grid-cols-10">
-              <TabsTrigger value="items">
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList className="flex w-full overflow-x-auto gap-1">
+              <TabsTrigger value="all" className="flex-shrink-0">
+                <FileText className="mr-2 h-4 w-4" />
+                ALL
+              </TabsTrigger>
+              <TabsTrigger value="items" className="flex-shrink-0">
                 <FileText className="mr-2 h-4 w-4" />
                 Items
               </TabsTrigger>
-              <TabsTrigger value="original-request">
+              <TabsTrigger value="original-request" className="flex-shrink-0">
                 <FileText className="mr-2 h-4 w-4" />
                 Original Request
               </TabsTrigger>
-              <TabsTrigger value="negotiation">
+              <TabsTrigger value="negotiation" className="flex-shrink-0">
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Negotiation
               </TabsTrigger>
-              <TabsTrigger value="pricing">
+              <TabsTrigger value="pricing" className="flex-shrink-0">
                 <Tag className="mr-2 h-4 w-4" />
                 Pricing
               </TabsTrigger>
-              <TabsTrigger value="inventory">
+              <TabsTrigger value="inventory" className="flex-shrink-0">
                 <Building className="mr-2 h-4 w-4" />
                 Inventory
               </TabsTrigger>
-              <TabsTrigger value="history">
+              <TabsTrigger value="history" className="flex-shrink-0">
                 <History className="mr-2 h-4 w-4" />
                 History
               </TabsTrigger>
-              <TabsTrigger value="market">
+              <TabsTrigger value="market" className="flex-shrink-0">
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Market Data
               </TabsTrigger>
-              <TabsTrigger value="settings">
+              <TabsTrigger value="settings" className="flex-shrink-0">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="quotation-history">
+              <TabsTrigger value="quotation-history" className="flex-shrink-0">
                 <Clock className="mr-2 h-4 w-4" />
                 Quotation History
               </TabsTrigger>
-              <TabsTrigger value="export">
+              <TabsTrigger value="export" className="flex-shrink-0">
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Export
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="all" className="m-0">
+              <AllTab rfqId={id} />
+            </TabsContent>
 
             <TabsContent value="items" className="m-0">
               <EditableItemsTable

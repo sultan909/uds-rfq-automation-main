@@ -2,7 +2,7 @@
 
 export type RfqStatus = 'NEW' | 'DRAFT' | 'PRICED' | 'SENT' | 'NEGOTIATING' | 'ACCEPTED' | 'DECLINED' | 'PROCESSED';
 
-export type TabName = 'items' | 'original-request' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings' | 'quotation-history';
+export type TabName = 'all' | 'items' | 'original-request' | 'pricing' | 'inventory' | 'history' | 'market' | 'settings' | 'quotation-history';
 
 // Inventory related interfaces
 export interface InventoryData {

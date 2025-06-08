@@ -6,11 +6,12 @@ import type { CreateQuotationRequest } from '@/lib/types/quotation';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const versions = await db.query.quotationVersions.findMany({
-      where: eq(quotationVersions.rfqId, parseInt(params.id)),
+      where: eq(quotationVersions.rfqId, parseInt(id)),
       orderBy: [desc(quotationVersions.versionNumber)],
       with: {
         responses: true,
@@ -67,13 +68,14 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body: CreateQuotationRequest = await request.json();
     const { entryType, notes, items } = body;
 
-    const rfqId = parseInt(params.id);
+    const rfqId = parseInt(id);
 
     // Get the latest version number
     const latestVersion = await db.query.quotationVersions.findFirst({
