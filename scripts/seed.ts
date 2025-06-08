@@ -40,6 +40,11 @@ async function main() {
     // Clear existing data
     console.log('Truncating tables...');
     await db.execute(sql`TRUNCATE TABLE
+      quotation_response_items,
+      quotation_responses,
+      quotation_version_items,
+      quotation_versions,
+      customer_responses,
       negotiation_communications,
       sku_negotiation_history,
       market_pricing,
@@ -750,6 +755,267 @@ async function main() {
     
     const insertedSkuNegotiationHistory = await db.insert(schema.skuNegotiationHistory).values(skuNegotiationHistoryData).returning();
     console.log(`Inserted ${insertedSkuNegotiationHistory.length} SKU negotiation history records`);
+
+    // --- Seed Sales History ---
+    console.log('Seeding sales history...');
+    
+    const salesHistoryData = [];
+    
+    // Create sales history for main customers (Randmar, UGS, DCS) over the past 2 years
+    const mainCustomers = insertedCustomers.filter(c => c.main_customer);
+    
+    for (const customer of mainCustomers) {
+      // Create 20-50 sales records per main customer
+      const salesCount = faker.number.int({ min: 20, max: 50 });
+      
+      for (let i = 0; i < salesCount; i++) {
+        // Random inventory item
+        const product = getRandomElement(insertedInventoryItems);
+        if (!product) continue;
+        
+        // Generate realistic sales data
+        const quantity = faker.number.int({ min: 1, max: 100 });
+        const cost = product.cost || 50;
+        
+        // Sales price should be 15-50% above cost for realistic margins
+        const unitPrice = parseFloat(faker.commerce.price({ 
+          min: cost * 1.15, 
+          max: cost * 1.5 
+        }));
+        
+        const extendedPrice = parseFloat((unitPrice * quantity).toFixed(2));
+        
+        // Random sale date within last 2 years
+        const saleDate = faker.date.between({ 
+          from: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000), // 2 years ago
+          to: new Date() 
+        });
+        
+        salesHistoryData.push({
+          invoiceNumber: `INV-${faker.string.numeric(6)}`,
+          customerId: customer.id,
+          productId: product.id,
+          quantity,
+          unitPrice,
+          extendedPrice,
+          currency: product.costCurrency || 'CAD',
+          saleDate: formatDateToISOString(saleDate),
+          quickbooksInvoiceId: `QB-INV-${faker.string.alphanumeric(8)}`,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      }
+    }
+    
+    // Create fewer sales records for other customers
+    const otherCustomers = insertedCustomers.filter(c => !c.main_customer);
+    for (const customer of otherCustomers) {
+      if (faker.datatype.boolean(0.6)) { // 60% chance of having sales history
+        const salesCount = faker.number.int({ min: 2, max: 10 });
+        
+        for (let i = 0; i < salesCount; i++) {
+          const product = getRandomElement(insertedInventoryItems);
+          if (!product) continue;
+          
+          const quantity = faker.number.int({ min: 1, max: 25 });
+          const cost = product.cost || 50;
+          const unitPrice = parseFloat(faker.commerce.price({ 
+            min: cost * 1.15, 
+            max: cost * 1.5 
+          }));
+          const extendedPrice = parseFloat((unitPrice * quantity).toFixed(2));
+          
+          const saleDate = faker.date.between({ 
+            from: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // 1 year ago
+            to: new Date() 
+          });
+          
+          salesHistoryData.push({
+            invoiceNumber: `INV-${faker.string.numeric(6)}`,
+            customerId: customer.id,
+            productId: product.id,
+            quantity,
+            unitPrice,
+            extendedPrice,
+            currency: product.costCurrency || 'CAD',
+            saleDate: formatDateToISOString(saleDate),
+            quickbooksInvoiceId: `QB-INV-${faker.string.alphanumeric(8)}`,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+      }
+    }
+    
+    const insertedSalesHistory = await db.insert(schema.salesHistory).values(salesHistoryData).returning();
+    console.log(`Inserted ${insertedSalesHistory.length} sales history records`);
+
+    // --- Seed Purchase Orders ---
+    console.log('Seeding purchase orders...');
+    
+    const poStatuses = ['PENDING', 'CONFIRMED', 'SHIPPED', 'RECEIVED', 'CANCELLED'];
+    const purchaseOrdersData = [];
+    
+    // Create 10-15 purchase orders across all vendors
+    for (const vendor of insertedVendors) {
+      const poCount = faker.number.int({ min: 2, max: 4 });
+      
+      for (let i = 0; i < poCount; i++) {
+        const status = getRandomElement(poStatuses);
+        const orderDate = faker.date.between({ 
+          from: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000), // 6 months ago
+          to: new Date() 
+        });
+        
+        // Expected arrival date should be after order date
+        const expectedArrivalDate = status === 'CANCELLED' ? null : 
+          formatDateToISOString(new Date(orderDate.getTime() + faker.number.int({ min: 7, max: 45 }) * 24 * 60 * 60 * 1000));
+        
+        // We'll calculate total amount after creating PO items
+        purchaseOrdersData.push({
+          poNumber: `PO-${faker.string.numeric(6)}`,
+          vendorId: vendor.id,
+          status,
+          orderDate,
+          expectedArrivalDate,
+          totalAmount: 0, // Will be updated after PO items
+          currency: 'CAD',
+          quickbooksPoId: `QB-PO-${faker.string.alphanumeric(8)}`,
+          createdAt: new Date(orderDate),
+          updatedAt: new Date()
+        });
+      }
+    }
+    
+    const insertedPurchaseOrders = await db.insert(schema.purchaseOrders).values(purchaseOrdersData).returning();
+    console.log(`Inserted ${insertedPurchaseOrders.length} purchase orders`);
+
+    // --- Seed Purchase Order Items ---
+    console.log('Seeding purchase order items...');
+    
+    const poItemsData = [];
+    const poTotals = new Map<number, number>();
+    
+    for (const po of insertedPurchaseOrders) {
+      // Each PO has 2-6 items
+      const itemCount = faker.number.int({ min: 2, max: 6 });
+      const usedProducts = new Set<number>();
+      let poTotal = 0;
+      
+      for (let i = 0; i < itemCount; i++) {
+        // Get a random product that hasn't been used in this PO
+        let product;
+        let attempts = 0;
+        do {
+          product = getRandomElement(insertedInventoryItems);
+          attempts++;
+        } while (usedProducts.has(product.id) && attempts < 10);
+        
+        if (usedProducts.has(product.id)) continue; // Skip if we can't find a unique product
+        usedProducts.add(product.id);
+        
+        const quantity = faker.number.int({ min: 5, max: 100 });
+        const cost = product.cost || 50;
+        
+        // Unit cost should be slightly lower than our cost (wholesale pricing)
+        const unitCost = parseFloat(faker.commerce.price({ 
+          min: cost * 0.7, 
+          max: cost * 0.9 
+        }));
+        
+        const extendedCost = parseFloat((unitCost * quantity).toFixed(2));
+        poTotal += extendedCost;
+        
+        poItemsData.push({
+          poId: po.id,
+          productId: product.id,
+          quantity,
+          unitCost,
+          extendedCost,
+          currency: 'CAD',
+          createdAt: new Date(po.orderDate),
+          updatedAt: new Date()
+        });
+      }
+      
+      poTotals.set(po.id, parseFloat(poTotal.toFixed(2)));
+    }
+    
+    const insertedPoItems = await db.insert(schema.poItems).values(poItemsData).returning();
+    console.log(`Inserted ${insertedPoItems.length} purchase order items`);
+
+    // --- Update Purchase Order Totals ---
+    console.log('Updating purchase order totals...');
+    
+    for (const [poId, total] of poTotals) {
+      await db.update(schema.purchaseOrders)
+        .set({ totalAmount: total })
+        .where(eq(schema.purchaseOrders.id, poId));
+    }
+    console.log('Updated purchase order totals');
+
+    // --- Seed Market Pricing ---
+    console.log('Seeding market pricing...');
+    
+    const marketSources = [
+      'Amazon Business',
+      'Staples Business',
+      'CDW',
+      'Dell Direct',
+      'HP Direct',
+      'Canon Solutions',
+      'Brother Business',
+      'Lexmark Direct',
+      'Wholesale Supplier A',
+      'Wholesale Supplier B'
+    ];
+    
+    const marketPricingData = [];
+    
+    // Add market pricing for most inventory items
+    for (const product of insertedInventoryItems) {
+      // Each product has 2-4 market price sources
+      const sourceCount = faker.number.int({ min: 2, max: 4 });
+      const usedSources = new Set<string>();
+      
+      for (let i = 0; i < sourceCount; i++) {
+        let source;
+        let attempts = 0;
+        do {
+          source = getRandomElement(marketSources);
+          attempts++;
+        } while (usedSources.has(source) && attempts < 10);
+        
+        if (usedSources.has(source)) continue;
+        usedSources.add(source);
+        
+        const cost = product.cost || 50;
+        
+        // Market prices vary: some competitive (similar to our cost), others higher
+        const priceVariation = faker.datatype.boolean(0.4) ? 
+          faker.number.float({ min: 0.8, max: 1.2 }) :  // Competitive pricing
+          faker.number.float({ min: 1.2, max: 1.8 });   // Higher retail pricing
+        
+        const marketPrice = parseFloat((cost * priceVariation).toFixed(2));
+        
+        // Random update time within last 30 days
+        const lastUpdated = faker.date.between({ 
+          from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          to: new Date() 
+        });
+        
+        marketPricingData.push({
+          productId: product.id,
+          source,
+          price: marketPrice,
+          currency: product.costCurrency || 'CAD',
+          lastUpdated
+        });
+      }
+    }
+    
+    const insertedMarketPricing = await db.insert(schema.marketPricing).values(marketPricingData).returning();
+    console.log(`Inserted ${insertedMarketPricing.length} market pricing records`);
 
     console.log('Seeding completed successfully!');
 
