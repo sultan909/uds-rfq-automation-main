@@ -356,7 +356,7 @@ export function AllTab({
             reorderableColumns
             className="p-datatable-sm"
             emptyMessage="No data available"
-            loadingIcon={<ProgressSpinner style={{width: '50px', height: '50px'}} strokeWidth="8" />}
+            loadingIcon={<ProgressSpinner style={{width: '50px', height: '50px', zIndex: 9999}} strokeWidth="8" />}
           >
             {ALL_COLUMNS.filter(col => visibleColumns.includes(col.field)).map((col) => {
               const isPriceField = col.field.includes('price') || col.field.includes('Price') || col.field === 'cost';
