@@ -1216,6 +1216,7 @@ export default function RfqDetail({
                 onRecordResponse={handleRecordResponse}
                 onRecordQuotationResponse={handleRecordQuotationResponse}
                 rfqId={id}
+                customerEmail={rfq?.customer?.email}
               />
             </TabsContent>
 

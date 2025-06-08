@@ -28,6 +28,7 @@ interface QuotationHistoryTableProps {
   onRecordQuotationResponse?: (version: QuotationVersionWithItems) => void;
   onCreateVersion: () => void;
   rfqId: string;
+  customerEmail?: string;
 }
 
 export function QuotationHistoryTable({ 
@@ -35,7 +36,8 @@ export function QuotationHistoryTable({
   onRecordResponse,
   onRecordQuotationResponse,
   onCreateVersion,
-  rfqId
+  rfqId,
+  customerEmail
 }: QuotationHistoryTableProps) {
   const { formatCurrency } = useCurrency();
   const [expandedVersions, setExpandedVersions] = useState<Set<number>>(new Set());
@@ -242,6 +244,94 @@ export function QuotationHistoryTable({
 
   const commentBodyTemplate = (rowData: any) => {
     return rowData.comment || '-';
+  };
+
+  const exportToEmail = () => {
+    if (!selectedVersion || !customerEmail) {
+      toast.error('Customer email not available');
+      return;
+    }
+
+    try {
+      // Create HTML table for email body
+      const htmlTable = generateHtmlTable();
+      
+      // Email subject
+      const subject = `Quotation - Version ${selectedVersion.versionNumber} (RFQ #${rfqId})`;
+      
+      // Email body with HTML table
+      const body = `
+Dear Customer,
+
+Please find below the details for Quotation Version ${selectedVersion.versionNumber}:
+
+${htmlTable}
+
+Best regards,
+Your Sales Team
+
+---
+This quotation was generated on ${new Date().toLocaleDateString()}
+Total Amount: ${formatCurrency(selectedVersion.finalPrice)}
+      `.trim();
+
+      // Create mailto URL
+      const mailtoUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      
+      // Open email client
+      window.open(mailtoUrl);
+      toast.success('Email client opened successfully');
+    } catch (error) {
+      console.error('Error creating email:', error);
+      toast.error('Failed to open email client');
+    }
+  };
+
+  const generateHtmlTable = (): string => {
+    if (!selectedVersion?.items) return '';
+
+    const tableRows = selectedVersion.items.map(item => `
+      <tr>
+        <td style="border: 1px solid #ddd; padding: 8px;">${item.sku?.sku || 'N/A'}</td>
+        <td style="border: 1px solid #ddd; padding: 8px;">${item.sku?.description || 'N/A'}</td>
+        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.quantity}</td>
+        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.unitPrice)}</td>
+        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.totalPrice)}</td>
+        <td style="border: 1px solid #ddd; padding: 8px;">${item.comment || '-'}</td>
+      </tr>
+    `).join('');
+
+    return `
+<table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+  <thead>
+    <tr style="background-color: #f2f2f2;">
+      <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">SKU</th>
+      <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Description</th>
+      <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Quantity</th>
+      <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Unit Price</th>
+      <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Price</th>
+      <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${tableRows}
+  </tbody>
+  <tfoot>
+    <tr style="background-color: #f9f9f9; font-weight: bold;">
+      <td colspan="4" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Amount:</td>
+      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(selectedVersion.finalPrice)}</td>
+      <td style="border: 1px solid #ddd; padding: 8px;"></td>
+    </tr>
+  </tfoot>
+</table>
+
+${selectedVersion.notes ? `
+<div style="margin-top: 20px;">
+  <strong>Notes:</strong><br>
+  ${selectedVersion.notes}
+</div>
+` : ''}
+    `.trim();
   };
 
   return (
@@ -456,7 +546,7 @@ export function QuotationHistoryTable({
                           icon="pi pi-file" 
                           rounded 
                           onClick={() => exportCSV(false)} 
-                          data-pr-tooltip="CSV"
+                          data-pr-tooltip="Export CSV"
                           size="small"
                         />
                         <PrimeButton 
@@ -465,7 +555,7 @@ export function QuotationHistoryTable({
                           severity="success" 
                           rounded 
                           onClick={exportExcel} 
-                          data-pr-tooltip="Excel"
+                          data-pr-tooltip="Export Excel"
                           size="small"
                         />
                         <PrimeButton 
@@ -474,9 +564,20 @@ export function QuotationHistoryTable({
                           severity="warning" 
                           rounded 
                           onClick={exportPdf} 
-                          data-pr-tooltip="PDF"
+                          data-pr-tooltip="Export PDF"
                           size="small"
                         />
+                        {customerEmail && (
+                          <PrimeButton 
+                            type="button" 
+                            icon="pi pi-envelope" 
+                            severity="info" 
+                            rounded 
+                            onClick={exportToEmail} 
+                            data-pr-tooltip="Send via Email"
+                            size="small"
+                          />
+                        )}
                       </div>
                     </div>
                     <DataTable 
