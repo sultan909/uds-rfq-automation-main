@@ -211,27 +211,38 @@ export default function RfqManagement() {
     setVisibleColumns(orderedSelectedColumns);
   };
 
-  // Create header with column toggle
+  // Create header with column toggle, search and new RFQ button
   const tableHeader = (
     <div className="flex justify-between items-center p-4 bg-card border-b">
       <div className="flex items-center gap-4">
-      {/* <span className="text-lg font-semibold">RFQ Management</span> */}
-      <MultiSelect 
-        value={visibleColumns} 
-        options={columns} 
-        optionLabel="header" 
-        onChange={onColumnToggle} 
-        className="w-80" 
-        display="chip"
-        placeholder="Select Columns"
-        maxSelectedLabels={3}
-        selectedItemsLabel="{0} columns selected"
-        // style={{ 
-        //   backgroundColor: 'var(--surface-ground)',
-        //   border: '1px solid var(--surface-border)',
-        //   color: 'var(--text-color)'
-        // }}
-      />
+        <MultiSelect 
+          value={visibleColumns} 
+          options={columns} 
+          optionLabel="header" 
+          onChange={onColumnToggle} 
+          className="w-80" 
+          display="chip"
+          placeholder="Select Columns"
+          maxSelectedLabels={3}
+          selectedItemsLabel="{0} columns selected"
+        />
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            value={searchValue} 
+            onChange={handleSearchChange} 
+            placeholder="Search RFQs by number, customer, source, status..."
+            className="w-[400px] pl-9"
+          />
+        </div>
+        <Button asChild className="gap-2">
+          <a href="/rfq-management/new">
+            <Plus className="h-4 w-4" />
+            New RFQ
+          </a>
+        </Button>
       </div>
     </div>
   );
@@ -312,30 +323,6 @@ export default function RfqManagement() {
                 </TabsList>
 
                 <TabsContent value={selectedTab} className="m-0">
-                  <div className="space-y-4 mb-4">
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
-                      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:flex-none">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input 
-                            value={searchValue} 
-                            onChange={handleSearchChange} 
-                            placeholder="Search RFQs by number, customer, source, status, description, contact person, email, phone, department..."
-                            className="w-full sm:w-[400px] pl-9"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button asChild className="gap-2">
-                            <a href="/rfq-management/new">
-                              <Plus className="h-4 w-4" />
-                              New RFQ
-                            </a>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {loading ? (
                     <div className="flex justify-center items-center py-8">
                       <Spinner size={32} />
