@@ -25,9 +25,10 @@ import { Skeleton } from 'primereact/skeleton'
 import { MultiSelect } from 'primereact/multiselect'
 
 // PrimeReact CSS imports
-import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/themes/lara-dark-cyan/theme.css'
 import 'primereact/resources/primereact.min.css'
 import 'primeicons/primeicons.css'
+import '@/styles/primereact-dark-theme.css'
 
 interface Customer {
   id: string
@@ -149,12 +150,12 @@ export default function CustomerManagement() {
         params.sortOrder = sortConfig.direction
       }
       
-      let response
+      // Add search parameter to the main list API
       if (globalFilterValue && globalFilterValue.trim()) {
-        response = await customerApi.search(globalFilterValue.trim(), params)
-      } else {
-        response = await customerApi.list(params)
+        params.search = globalFilterValue.trim()
       }
+
+      const response = await customerApi.list(params)
 
       if (response.success && response.data) {
         const customerData = response.data as Customer[]
@@ -655,11 +656,11 @@ export default function CustomerManagement() {
                               return null
                           }
                         })}
-                        <Column 
+                        {/* <Column 
                           header="Actions" 
                           body={actionsBodyTemplate}
                           style={{ minWidth: '120px' }}
-                        />
+                        /> */}
                       </DataTable>
                     </div>
                   )}

@@ -25,9 +25,10 @@ import { Skeleton } from 'primereact/skeleton'
 import { MultiSelect } from 'primereact/multiselect'
 
 // PrimeReact CSS imports
-import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/themes/lara-dark-cyan/theme.css'
 import 'primereact/resources/primereact.min.css'
 import 'primeicons/primeicons.css'
+import '@/styles/primereact-dark-theme.css'
 
 interface InventoryItem {
   id: number
@@ -150,12 +151,12 @@ export default function InventoryManagement() {
         params.sortOrder = sortConfig.direction
       }
       
-      let response
+      // Add search parameter to the main list API
       if (globalFilterValue && globalFilterValue.trim()) {
-        response = await inventoryApi.search(globalFilterValue.trim(), params)
-      } else {
-        response = await inventoryApi.list(params)
+        params.search = globalFilterValue.trim()
       }
+
+      const response = await inventoryApi.list(params)
 
       if (response.success && response.data) {
         const inventoryData = response.data as InventoryApiResponse
@@ -630,11 +631,11 @@ export default function InventoryManagement() {
                               return null
                           }
                         })}
-                        <Column 
+                        {/* <Column 
                           header="Actions"
                           body={actionsBodyTemplate}
                           style={{ minWidth: '120px' }}
-                        />
+                        /> */}
                       </DataTable>
                     </div>
                   )}

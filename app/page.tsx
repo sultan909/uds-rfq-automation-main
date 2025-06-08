@@ -17,10 +17,11 @@ import { Tag } from 'primereact/tag'
 import { Button } from 'primereact/button'
 
 // PrimeReact CSS imports
-import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/themes/lara-dark-cyan/theme.css'
 import 'primereact/resources/primereact.min.css'
 import 'primeicons/primeicons.css'
 import '../styles/primereact-theme.css'
+import '../styles/primereact-dark-theme.css'
 
 interface DashboardMetrics {
   rfqMetrics: {

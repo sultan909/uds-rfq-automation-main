@@ -1,0 +1,404 @@
+/* PrimeReact Dark Theme Overrides */
+
+/* MultiSelect Dark Theme Fixes */
+.dark .p-multiselect {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-multiselect:not(.p-disabled):hover {
+  background: var(--p-surface-50) !important;
+  border-color: var(--p-surface-300) !important;
+}
+
+.dark .p-multiselect:not(.p-disabled).p-focus {
+  outline: 0 none !important;
+  outline-offset: 0 !important;
+  box-shadow: 0 0 0 2px var(--p-primary-color) !important;
+  border-color: var(--p-primary-color) !important;
+}
+
+.dark .p-multiselect .p-multiselect-label {
+  color: var(--p-text-color) !important;
+  background: transparent !important;
+}
+
+.dark .p-multiselect .p-multiselect-label.p-placeholder {
+  color: var(--p-text-muted-color) !important;
+}
+
+.dark .p-multiselect .p-multiselect-token {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+  border: none !important;
+}
+
+.dark .p-multiselect .p-multiselect-token .p-multiselect-token-icon {
+  color: var(--p-primary-contrast-color) !important;
+}
+
+.dark .p-multiselect .p-multiselect-trigger {
+  color: var(--p-text-color) !important;
+  background: transparent !important;
+}
+
+.dark .p-multiselect-panel {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  z-index: 9999 !important;
+}
+
+.dark .p-multiselect-item {
+  color: var(--p-text-color) !important;
+  background: transparent !important;
+}
+
+.dark .p-multiselect-item:hover {
+  background: var(--p-surface-50) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-multiselect-item.p-highlight {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+
+.dark .p-multiselect-header {
+  background: var(--p-surface-0) !important;
+  border-bottom: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-multiselect-close {
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-multiselect-filter-container .p-inputtext {
+  background: var(--p-surface-100) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+/* DataTable Dark Theme Fixes */
+.dark .p-datatable .p-datatable-header {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-datatable .p-datatable-thead > tr > th {
+  background: var(--p-surface-50) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr {
+  background: var(--p-surface-0) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr > td {
+  background: transparent !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+/* Alternate row styling - lighter than base */
+.dark .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background: var(--p-surface-50) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr:nth-child(even) > td {
+  background: transparent !important;
+}
+
+/* Hover styling - different from alternate rows */
+.dark .p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--p-surface-200) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr:hover > td {
+  background: transparent !important;
+}
+
+/* Selected row styling */
+.dark .p-datatable .p-datatable-tbody > tr.p-highlight {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr.p-highlight > td {
+  background: transparent !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+/* Paginator Dark Theme */
+.dark .p-paginator {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-paginator .p-paginator-page,
+.dark .p-paginator .p-paginator-next,
+.dark .p-paginator .p-paginator-prev,
+.dark .p-paginator .p-paginator-first,
+.dark .p-paginator .p-paginator-last {
+  background: transparent !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-paginator .p-paginator-page:hover,
+.dark .p-paginator .p-paginator-next:hover,
+.dark .p-paginator .p-paginator-prev:hover,
+.dark .p-paginator .p-paginator-first:hover,
+.dark .p-paginator .p-paginator-last:hover {
+  background: var(--p-surface-50) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-paginator .p-paginator-page.p-highlight {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+
+/* Fix paginator text visibility */
+.dark .p-paginator .p-paginator-current,
+.dark .p-paginator .p-paginator-pages,
+.dark .p-paginator .p-dropdown-label,
+.dark .p-paginator .p-paginator-rpp-options .p-dropdown-label,
+.dark .p-paginator .p-paginator-current-page-report,
+.dark .p-paginator-current {
+  color: var(--p-text-color) !important;
+}
+
+/* Additional paginator dropdown styling */
+.dark .p-paginator .p-dropdown {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-paginator .p-dropdown .p-dropdown-label {
+  color: var(--p-text-color) !important;
+}
+/* Dropdown Dark Theme */
+.dark .p-dropdown {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-dropdown-panel {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+}
+
+.dark .p-dropdown-item {
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-dropdown-item:hover {
+  background: var(--p-surface-50) !important;
+}
+
+/* Tag Dark Theme */
+
+.dark .p-tag {
+  color: white !important;
+  border: none !important;
+}
+
+.dark .p-tag.p-tag-info {
+  background: rgb(59 130 246) !important;
+}
+
+.dark .p-tag.p-tag-success {
+  background: rgb(34 197 94) !important;
+}
+
+.dark .p-tag.p-tag-warning {
+  background: rgb(251 146 60) !important;
+}
+
+.dark .p-tag.p-tag-danger {
+  background: rgb(239 68 68) !important;
+}
+
+/* Additional DataTable enhancements for better contrast */
+.dark .p-datatable .p-datatable-tbody > tr:nth-child(odd) {
+  background: var(--p-surface-0) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background: var(--p-surface-50) !important;
+}
+
+/* Ensure hover takes precedence over alternate row colors */
+.dark .p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--p-surface-200) !important;
+}
+
+/* Fix for selected rows */
+.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row.p-highlight {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+
+/* Ensure all text in table rows is visible */
+.dark .p-datatable .p-datatable-tbody > tr > td,
+.dark .p-datatable .p-datatable-tbody > tr > td * {
+  color: var(--p-text-color) !important;
+}
+
+/* Override for highlighted row text */
+.dark .p-datatable .p-datatable-tbody > tr.p-highlight > td,
+.dark .p-datatable .p-datatable-tbody > tr.p-highlight > td * {
+  color: var(--p-primary-contrast-color) !important;
+}
+
+/* Fix table header text */
+.dark .p-datatable .p-datatable-thead > tr > th,
+.dark .p-datatable .p-datatable-thead > tr > th * {
+  color: var(--p-text-color) !important;
+}
+
+/* Ensure table sorting icons are visible */
+.dark .p-datatable .p-datatable-thead > tr > th .p-sortable-column-icon {
+  color: var(--p-text-color) !important;
+}
+
+/* Fix for column header dropdown buttons */
+.dark .p-datatable .p-column-header-content .p-column-title {
+  color: var(--p-text-color) !important;
+}
+
+/* Striped rows enhancement - better visual distinction */
+.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+  background: var(--p-surface-50) !important;
+}
+
+.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(odd) {
+  background: var(--p-surface-0) !important;
+}
+
+/* Hover effect with higher specificity */
+.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:hover,
+.dark .p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--p-surface-200) !important;
+  transform: scale(1.001);
+  transition: all 0.2s ease;
+}
+
+/* Fix empty message styling */
+.dark .p-datatable .p-datatable-emptymessage {
+  background: var(--p-surface-0) !important;
+  color: var(--p-text-muted-color) !important;
+  text-align: center !important;
+  padding: 2rem !important;
+}
+
+/* Input field styling in table headers */
+.dark .p-datatable .p-column-filter .p-inputtext {
+  background: var(--p-surface-100) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.dark .p-datatable .p-column-filter .p-inputtext:focus {
+  border-color: var(--p-primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(var(--p-primary-color), 0.2) !important;
+}
+
+/* Force override for any PrimeReact theme conflicts in light mode */
+:root:not(.dark) .p-multiselect,
+body:not(.dark) .p-multiselect {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+:root:not(.dark) .p-multiselect .p-multiselect-label {
+  color: black !important;
+}
+
+:root:not(.dark) .p-multiselect .p-multiselect-token,
+body:not(.dark) .p-multiselect .p-multiselect-token {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+
+:root:not(.dark) .p-multiselect-panel,
+body:not(.dark) .p-multiselect-panel {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+:root:not(.dark) .p-multiselect-item,
+body:not(.dark) .p-multiselect-item {
+  color: black !important;
+  background: transparent !important;
+}
+
+:root:not(.dark) .p-multiselect-item:hover,
+body:not(.dark) .p-multiselect-item:hover {
+  background: var(--p-surface-50) !important;
+  color: black !important;
+}
+
+:root:not(.dark) .p-multiselect-header,
+body:not(.dark) .p-multiselect-header {
+  background: white !important;
+  color: black !important;
+}
+
+:root:not(.dark) .p-multiselect-close,
+body:not(.dark) .p-multiselect-close {
+  color: black !important;
+}
+
+:root:not(.dark) .p-multiselect-filter-container .p-inputtext,
+body:not(.dark) .p-multiselect-filter-container .p-inputtext {
+  background: white !important;
+  color: black !important;
+}
+
+/* Force override for paginator dropdown in light theme */
+:root:not(.dark) .p-paginator .p-dropdown,
+body:not(.dark) .p-paginator .p-dropdown {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+:root:not(.dark) .p-paginator .p-dropdown .p-dropdown-label,
+body:not(.dark) .p-paginator .p-dropdown .p-dropdown-label {
+  color: black !important;
+}
+
+:root:not(.dark) .p-paginator .p-dropdown .p-dropdown-trigger,
+body:not(.dark) .p-paginator .p-dropdown .p-dropdown-trigger {
+  color: black !important;
+}
+
+:root:not(.dark) .p-paginator .p-dropdown-panel,
+body:not(.dark) .p-paginator .p-dropdown-panel {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+:root:not(.dark) .p-paginator .p-dropdown-item,
+body:not(.dark) .p-paginator .p-dropdown-item {
+  color: black !important;
+  background: transparent !important;
+}
+
+:root:not(.dark) .p-paginator .p-dropdown-item:hover,
+body:not(.dark) .p-paginator .p-dropdown-item:hover {
+  background: var(--p-surface-50) !important;
+  color: black !important;
+}
+
