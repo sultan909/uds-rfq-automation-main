@@ -172,6 +172,15 @@ export default function RfqDetail({
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<QuotationVersionWithItems | null>(null);
 
+  // Add state for ALL tab data caching
+  const [allTabData, setAllTabData] = useState<any[]>([]);
+  const [allTabLoading, setAllTabLoading] = useState(false);
+  const [allTabError, setAllTabError] = useState<string | null>(null);
+  const [allTabTotalRecords, setAllTabTotalRecords] = useState(0);
+  const [allTabCurrentPage, setAllTabCurrentPage] = useState(1);
+  const [allTabPageSize, setAllTabPageSize] = useState(10);
+  const [allTabDataFetched, setAllTabDataFetched] = useState(false);
+
   // Ensure we have the correct data structure
   const rfq = rfqData?.data || rfqData;
   const items = rfq?.items || [];
@@ -276,6 +285,56 @@ export default function RfqDetail({
       fetchNegotiationHistory();
     }
   }, [fetchNegotiationHistory, rfqData, loading]);
+
+  // Fetch ALL tab data with caching
+  const fetchAllTabData = useCallback(async (page: number = 1, pageSize: number = 10) => {
+    if (!id) return;
+    
+    try {
+      setAllTabLoading(true);
+      setAllTabError(null);
+      
+      const response = await fetch(
+        `/api/rfq/${id}/all-data?page=${page}&pageSize=${pageSize}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch ALL tab data');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setAllTabData(result.data || []);
+        setAllTabTotalRecords(result.meta?.pagination?.totalItems || 0);
+        setAllTabCurrentPage(page);
+        setAllTabPageSize(pageSize);
+        setAllTabDataFetched(true);
+      } else {
+        throw new Error(result.error || 'Failed to fetch ALL tab data');
+      }
+    } catch (error) {
+      console.error('Error fetching ALL tab data:', error);
+      setAllTabError('Failed to load ALL tab data');
+      toast.error('Failed to load ALL tab data');
+    } finally {
+      setAllTabLoading(false);
+    }
+  }, [id]);
+
+  // Fetch ALL tab data when needed
+  const handleAllTabLoad = useCallback(() => {
+    if (!allTabDataFetched && id) {
+      fetchAllTabData(allTabCurrentPage, allTabPageSize);
+    }
+  }, [allTabDataFetched, id, fetchAllTabData, allTabCurrentPage, allTabPageSize]);
+
+  // Handle ALL tab pagination
+  const handleAllTabPageChange = useCallback((newPage: number, newPageSize: number) => {
+    setAllTabCurrentPage(newPage);
+    setAllTabPageSize(newPageSize);
+    fetchAllTabData(newPage, newPageSize);
+  }, [fetchAllTabData]);
 
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
@@ -1107,7 +1166,17 @@ export default function RfqDetail({
             </TabsList>
 
             <TabsContent value="all" className="m-0">
-              <AllTab rfqId={id} />
+              <AllTab 
+                rfqId={id}
+                data={allTabData}
+                loading={allTabLoading}
+                error={allTabError}
+                totalRecords={allTabTotalRecords}
+                currentPage={allTabCurrentPage}
+                pageSize={allTabPageSize}
+                onPageChange={handleAllTabPageChange}
+                onLoad={handleAllTabLoad}
+              />
             </TabsContent>
 
             <TabsContent value="items" className="m-0">
