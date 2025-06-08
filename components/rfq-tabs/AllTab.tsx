@@ -282,56 +282,55 @@ export function AllTab({
   return (
     <Card>
       <CardHeader>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <CardTitle>All RFQ Item Data</CardTitle>
-            <div className="flex items-center gap-4">
-              <MultiSelect
-                value={visibleColumns}
-                options={columnOptions}
-                onChange={onColumnToggle}
-                placeholder="Toggle Columns"
-                className="w-80"
-                display="chip"
-                maxSelectedLabels={3}
-                selectedItemsLabel="{0} columns selected"
-              />
-            </div>
+        <CardTitle>All RFQ Items Data</CardTitle>
+        <div className="flex justify-between items-center">
+          {/* Left side: Column toggle */}
+          <div className="flex items-center gap-4">
+            <MultiSelect
+              value={visibleColumns}
+              options={columnOptions}
+              onChange={onColumnToggle}
+              placeholder="Toggle Columns"
+              className="w-80"
+              display="chip"
+              maxSelectedLabels={3}
+              selectedItemsLabel="{0} columns selected"
+            />
           </div>
-          <div className="flex justify-end">
-            <div className="flex items-center gap-2 export-buttons">
-              <span className="text-sm text-gray-600 mr-2">Export:</span>
-              <Button 
-                type="button" 
-                icon="pi pi-file" 
-                rounded 
-                onClick={() => exportCSV(false)} 
-                data-pr-tooltip="Export CSV" 
-                size="small"
-                severity="secondary"
-                className="p-button-rounded p-button-text"
-              />
-              <Button 
-                type="button" 
-                icon="pi pi-file-excel" 
-                severity="success" 
-                rounded 
-                onClick={exportExcel} 
-                data-pr-tooltip="Export Excel" 
-                size="small"
-                className="p-button-rounded"
-              />
-              <Button 
-                type="button" 
-                icon="pi pi-file-pdf" 
-                severity="warning" 
-                rounded 
-                onClick={exportPdf} 
-                data-pr-tooltip="Export PDF" 
-                size="small"
-                className="p-button-rounded"
-              />
-            </div>
+          
+          {/* Right side: Export buttons */}
+          <div className="flex items-center gap-2 export-buttons">
+            <span className="text-sm text-gray-600 mr-2">Export:</span>
+            <Button 
+              type="button" 
+              icon="pi pi-file" 
+              rounded 
+              onClick={() => exportCSV(false)} 
+              data-pr-tooltip="Export CSV" 
+              size="small"
+              severity="secondary"
+              className="p-button-rounded p-button-text"
+            />
+            <Button 
+              type="button" 
+              icon="pi pi-file-excel" 
+              severity="success" 
+              rounded 
+              onClick={exportExcel} 
+              data-pr-tooltip="Export Excel" 
+              size="small"
+              className="p-button-rounded"
+            />
+            <Button 
+              type="button" 
+              icon="pi pi-file-pdf" 
+              severity="warning" 
+              rounded 
+              onClick={exportPdf} 
+              data-pr-tooltip="Export PDF" 
+              size="small"
+              className="p-button-rounded"
+            />
           </div>
         </div>
       </CardHeader>
