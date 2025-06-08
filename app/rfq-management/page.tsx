@@ -214,21 +214,25 @@ export default function RfqManagement() {
   // Create header with column toggle
   const tableHeader = (
     <div className="flex justify-between items-center p-4 bg-card border-b">
+      <div className="flex items-center gap-4">
       {/* <span className="text-lg font-semibold">RFQ Management</span> */}
       <MultiSelect 
         value={visibleColumns} 
         options={columns} 
         optionLabel="header" 
         onChange={onColumnToggle} 
-        className="w-full sm:w-20rem dark:bg-gray-800 dark:border-gray-600" 
+        className="w-80" 
         display="chip"
         placeholder="Select Columns"
-        style={{ 
-          backgroundColor: 'var(--surface-ground)',
-          border: '1px solid var(--surface-border)',
-          color: 'var(--text-color)'
-        }}
+        maxSelectedLabels={3}
+        selectedItemsLabel="{0} columns selected"
+        // style={{ 
+        //   backgroundColor: 'var(--surface-ground)',
+        //   border: '1px solid var(--surface-border)',
+        //   color: 'var(--text-color)'
+        // }}
       />
+      </div>
     </div>
   );
 
