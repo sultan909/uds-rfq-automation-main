@@ -18,9 +18,10 @@ import { DataTable, DataTablePageEvent, DataTableSortEvent, DataTableRowClickEve
 import { Column } from 'primereact/column';
 import { Skeleton } from 'primereact/skeleton';
 import { MultiSelect } from 'primereact/multiselect';
-import 'primereact/resources/themes/lara-light-cyan/theme.css';
+import 'primereact/resources/themes/lara-dark-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import 'primeicons/primeicons.css';
+import '@/styles/primereact-dark-theme.css';
 
 interface RfqData {
   id: number
@@ -212,16 +213,21 @@ export default function RfqManagement() {
 
   // Create header with column toggle
   const tableHeader = (
-    <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
+    <div className="flex justify-between items-center p-4 bg-card border-b">
       {/* <span className="text-lg font-semibold">RFQ Management</span> */}
       <MultiSelect 
         value={visibleColumns} 
         options={columns} 
         optionLabel="header" 
         onChange={onColumnToggle} 
-        className="w-full sm:w-20rem" 
+        className="w-full sm:w-20rem dark:bg-gray-800 dark:border-gray-600" 
         display="chip"
         placeholder="Select Columns"
+        style={{ 
+          backgroundColor: 'var(--surface-ground)',
+          border: '1px solid var(--surface-border)',
+          color: 'var(--text-color)'
+        }}
       />
     </div>
   );

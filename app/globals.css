@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 /* Import PrimeReact CSS */
-@import 'primereact/resources/themes/lara-light-cyan/theme.css';
+@import 'primereact/resources/themes/lara-dark-cyan/theme.css';
 @import 'primereact/resources/primereact.min.css';
 @import 'primeicons/primeicons.css';
+@import '../styles/primereact-dark-theme.css';
 
 /* Import custom PrimeReact theme */
 @import '../styles/primereact-theme.css';

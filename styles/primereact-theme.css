@@ -72,8 +72,14 @@
   transition: background-color 0.2s ease !important;
 }
 
-.p-datatable .p-datatable-tbody > tr:hover {
+/* Alternate row styling */
+.p-datatable .p-datatable-tbody > tr:nth-child(even) {
   background: var(--p-surface-50) !important;
+}
+
+/* Hover styling - more distinct than alternate rows */
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--p-surface-100) !important;
 }
 
 .p-datatable .p-datatable-tbody > tr > td {
@@ -110,6 +116,46 @@
 .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
   background: var(--p-primary-color) !important;
   color: var(--p-primary-contrast-color) !important;
+}
+
+/* Paginator Dropdown (Rows per Page) Light Theme */
+.p-paginator .p-dropdown {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+.p-paginator .p-dropdown .p-dropdown-label {
+  color: black !important;
+}
+
+.p-paginator .p-dropdown .p-dropdown-trigger {
+  color: black !important;
+}
+
+.p-paginator .p-dropdown-panel {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+.p-paginator .p-dropdown-item {
+  color: black !important;
+  background: transparent !important;
+}
+
+.p-paginator .p-dropdown-item:hover {
+  background: var(--p-surface-50) !important;
+  color: black !important;
+}
+
+/* Paginator text elements */
+.p-paginator .p-paginator-current,
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-last {
+  color: var(--p-text-color) !important;
 }
 
 /* Tag Styling for Status */
@@ -239,6 +285,88 @@
 .p-button.p-button-outlined:hover {
   background: var(--p-primary-color) !important;
   color: var(--p-primary-contrast-color) !important;
+}
+
+/* MultiSelect Light Theme Styling */
+.p-multiselect {
+  background: var(--p-surface-0) !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: var(--p-text-color) !important;
+}
+
+.p-multiselect:not(.p-disabled):hover {
+  background: var(--p-surface-50) !important;
+  border-color: var(--p-surface-300) !important;
+}
+
+.p-multiselect:not(.p-disabled).p-focus {
+  outline: 0 none !important;
+  outline-offset: 0 !important;
+  box-shadow: 0 0 0 2px var(--p-primary-color) !important;
+  border-color: var(--p-primary-color) !important;
+}
+
+.p-multiselect .p-multiselect-label {
+  color: var(--p-text-color) !important;
+  background: transparent !important;
+}
+
+.p-multiselect .p-multiselect-label.p-placeholder {
+  color: var(--p-text-muted-color) !important;
+}
+
+.p-multiselect .p-multiselect-token {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+  border: none !important;
+}
+
+.p-multiselect .p-multiselect-token .p-multiselect-token-icon {
+  color: var(--p-primary-contrast-color) !important;
+}
+
+.p-multiselect .p-multiselect-trigger {
+  color: var(--p-text-color) !important;
+  background: transparent !important;
+}
+
+.p-multiselect-panel {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+  z-index: 9999 !important;
+}
+
+.p-multiselect-item {
+  color: black !important;
+  background: transparent !important;
+}
+
+.p-multiselect-item:hover {
+  background: var(--p-surface-50) !important;
+  color: black !important;
+}
+
+.p-multiselect-item.p-highlight {
+  background: var(--p-primary-color) !important;
+  color: var(--p-primary-contrast-color) !important;
+}
+
+.p-multiselect-header {
+  background: white !important;
+  border-bottom: 1px solid var(--p-border-color) !important;
+  color: black !important;
+}
+
+.p-multiselect-close {
+  color: black !important;
+}
+
+.p-multiselect-filter-container .p-inputtext {
+  background: white !important;
+  border: 1px solid var(--p-border-color) !important;
+  color: black !important;
 }
 
 /* Empty message styling */
