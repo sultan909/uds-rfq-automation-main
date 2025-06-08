@@ -14,13 +14,15 @@ import { useCurrency } from "@/contexts/currency-context"
 import { Spinner } from "@/components/spinner"
 
 // PrimeReact imports
-import { DataTable } from 'primereact/datatable'
+import { DataTable, DataTablePageEvent, DataTableSortEvent, DataTableRowClickEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 import { FilterMatchMode } from 'primereact/api'
 import { InputText } from 'primereact/inputtext'
 import { Dropdown } from 'primereact/dropdown'
 import { Tag } from 'primereact/tag'
 import { Calendar } from 'primereact/calendar'
+import { Skeleton } from 'primereact/skeleton'
+import { MultiSelect } from 'primereact/multiselect'
 
 // PrimeReact CSS imports
 import 'primereact/resources/themes/lara-light-blue/theme.css'
@@ -43,31 +45,47 @@ interface InventoryItem {
 
 interface InventoryApiResponse extends Array<InventoryItem> {}
 
+interface SortConfig {
+  field: string | null
+  direction: 'asc' | 'desc' | null
+}
+
 export default function InventoryManagement() {
   const router = useRouter()
   const { currency, formatCurrency, convertCurrency } = useCurrency()
-  const [allItems, setAllItems] = useState<InventoryItem[]>([]) // Store all items
-  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]) // Store filtered items for display
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("all")
   const [globalFilterValue, setGlobalFilterValue] = useState("")
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  
+  // PrimeReact DataTable state
+  const [first, setFirst] = useState(0)
+  const [rows, setRows] = useState(10)
+  const [sortField, setSortField] = useState<string | undefined>(undefined)
+  const [sortOrder, setSortOrder] = useState<1 | -1 | 0 | null | undefined>(0)
+  
+  // Sort state - keeping for compatibility
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: null,
+    direction: null
+  })
+  
   const [stats, setStats] = useState({
     total: 0,
     lowStock: 0,
     outOfStock: 0,
     active: 0
   })
-  const [filters, setFilters] = useState({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    sku: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    brand: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    category: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    warehouseLocation: { value: null, matchMode: FilterMatchMode.CONTAINS }
-  })
+  
+  // Debounced search
+  const [searchValue, setSearchValue] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
 
   const stockStatusOptions = [
     { label: 'Active', value: 'ACTIVE' },
@@ -75,138 +93,162 @@ export default function InventoryManagement() {
     { label: 'Out of Stock', value: 'OUT_OF_STOCK' }
   ]
 
+  // Column toggle functionality
+  const columns = [
+    { field: 'sku', header: 'SKU' },
+    { field: 'description', header: 'Description' },
+    { field: 'brand', header: 'Brand' },
+    { field: 'category', header: 'Category' },
+    { field: 'quantityOnHand', header: 'Stock' },
+    { field: 'cost', header: 'Cost' },
+    { field: 'warehouseLocation', header: 'Location' }
+  ]
 
+  const [visibleColumns, setVisibleColumns] = useState(columns)
 
-  // Fetch all inventory data once
+  // Debounce search input
   useEffect(() => {
-    fetchAllInventory()
-  }, [])
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchValue)
+      setCurrentPage(1) // Reset to first page when searching
+    }, 300)
 
-  // Filter items when tab changes
+    return () => clearTimeout(timer)
+  }, [searchValue])
+
+  // Update globalFilterValue when debounced search changes
   useEffect(() => {
-    filterItemsByTab()
-  }, [selectedTab, allItems])
+    setGlobalFilterValue(debouncedSearch)
+  }, [debouncedSearch])
 
-  const fetchAllInventory = async () => {
+  // Fetch inventory with pagination
+  useEffect(() => {
+    fetchInventoryData()
+  }, [selectedTab, currentPage, itemsPerPage, globalFilterValue, sortConfig])
+
+  const fetchInventoryData = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Fetch all inventory without filters
-      const response = await inventoryApi.list({})
+      const params: any = {
+        page: currentPage.toString(),
+        pageSize: itemsPerPage.toString()
+      }
+
+      // Add filter parameters based on selected tab
+      if (selectedTab === "low_stock") {
+        params.lowStock = 'true'
+      } else if (selectedTab === "out_of_stock") {
+        params.outOfStock = 'true'
+      }
+      // Note: 'active' and 'all' don't need special parameters
+
+      // Add sorting parameters
+      if (sortConfig.field && sortConfig.direction) {
+        params.sortField = sortConfig.field
+        params.sortOrder = sortConfig.direction
+      }
       
+      let response
+      if (globalFilterValue && globalFilterValue.trim()) {
+        response = await inventoryApi.search(globalFilterValue.trim(), params)
+      } else {
+        response = await inventoryApi.list(params)
+      }
+
       if (response.success && response.data) {
         const inventoryData = response.data as InventoryApiResponse
-        setAllItems(inventoryData)
+        setFilteredItems(inventoryData)
         
-        // Calculate overall statistics from all data
+        if (response.meta?.pagination) {
+          setTotalItems(response.meta.pagination.totalItems || 0)
+          setTotalPages(response.meta.pagination.totalPages || 1)
+        }
+        
+        // Fetch all data for stats calculation
+        await fetchStatsData()
+      } else {
+        const errorMessage = response.error || "Failed to load inventory"
+        setError(errorMessage)
+        toast.error(errorMessage)
+        setFilteredItems([])
+      }
+    } catch (err: any) {
+      const errorMessage = "An error occurred while loading inventory"
+      setError(errorMessage)
+      toast.error(errorMessage)
+      setFilteredItems([])
+      console.error("Inventory fetch error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchStatsData = async () => {
+    try {
+      // Fetch all inventory for stats calculation
+      const statsResponse = await inventoryApi.list({ page: '1', pageSize: '9999' })
+      
+      if (statsResponse.success && statsResponse.data) {
+        const allData = statsResponse.data as InventoryApiResponse
+        
         const totalStats = {
-          total: inventoryData.length,
-          lowStock: inventoryData.filter(
+          total: allData.length,
+          lowStock: allData.filter(
             (item: InventoryItem) =>
               item.quantityOnHand <= item.lowStockThreshold &&
               item.quantityOnHand > 0
           ).length,
-          outOfStock: inventoryData.filter(
+          outOfStock: allData.filter(
             (item: InventoryItem) => item.quantityOnHand === 0
           ).length,
-          active: inventoryData.filter(
+          active: allData.filter(
             (item: InventoryItem) =>
               item.quantityOnHand > item.lowStockThreshold
           ).length,
         }
         setStats(totalStats)
-      } else {
-        setError("Failed to load inventory")
-        toast.error("Failed to load inventory")
       }
     } catch (err) {
-      setError("An error occurred while loading inventory")
-      toast.error("An error occurred while loading inventory")
-    } finally {
-      setLoading(false)
+      console.error("Error fetching stats:", err)
     }
   }
 
-  const filterItemsByTab = () => {
-    let filtered = [...allItems]
-
-    switch (selectedTab) {
-      case "active":
-        filtered = allItems.filter(
-          (item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold
-        )
-        break
-      case "low_stock":
-        filtered = allItems.filter(
-          (item: InventoryItem) =>
-            item.quantityOnHand <= item.lowStockThreshold &&
-            item.quantityOnHand > 0
-        )
-        break
-      case "out_of_stock":
-        filtered = allItems.filter(
-          (item: InventoryItem) => item.quantityOnHand === 0
-        )
-        break
-      case "all":
-      default:
-        filtered = allItems
-        break
-    }
-
-    setFilteredItems(filtered)
+  const handleTabChange = (value: string) => {
+    setSelectedTab(value)
+    setCurrentPage(1)
+    setSearchValue("")
+    setGlobalFilterValue("")
+    setSortConfig({ field: null, direction: null }) // Reset sort when changing tabs
   }
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      filterItemsByTab()
-      return
-    }
-
-    try {
-      setLoading(true)
-      const response = await inventoryApi.search(searchQuery, {})
-      if (response.success && response.data) {
-        const searchData = response.data as InventoryItem[]
-        
-        // Apply tab filter to search results
-        let filtered = searchData
-        switch (selectedTab) {
-          case "active":
-            filtered = searchData.filter(
-              (item: InventoryItem) => item.quantityOnHand > item.lowStockThreshold
-            )
-            break
-          case "low_stock":
-            filtered = searchData.filter(
-              (item: InventoryItem) =>
-                item.quantityOnHand <= item.lowStockThreshold &&
-                item.quantityOnHand > 0
-            )
-            break
-          case "out_of_stock":
-            filtered = searchData.filter(
-              (item: InventoryItem) => item.quantityOnHand === 0
-            )
-            break
-        }
-        
-        setFilteredItems(filtered)
-      } else {
-        setError("Failed to search inventory")
-        toast.error("Failed to search inventory")
-      }
-    } catch (err) {
-      setError("An error occurred while searching inventory")
-      toast.error("An error occurred while searching inventory")
-    } finally {
-      setLoading(false)
-    }
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchValue(e.target.value)
   }
 
-  // Handle row click to navigate to inventory details
-  const onRowClick = (event: any) => {
+  // PrimeReact pagination handler
+  const onPage = (event: DataTablePageEvent) => {
+    setFirst(event.first)
+    setRows(event.rows)
+    setCurrentPage(Math.floor(event.first / event.rows) + 1)
+    setItemsPerPage(event.rows)
+  }
+
+  // PrimeReact sort handler
+  const onSort = (event: DataTableSortEvent) => {
+    setSortField(event.sortField || '')
+    setSortOrder(event.sortOrder || 0)
+    
+    // Update old sort config for compatibility
+    setSortConfig({
+      field: event.sortField || null,
+      direction: event.sortOrder === 1 ? 'asc' : event.sortOrder === -1 ? 'desc' : null
+    })
+  }
+
+  // Handle row click with proper typing
+  const onRowClick = (event: DataTableRowClickEvent) => {
     const itemData = event.data as InventoryItem
     router.push(`/inventory/${itemData.id}`)
   }
@@ -216,20 +258,28 @@ export default function InventoryManagement() {
     setSelectedItem(event.value)
   }
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    let _filters = { ...filters }
-    // @ts-ignore
-    _filters['global'].value = value
-    setFilters(_filters)
-    setGlobalFilterValue(value)
+  // Column toggle functionality
+  const onColumnToggle = (event: any) => {
+    let selectedColumns = event.value
+    let orderedSelectedColumns = columns.filter((col) => 
+      selectedColumns.some((sCol: any) => sCol.field === col.field)
+    )
+    setVisibleColumns(orderedSelectedColumns)
+  }
+
+  // Loading template for lazy loading
+  const loadingTemplate = () => {
+    return (
+      <div className="flex items-center p-2">
+        <Skeleton width="100%" height="1rem" />
+      </div>
+    )
   }
 
   const renderHeader = () => {
     return (
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
-
           {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-none">
@@ -237,8 +287,8 @@ export default function InventoryManagement() {
                 <i className="pi pi-search" />
               </span>
               <InputText 
-                value={globalFilterValue} 
-                onChange={onGlobalFilterChange} 
+                value={searchValue} 
+                onChange={handleSearchChange} 
                 placeholder="Search inventory by SKU, description, brand..."
                 className="w-full sm:w-[400px] pl-9 h-10 border rounded-md bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
@@ -256,6 +306,21 @@ export default function InventoryManagement() {
       </div>
     )
   }
+
+  // Create header with column toggle
+  const tableHeader = (
+    <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
+      <MultiSelect 
+        value={visibleColumns} 
+        options={columns} 
+        optionLabel="header" 
+        onChange={onColumnToggle} 
+        className="w-full sm:w-20rem" 
+        display="chip"
+        placeholder="Select Columns"
+      />
+    </div>
+  )
 
   const stockStatusBodyTemplate = (rowData: InventoryItem) => {
     let severity: "success" | "warning" | "danger" | "info"
@@ -415,7 +480,7 @@ export default function InventoryManagement() {
                 Review and manage all inventory items. Click on any row to view details.
               </p>
 
-              <Tabs defaultValue="all" onValueChange={setSelectedTab}>
+              <Tabs value={selectedTab} onValueChange={handleTabChange}>
                 <TabsList className="mb-4">
                   <TabsTrigger value="all" className="relative">
                     All
@@ -454,78 +519,117 @@ export default function InventoryManagement() {
                       {error}
                     </div>
                   ) : (
-                    <div className="card">
+                    <div className="border rounded-lg">
                       <DataTable 
                         key={`inventory-table-${currency}-${selectedTab}`}
                         value={filteredItems}
-                        paginator 
-                        rows={10} 
-                        rowsPerPageOptions={[5, 10, 25, 50]}
-                        dataKey="id"
-                        filters={filters}
-                        globalFilterFields={['sku', 'description', 'brand', 'category', 'warehouseLocation']}
-                        emptyMessage={`No ${selectedTab === 'all' ? '' : selectedTab.replace('_', ' ')} inventory items found.`}
+                        lazy
+                        paginator
+                        first={first}
+                        rows={rows}
+                        totalRecords={totalItems}
+                        onPage={onPage}
                         loading={loading}
-                        sortMode="multiple"
-                        removableSort
-                        showGridlines
+                        sortField={sortField}
+                        sortOrder={sortOrder}
+                        onSort={onSort}
                         stripedRows
-                        size="small"
-                        className="p-datatable-sm cursor-pointer"
+                        rowHover
+                        scrollable
+                        scrollHeight="600px"
+                        tableStyle={{ minWidth: '50rem' }}
+                        emptyMessage={globalFilterValue ? `No inventory items found matching "${globalFilterValue}"` : `No ${selectedTab === 'all' ? '' : selectedTab.replace('_', ' ')} inventory items found.`}
+                        loadingIcon={loadingTemplate}
+                        rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+                        onRowClick={onRowClick}
                         selectionMode="single"
                         selection={selectedItem}
                         onSelectionChange={onSelectionChange}
-                        onRowClick={onRowClick}
-                        rowHover
-                        tableStyle={{ minWidth: '50rem' }}
+                        header={tableHeader}
                       >
-                        <Column 
-                          field="sku" 
-                          header="SKU" 
-                          sortable 
-                          style={{ minWidth: '150px' }}
-                        />
-                        <Column 
-                          field="description" 
-                          header="Description" 
-                          body={descriptionBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '200px' }}
-                        />
-                        <Column 
-                          field="brand" 
-                          header="Brand" 
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                        />
-                        <Column 
-                          field="category" 
-                          header="Category" 
-                          body={categoryBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '100px' }}
-                        />
-                        <Column 
-                          field="quantityOnHand" 
-                          header="Stock" 
-                          body={stockStatusBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '100px' }}
-                        />
-                        <Column 
-                          field="cost" 
-                          header="Cost" 
-                          body={priceBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                        />
-                        <Column 
-                          field="warehouseLocation" 
-                          header="Location" 
-                          body={locationBodyTemplate}
-                          sortable 
-                          style={{ minWidth: '120px' }}
-                        />
+                        {visibleColumns.map((col) => {
+                          switch (col.field) {
+                            case 'sku':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="sku" 
+                                  header="SKU" 
+                                  sortable 
+                                  style={{ minWidth: '150px' }}
+                                />
+                              )
+                            case 'description':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="description" 
+                                  header="Description" 
+                                  body={descriptionBodyTemplate}
+                                  sortable 
+                                  style={{ minWidth: '200px' }}
+                                />
+                              )
+                            case 'brand':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="brand" 
+                                  header="Brand" 
+                                  sortable 
+                                  style={{ minWidth: '120px' }}
+                                />
+                              )
+                            case 'category':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="category" 
+                                  header="Category" 
+                                  body={categoryBodyTemplate}
+                                  sortable 
+                                  style={{ minWidth: '100px' }}
+                                />
+                              )
+                            case 'quantityOnHand':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="quantityOnHand" 
+                                  header="Stock" 
+                                  body={stockStatusBodyTemplate}
+                                  sortable 
+                                  style={{ minWidth: '100px' }}
+                                />
+                              )
+                            case 'cost':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="cost" 
+                                  header="Cost" 
+                                  body={priceBodyTemplate}
+                                  sortable 
+                                  style={{ minWidth: '120px' }}
+                                />
+                              )
+                            case 'warehouseLocation':
+                              return (
+                                <Column 
+                                  key={col.field}
+                                  field="warehouseLocation" 
+                                  header="Location" 
+                                  body={locationBodyTemplate}
+                                  sortable 
+                                  style={{ minWidth: '120px' }}
+                                />
+                              )
+                            default:
+                              return null
+                          }
+                        })}
                         <Column 
                           header="Actions"
                           body={actionsBodyTemplate}
