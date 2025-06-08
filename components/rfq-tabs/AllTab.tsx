@@ -357,8 +357,9 @@ export function AllTab({
             className="p-datatable-sm"
             emptyMessage="No data available"
             loadingIcon={<ProgressSpinner style={{width: '50px', height: '50px', zIndex: 9999}} strokeWidth="8" />}
+            showHeaders={!loading}
           >
-            {ALL_COLUMNS.filter(col => visibleColumns.includes(col.field)).map((col) => {
+            {!loading && ALL_COLUMNS.filter(col => visibleColumns.includes(col.field)).map((col) => {
               const isPriceField = col.field.includes('price') || col.field.includes('Price') || col.field === 'cost';
               const isQuantityField = col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity');
               
@@ -386,17 +387,19 @@ export function AllTab({
             })}
           </DataTable>
 
-          {/* Custom Paginator */}
-          <Paginator
-            first={lazyState.first}
-            rows={lazyState.rows}
-            totalRecords={totalRecords}
-            rowsPerPageOptions={[10, 20, 50]}
-            onPageChange={onPage}
-            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
-            className="mt-4"
-          />
+          {/* Custom Paginator - only show when not loading */}
+          {!loading && (
+            <Paginator
+              first={lazyState.first}
+              rows={lazyState.rows}
+              totalRecords={totalRecords}
+              rowsPerPageOptions={[10, 20, 50]}
+              onPageChange={onPage}
+              template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+              currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+              className="mt-4"
+            />
+          )}
         </div>
       </CardContent>
     </Card>
