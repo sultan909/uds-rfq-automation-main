@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,12 @@ import { rfqApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import type { QuotationVersionWithItems } from '@/lib/types/quotation';
 import type { QuotationResponse, QuotationResponseWithItems } from '@/lib/types/quotation-response';
+
+// PrimeReact imports
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { Button as PrimeButton } from 'primereact/button';
+import { Tooltip } from 'primereact/tooltip';
 
 interface QuotationHistoryTableProps {
   versions: QuotationVersionWithItems[];
@@ -38,6 +44,7 @@ export function QuotationHistoryTable({
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
   const [loadingResponses, setLoadingResponses] = useState(false);
   const [responseVersion, setResponseVersion] = useState<QuotationVersionWithItems | null>(null);
+  const dt = useRef<DataTable>(null);
 
   const toggleExpanded = (versionId: number) => {
     setExpandedVersions(prev => {
@@ -108,6 +115,133 @@ export function QuotationHistoryTable({
   const hasQuotationResponses = (version: QuotationVersionWithItems) => {
     // Show the button only if there are actual quotation responses
     return (version.quotationResponseCount || 0) > 0;
+  };
+
+  // Export functions for the version details modal
+  const exportCSV = (selectionOnly: boolean = false) => {
+    dt.current?.exportCSV({ selectionOnly });
+  };
+
+  const exportPdf = async () => {
+    try {
+      const jsPDF = await import('jspdf');
+      
+      // Create document
+      const doc = new jsPDF.default('p', 'mm');
+      
+      const exportData = selectedVersion?.items?.map(item => ({
+        sku: item.sku?.sku || 'N/A',
+        description: item.sku?.description || 'N/A',
+        quantity: item.quantity,
+        unitPrice: formatCurrency(item.unitPrice),
+        totalPrice: formatCurrency(item.totalPrice),
+        comment: item.comment || '-'
+      })) || [];
+
+      // Add title
+      doc.setFontSize(16);
+      doc.text(`Version ${selectedVersion?.versionNumber} Items`, 20, 20);
+      
+      // Add summary info
+      doc.setFontSize(12);
+      doc.text(`Total Amount: ${formatCurrency(selectedVersion?.finalPrice || 0)}`, 20, 35);
+      doc.text(`Created By: ${selectedVersion?.createdBy || 'N/A'}`, 20, 45);
+      doc.text(`Date: ${new Date(selectedVersion?.createdAt || '').toLocaleDateString()}`, 20, 55);
+      
+      // Table headers
+      const headers = ['SKU', 'Description', 'Qty', 'Unit Price', 'Total', 'Comment'];
+      let yPosition = 70;
+      
+      // Draw header row
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      headers.forEach((header, index) => {
+        doc.text(header, 20 + (index * 30), yPosition);
+      });
+      
+      yPosition += 10;
+      doc.setFont(undefined, 'normal');
+      
+      // Draw data rows
+      exportData.forEach((item, rowIndex) => {
+        if (yPosition > 270) { // Start new page if needed
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        doc.text(item.sku.substring(0, 12), 20, yPosition);
+        doc.text(item.description.substring(0, 15), 50, yPosition);
+        doc.text(item.quantity.toString(), 80, yPosition);
+        doc.text(item.unitPrice, 110, yPosition);
+        doc.text(item.totalPrice, 140, yPosition);
+        doc.text((item.comment || '-').substring(0, 10), 170, yPosition);
+        
+        yPosition += 8;
+      });
+      
+      doc.save(`version-${selectedVersion?.versionNumber}-items.pdf`);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    }
+  };
+
+  const exportExcel = () => {
+    import('xlsx').then((xlsx) => {
+      const exportData = selectedVersion?.items?.map(item => ({
+        SKU: item.sku?.sku || 'N/A',
+        Description: item.sku?.description || 'N/A',
+        Quantity: item.quantity,
+        'Unit Price': item.unitPrice,
+        'Total Price': item.totalPrice,
+        Comment: item.comment || '-'
+      })) || [];
+
+      const worksheet = xlsx.utils.json_to_sheet(exportData);
+      const workbook = { Sheets: { data: worksheet }, SheetNames: ['data'] };
+      const excelBuffer = xlsx.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array'
+      });
+
+      saveAsExcelFile(excelBuffer, `version-${selectedVersion?.versionNumber}-items`);
+    });
+  };
+
+  const saveAsExcelFile = (buffer: any, fileName: string) => {
+    import('file-saver').then((module) => {
+      if (module && module.default) {
+        let EXCEL_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
+        let EXCEL_EXTENSION = '.xlsx';
+        const data = new Blob([buffer], {
+          type: EXCEL_TYPE
+        });
+
+        module.default.saveAs(data, fileName + '_export_' + new Date().getTime() + EXCEL_EXTENSION);
+      }
+    });
+  };
+
+  // Template functions for DataTable columns
+  const skuBodyTemplate = (rowData: any) => {
+    return rowData.sku?.sku || 'N/A';
+  };
+
+  const descriptionBodyTemplate = (rowData: any) => {
+    return rowData.sku?.description || 'N/A';
+  };
+
+  const unitPriceBodyTemplate = (rowData: any) => {
+    return formatCurrency(rowData.unitPrice);
+  };
+
+  const totalPriceBodyTemplate = (rowData: any) => {
+    return formatCurrency(rowData.totalPrice);
+  };
+
+  const commentBodyTemplate = (rowData: any) => {
+    return rowData.comment || '-';
   };
 
   return (
@@ -313,30 +447,55 @@ export function QuotationHistoryTable({
 
                 {selectedVersion.items && selectedVersion.items.length > 0 && (
                   <div>
-                    <strong>Items:</strong>                    <Table className="mt-2">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Qty</TableHead>
-                          <TableHead>Unit Price</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Comment</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedVersion.items.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.sku?.sku || 'N/A'}</TableCell>
-                            <TableCell>{item.sku?.description || 'N/A'}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                            <TableCell>{formatCurrency(item.totalPrice)}</TableCell>
-                            <TableCell>{item.comment || '-'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    <div className="flex justify-between items-center mb-4">
+                      <strong>Items:</strong>
+                      <div className="flex gap-2 export-buttons">
+                        <Tooltip target=".export-buttons>button" position="bottom" />
+                        <PrimeButton 
+                          type="button" 
+                          icon="pi pi-file" 
+                          rounded 
+                          onClick={() => exportCSV(false)} 
+                          data-pr-tooltip="CSV"
+                          size="small"
+                        />
+                        <PrimeButton 
+                          type="button" 
+                          icon="pi pi-file-excel" 
+                          severity="success" 
+                          rounded 
+                          onClick={exportExcel} 
+                          data-pr-tooltip="Excel"
+                          size="small"
+                        />
+                        <PrimeButton 
+                          type="button" 
+                          icon="pi pi-file-pdf" 
+                          severity="warning" 
+                          rounded 
+                          onClick={exportPdf} 
+                          data-pr-tooltip="PDF"
+                          size="small"
+                        />
+                      </div>
+                    </div>
+                    <DataTable 
+                      ref={dt}
+                      value={selectedVersion.items} 
+                      stripedRows
+                      showGridlines
+                      tableStyle={{ minWidth: '50rem' }}
+                      paginator={selectedVersion.items.length > 10}
+                      rows={10}
+                      emptyMessage="No items found"
+                    >
+                      <Column field="sku.sku" header="SKU" body={skuBodyTemplate} sortable />
+                      <Column field="sku.description" header="Description" body={descriptionBodyTemplate} sortable />
+                      <Column field="quantity" header="Qty" sortable />
+                      <Column field="unitPrice" header="Unit Price" body={unitPriceBodyTemplate} sortable />
+                      <Column field="totalPrice" header="Total" body={totalPriceBodyTemplate} sortable />
+                      <Column field="comment" header="Comment" body={commentBodyTemplate} />
+                    </DataTable>
                   </div>
                 )}
 
