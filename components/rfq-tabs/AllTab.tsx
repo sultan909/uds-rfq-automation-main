@@ -33,6 +33,14 @@ interface AllTabData {
 
 interface AllTabProps {
   rfqId: string;
+  data: AllTabData[];
+  loading: boolean;
+  error: string | null;
+  totalRecords: number;
+  currentPage: number;
+  pageSize: number;
+  onPageChange: (page: number, pageSize: number) => void;
+  onLoad: () => void;
 }
 
 // Define available columns
@@ -53,68 +61,53 @@ const ALL_COLUMNS = [
   { field: 'qtySoldOutside3m', header: 'Qty Sold Outside of Randmar, USG, DCS (3 months)' },
 ];
 
-export function AllTab({ rfqId }: AllTabProps) {
+export function AllTab({ 
+  rfqId, 
+  data, 
+  loading, 
+  error, 
+  totalRecords, 
+  currentPage, 
+  pageSize, 
+  onPageChange, 
+  onLoad 
+}: AllTabProps) {
   const { formatCurrency } = useCurrency();
   const toast = useRef<Toast>(null);
   const dt = useRef<DataTable<AllTabData[]>>(null);
   
-  const [data, setData] = useState<AllTabData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [lazyState, setLazyState] = useState({
-    first: 0,
-    rows: 10,
-    page: 1,
-  });
   const [visibleColumns, setVisibleColumns] = useState<string[]>(
     ALL_COLUMNS.map(col => col.field)
   );
+  
+  // Calculate lazy state from props
+  const lazyState = {
+    first: (currentPage - 1) * pageSize,
+    rows: pageSize,
+    page: currentPage,
+  };
 
-  const fetchData = useCallback(async (page: number, pageSize: number) => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch(
-        `/api/rfq/${rfqId}/all-data?page=${page}&pageSize=${pageSize}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setTotalRecords(result.meta?.pagination?.totalItems || 0);
-      } else {
-        throw new Error(result.error || 'Failed to fetch data');
-      }
-    } catch (error) {
-      console.error('Error fetching ALL tab data:', error);
+  // Call onLoad when component mounts to trigger data fetching
+  useEffect(() => {
+    onLoad();
+  }, [onLoad]);
+
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'Failed to load data',
+        detail: error,
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  }, [rfqId]);
-
-  useEffect(() => {
-    fetchData(lazyState.page, lazyState.rows);
-  }, [fetchData, lazyState.page, lazyState.rows]);
+  }, [error]);
 
   const onPage = (event: any) => {
-    const newLazyState = {
-      ...lazyState,
-      first: event.first,
-      rows: event.rows,
-      page: Math.floor(event.first / event.rows) + 1,
-    };
-    setLazyState(newLazyState);
+    const newPage = Math.floor(event.first / event.rows) + 1;
+    const newPageSize = event.rows;
+    onPageChange(newPage, newPageSize);
   };
 
   // Column templates for formatting
@@ -231,7 +224,7 @@ export function AllTab({ rfqId }: AllTabProps) {
       // Function to add table headers
       const addHeaders = (y: number) => {
         doc.setFontSize(8);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         visibleCols.forEach((col, index) => {
           const xPos = 20 + (index * colWidth);
           doc.text(col.header.substring(0, 15), xPos, y); // Truncate long headers
@@ -241,7 +234,7 @@ export function AllTab({ rfqId }: AllTabProps) {
       
       // Add headers
       yPosition = addHeaders(yPosition);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       
       // Add data rows
       exportData.forEach((item, rowIndex) => {
@@ -249,7 +242,7 @@ export function AllTab({ rfqId }: AllTabProps) {
           doc.addPage();
           yPosition = 20;
           yPosition = addHeaders(yPosition);
-          doc.setFont(undefined, 'normal');
+          doc.setFont('helvetica', 'normal');
         }
         
         visibleCols.forEach((col, colIndex) => {

@@ -82,8 +82,8 @@ export function OriginalRequestTab({
   };
 
   const priceBodyTemplate = (rowData: OriginalRequestItem) => {
-    // Show the original requested price or estimated price
-    const originalPrice = rowData.originalPrice || rowData.requestedPrice || rowData.estimatedPrice || rowData.unitPrice || 0;
+    // Show the original requested price - use unitPrice as that's the actual database field for requested price
+    const originalPrice = rowData.unitPrice || 0;
     // Use the currency from the item data, fallback to CAD if not available
     const itemCurrency = (rowData as any).currency || 'CAD';
     const convertedPrice = convertCurrency(originalPrice, itemCurrency as "CAD" | "USD");
@@ -101,7 +101,7 @@ export function OriginalRequestTab({
 
   const totalBodyTemplate = (rowData: OriginalRequestItem) => {
     const originalQty = rowData.originalQuantity || rowData.requestedQuantity || rowData.quantity;
-    const originalPrice = rowData.originalPrice || rowData.requestedPrice || rowData.estimatedPrice || rowData.unitPrice || 0;
+    const originalPrice = rowData.unitPrice || 0;
     // Use the currency from the item data, fallback to CAD if not available
     const itemCurrency = (rowData as any).currency || 'CAD';
     const convertedPrice = convertCurrency(originalPrice, itemCurrency as "CAD" | "USD");
@@ -142,7 +142,7 @@ export function OriginalRequestTab({
 
   const totalAmount = items.reduce((sum, item) => {
     const qty = item.originalQuantity || item.requestedQuantity || item.quantity;
-    const price = item.originalPrice || item.requestedPrice || item.estimatedPrice || item.unitPrice || 0;
+    const price = item.unitPrice || 0;
     // Use the currency from the item data, fallback to CAD if not available
     const itemCurrency = (item as any).currency || 'CAD';
     const convertedPrice = convertCurrency(price, itemCurrency as "CAD" | "USD");

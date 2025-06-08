@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { rfqItems, inventoryItems, poItems, purchaseOrders, salesHistory, customers } from '@/db/schema';
-import { eq, and, sql, gte, desc, notIn } from 'drizzle-orm';
+import { eq, and, sql, gte, desc, notInArray } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
@@ -229,7 +229,7 @@ export async function GET(
                   .where(
                     and(
                       eq(salesHistory.productId, inventoryId),
-                      notIn(salesHistory.customerId, mainCustomerIds),
+                      notInArray(salesHistory.customerId, mainCustomerIds),
                       gte(salesHistory.saleDate, twelveMonthsAgo.toISOString().split('T')[0])
                     )
                   ),
@@ -241,7 +241,7 @@ export async function GET(
                   .where(
                     and(
                       eq(salesHistory.productId, inventoryId),
-                      notIn(salesHistory.customerId, mainCustomerIds),
+                      notInArray(salesHistory.customerId, mainCustomerIds),
                       gte(salesHistory.saleDate, threeMonthsAgo.toISOString().split('T')[0])
                     )
                   ),
