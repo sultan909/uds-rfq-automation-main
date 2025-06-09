@@ -1418,10 +1418,12 @@ export default function RfqDetail({
                 <FileText className="mr-2 h-4 w-4" />
                 Original Request
               </TabsTrigger>
+{/* 
               <TabsTrigger value="negotiation" className="flex-shrink-0">
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Negotiation
               </TabsTrigger>
+*/}
               <TabsTrigger value="pricing" className="flex-shrink-0">
                 <Tag className="mr-2 h-4 w-4" />
                 Pricing
@@ -1438,10 +1440,12 @@ export default function RfqDetail({
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Market Data
               </TabsTrigger>
+{/*
               <TabsTrigger value="settings" className="flex-shrink-0">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </TabsTrigger>
+*/}
               <TabsTrigger value="quotation-history" className="flex-shrink-0">
                 <Clock className="mr-2 h-4 w-4" />
                 Quotation History
@@ -1488,6 +1492,7 @@ export default function RfqDetail({
               {renderPagination()}
             </TabsContent>
 
+{/*
             <TabsContent value="negotiation" className="m-0">
               <NegotiationTab
                 rfqId={parseInt(id)}
@@ -1495,6 +1500,7 @@ export default function RfqDetail({
                 currentVersion={quotationHistory[0]}
               />
             </TabsContent>
+*/}
 
             <TabsContent value="pricing" className="m-0">
               <PricingTab
@@ -1543,13 +1549,14 @@ export default function RfqDetail({
                 renderPagination={renderPagination}
                 formatCurrency={formatCurrency}
                 convertCurrency={convertCurrency}
-                history={history}
-                historyLoading={historyLoading}
-                historyError={historyError}
+                allTabData={allTabData}
+                allTabLoading={allTabLoading}
+                allTabError={allTabError}
                 mainCustomers={mainCustomers}
                 filters={filters}
                 onFiltersChange={setFilters}
                 historyColumns={historyColumns}
+                onLoadAllTab={handleAllTabLoad}
               />
             </TabsContent>
 
@@ -1572,6 +1579,7 @@ export default function RfqDetail({
               />
             </TabsContent>
 
+{/*
             <TabsContent value="settings" className="m-0">
               <SettingsTab
                 items={items}
@@ -1584,6 +1592,7 @@ export default function RfqDetail({
                 onEditItem={handleEditItem}
               />
             </TabsContent>
+*/}
 
             <TabsContent value="quotation-history" className="m-0">
               <QuotationHistoryTab

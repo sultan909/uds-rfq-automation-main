@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TableCustomizer } from "@/components/table-customizer";
-import { Spinner } from "@/components/spinner";
+import { Loader2 } from "lucide-react";
 import { Paginator } from 'primereact/paginator';
 import type { BaseTabProps, ColumnDefinition } from "@/lib/types/rfq-tabs";
 
@@ -108,9 +108,11 @@ export function MarketDataTab({
       </CardHeader>
       <CardContent>
         {loading && displayData.length === 0 ? (
-          <div className="flex justify-center items-center py-8">
-            <Spinner size={32} />
-            <span className="ml-2">Loading market data...</span>
+          <div className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="text-muted-foreground">Loading market data...</div>
+            </div>
           </div>
         ) : error ? (
           <div className="text-center py-8 text-red-500">
