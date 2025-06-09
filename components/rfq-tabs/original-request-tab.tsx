@@ -50,7 +50,7 @@ export function OriginalRequestTab({
     return (
       <div className="flex items-center gap-2">
         <span className="font-medium">
-          {rowData.customerSku || rowData.inventory?.sku || 'N/A'}
+          {rowData.inventory?.sku || rowData.customerSku || 'N/A'}
         </span>
       </div>
     );

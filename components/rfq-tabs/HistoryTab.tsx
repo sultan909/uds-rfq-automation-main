@@ -96,7 +96,7 @@ export function HistoryTab({
                 </TableHeader>
                 <TableBody>
                   {items.map((item: any) => {
-                    const itemSku = item.customerSku || item.inventory?.sku;
+                    const itemSku = item.inventory?.sku || item.customerSku || item.sku;
                     const salesHistory = history.history.filter((h) => h.sku === itemSku);
                     // @ts-ignore
                     const otherCustomerHistory = salesHistory[0]?.otherCustomerHistory;
@@ -172,7 +172,7 @@ export function HistoryTab({
                 </TableHeader>
                 <TableBody>
                   {items.map((item: any) => {
-                    const itemSku = item.customerSku || item.inventory?.sku;
+                    const itemSku = item.inventory?.sku || item.customerSku || item.sku;
                     const salesHistory = history.history.filter((h) => h.sku === itemSku);
                     // @ts-ignore
                     const otherCustomerHistory = salesHistory[0]?.otherCustomerHistory;

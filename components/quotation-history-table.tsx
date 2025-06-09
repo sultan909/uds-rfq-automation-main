@@ -227,7 +227,7 @@ export function QuotationHistoryTable({
 
   // Template functions for DataTable columns
   const skuBodyTemplate = (rowData: any) => {
-    return rowData.sku?.sku || 'N/A';
+    return rowData.sku?.sku || rowData.customerSku || 'N/A';
   };
 
   const descriptionBodyTemplate = (rowData: any) => {
@@ -292,7 +292,7 @@ Total Amount: ${formatCurrency(selectedVersion.finalPrice)}
 
     const tableRows = selectedVersion.items.map(item => `
       <tr>
-        <td style="border: 1px solid #ddd; padding: 8px;">${item.sku?.sku || 'N/A'}</td>
+        <td style="border: 1px solid #ddd; padding: 8px;">${item.sku?.sku || item.customerSku || 'N/A'}</td>
         <td style="border: 1px solid #ddd; padding: 8px;">${item.sku?.description || 'N/A'}</td>
         <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.quantity}</td>
         <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.unitPrice)}</td>
