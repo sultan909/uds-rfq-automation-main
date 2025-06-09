@@ -46,7 +46,7 @@ export function VersionCreationModal({
         quantity: item.quantity || 1,
         unitPrice: item.finalPrice || item.suggestedPrice || 0,
         comment: '',
-        skuCode: item.customerSku || item.inventory?.sku || '',
+        skuCode: item.inventory?.sku || item.customerSku || '',
         description: item.description || item.inventory?.description || '',
       })).filter(item => item.skuId); // Only include items with valid SKU IDs
       
@@ -95,7 +95,7 @@ export function VersionCreationModal({
         quantity: 1,
         unitPrice: newItem.finalPrice || newItem.suggestedPrice || 0,
         comment: '',
-        skuCode: newItem.customerSku || newItem.inventory?.sku || '',
+        skuCode: newItem.inventory?.sku || newItem.customerSku || '',
         description: newItem.description || newItem.inventory?.description || '',
       };
       
