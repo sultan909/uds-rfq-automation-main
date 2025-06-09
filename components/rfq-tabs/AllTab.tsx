@@ -12,6 +12,7 @@ import { MultiSelect } from 'primereact/multiselect';
 import { Tooltip } from 'primereact/tooltip';
 import { useRef } from 'react';
 import { useCurrency } from "@/contexts/currency-context";
+import { Loader2 } from "lucide-react";
 
 interface AllTabData {
   id: number;
@@ -430,58 +431,67 @@ export function AllTab({
         <Toast ref={toast} />
         <Tooltip target=".export-buttons>button" position="bottom" />
         
-        <div className="card">
-          <DataTable
-            key={currency} // Force re-render when currency changes
-            ref={dt}
-            value={data}
-            lazy
-            paginator={false}
-            rows={lazyState.rows}
-            totalRecords={totalRecords}
-            loading={loading}
-            first={lazyState.first}
-            onPage={onPage}
-            scrollable
-            scrollHeight="600px"
-            resizableColumns
-            columnResizeMode="expand"
-            reorderableColumns
-            className="p-datatable-sm"
-            emptyMessage="No data available"
-            loadingIcon={<ProgressSpinner style={{width: '50px', height: '50px', zIndex: 9999}} strokeWidth="8" />}
-            showHeaders={!loading}
-          >
-            {!loading && ALL_COLUMNS.filter(col => visibleColumns.includes(col.field)).map((col) => {
-              const isPriceField = col.field.includes('price') || col.field.includes('Price') || col.field === 'cost';
-              const isQuantityField = col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity');
-              
-              return (
-                <Column
-                  key={col.field}
-                  field={col.field}
-                  header={col.header}
-                  frozen={col.field === 'sku'}
-                  resizeable
-                  style={{ 
-                    minWidth: col.field === 'sku' ? '120px' : 
-                             col.header.length > 30 ? '250px' : 
-                             col.header.length > 20 ? '180px' : '120px' 
-                  }}
-                  className={col.field === 'sku' ? 'font-semibold' : ''}
-                  body={isPriceField ? 
-                    (rowData) => priceTemplate(rowData, col.field as keyof AllTabData) :
-                    isQuantityField ? 
-                    (rowData) => quantityTemplate(rowData, col.field as keyof AllTabData) :
-                    undefined
-                  }
-                />
-              );
-            })}
-          </DataTable>
+        {data.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="text-muted-foreground">Loading all items data...</div>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 text-red-500">
+            {error}
+          </div>
+        ) : (
+          <div className="card">
+            <DataTable
+              key={currency} // Force re-render when currency changes
+              ref={dt}
+              value={data}
+              lazy
+              paginator={false}
+              rows={lazyState.rows}
+              totalRecords={totalRecords}
+              loading={false} // Disable built-in loading since we handle it above
+              first={lazyState.first}
+              onPage={onPage}
+              scrollable
+              scrollHeight="600px"
+              resizableColumns
+              columnResizeMode="expand"
+              reorderableColumns
+              className="p-datatable-sm"
+              emptyMessage="Loading Data"
+            >
+              {ALL_COLUMNS.filter(col => visibleColumns.includes(col.field)).map((col) => {
+                const isPriceField = col.field.includes('price') || col.field.includes('Price') || col.field === 'cost';
+                const isQuantityField = col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity');
+                
+                return (
+                  <Column
+                    key={col.field}
+                    field={col.field}
+                    header={col.header}
+                    frozen={col.field === 'sku'}
+                    resizeable
+                    style={{ 
+                      minWidth: col.field === 'sku' ? '120px' : 
+                               col.header.length > 30 ? '250px' : 
+                               col.header.length > 20 ? '180px' : '120px' 
+                    }}
+                    className={col.field === 'sku' ? 'font-semibold' : ''}
+                    body={isPriceField ? 
+                      (rowData) => priceTemplate(rowData, col.field as keyof AllTabData) :
+                      isQuantityField ? 
+                      (rowData) => quantityTemplate(rowData, col.field as keyof AllTabData) :
+                      undefined
+                    }
+                  />
+                );
+              })}
+            </DataTable>
 
-          {/* Custom Paginator - only show when not loading */}
-          {!loading && (
+            {/* Custom Paginator - only show when not loading */}
             <Paginator
               first={lazyState.first}
               rows={lazyState.rows}
@@ -492,8 +502,8 @@ export function AllTab({
               currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
               className="mt-4"
             />
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

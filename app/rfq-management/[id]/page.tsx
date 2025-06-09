@@ -1404,7 +1404,20 @@ export default function RfqDetail({
 
           <DebugCacheInfo />
 
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs 
+            defaultValue="all" 
+            className="w-full"
+            onValueChange={(value) => {
+              // Trigger data loading when tab is clicked
+              if (['all', 'pricing', 'inventory', 'market'].includes(value)) {
+                handleTabLoad(value);
+              }
+              // History tab depends on All tab data
+              if (value === 'history' && !allTabDataFetched) {
+                handleTabLoad('all');
+              }
+            }}
+          >
             <TabsList className="flex w-full overflow-x-auto gap-1">
               <TabsTrigger value="all" className="flex-shrink-0">
                 <FileText className="mr-2 h-4 w-4" />
