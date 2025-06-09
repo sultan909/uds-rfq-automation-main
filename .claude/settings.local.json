@@ -3,7 +3,8 @@
     "allow": [
       "Bash(claude mcp:*)",
       "WebFetch(domain:primereact.org)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": []
   }

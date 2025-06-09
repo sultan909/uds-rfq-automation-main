@@ -45,6 +45,7 @@ export async function GET(
         customerSku: rfqItems.customerSku,
         quantityRequested: rfqItems.quantity,
         requestedPrice: rfqItems.unitPrice,
+        currency: rfqItems.currency,
         
         // Inventory data
         inventoryId: inventoryItems.id,
@@ -290,6 +291,7 @@ export async function GET(
           sku: item.customerSku || item.sku || 'N/A',
           quantityRequested: item.quantityRequested || 0,
           requestedPrice: item.requestedPrice || 0,
+          currency: item.currency || 'CAD',
           cost: item.cost || 0,
           qtyOnHand: item.quantityOnHand || 0,
           qtyOnPO: quantityOnPO,
