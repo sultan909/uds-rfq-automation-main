@@ -18,14 +18,18 @@ interface AllTabData {
   sku: string;
   quantityRequested: number;
   requestedPrice: number;
+  currency: string;
   cost: number;
   qtyOnHand: number;
   qtyOnPO: number;
   pricePaidByRandmar: number;
+  pricePaidByRandmarCurrency: string;
   qtyPurchasedByRandmar12m: number;
   pricePaidByUSG: number;
+  pricePaidByUSGCurrency: string;
   qtyPurchasedByUSG12m: number;
   pricePaidByDCS: number;
+  pricePaidByDCSCurrency: string;
   qtyPurchasedByDCS12m: number;
   qtySoldOutside12m: number;
   qtySoldOutside3m: number;
@@ -72,7 +76,7 @@ export function AllTab({
   onPageChange, 
   onLoad 
 }: AllTabProps) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, convertCurrency, currency } = useCurrency();
   const toast = useRef<Toast>(null);
   const dt = useRef<DataTable<AllTabData[]>>(null);
   
@@ -113,7 +117,22 @@ export function AllTab({
   // Column templates for formatting
   const priceTemplate = (rowData: AllTabData, field: keyof AllTabData) => {
     const value = rowData[field] as number;
-    return formatCurrency(value || 0);
+    
+    // Determine which currency to use based on the field
+    let itemCurrency = 'CAD';
+    
+    if (field === 'requestedPrice' || field === 'cost') {
+      itemCurrency = rowData.currency || 'CAD';
+    } else if (field === 'pricePaidByRandmar') {
+      itemCurrency = rowData.pricePaidByRandmarCurrency || 'CAD';
+    } else if (field === 'pricePaidByUSG') {
+      itemCurrency = rowData.pricePaidByUSGCurrency || 'CAD';
+    } else if (field === 'pricePaidByDCS') {
+      itemCurrency = rowData.pricePaidByDCSCurrency || 'CAD';
+    }
+    
+    const convertedPrice = convertCurrency(value || 0, itemCurrency as "CAD" | "USD");
+    return formatCurrency(convertedPrice);
   };
 
   const quantityTemplate = (rowData: AllTabData, field: keyof AllTabData) => {
@@ -159,7 +178,21 @@ export function AllTab({
           if (visibleColumns.includes(col.field)) {
             const value = item[col.field as keyof AllTabData];
             if (col.field.includes('price') || col.field.includes('Price') || col.field === 'cost') {
-              formattedItem[col.header] = formatCurrency(value as number);
+              // Determine which currency to use based on the field
+              let itemCurrency = 'CAD';
+              
+              if (col.field === 'requestedPrice' || col.field === 'cost') {
+                itemCurrency = item.currency || 'CAD';
+              } else if (col.field === 'pricePaidByRandmar') {
+                itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
+              } else if (col.field === 'pricePaidByUSG') {
+                itemCurrency = item.pricePaidByUSGCurrency || 'CAD';
+              } else if (col.field === 'pricePaidByDCS') {
+                itemCurrency = item.pricePaidByDCSCurrency || 'CAD';
+              }
+              
+              const convertedPrice = convertCurrency(value as number || 0, itemCurrency as "CAD" | "USD");
+              formattedItem[col.header] = formatCurrency(convertedPrice);
             } else if (col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity')) {
               formattedItem[col.header] = (value as number || 0).toLocaleString();
             } else {
@@ -197,7 +230,21 @@ export function AllTab({
         visibleCols.forEach(col => {
           const value = item[col.field as keyof AllTabData];
           if (col.field.includes('price') || col.field.includes('Price') || col.field === 'cost') {
-            formattedItem[col.field] = formatCurrency(value as number);
+            // Determine which currency to use based on the field
+            let itemCurrency = 'CAD';
+            
+            if (col.field === 'requestedPrice' || col.field === 'cost') {
+              itemCurrency = item.currency || 'CAD';
+            } else if (col.field === 'pricePaidByRandmar') {
+              itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
+            } else if (col.field === 'pricePaidByUSG') {
+              itemCurrency = item.pricePaidByUSGCurrency || 'CAD';
+            } else if (col.field === 'pricePaidByDCS') {
+              itemCurrency = item.pricePaidByDCSCurrency || 'CAD';
+            }
+            
+            const convertedPrice = convertCurrency(value as number || 0, itemCurrency as "CAD" | "USD");
+            formattedItem[col.field] = formatCurrency(convertedPrice);
           } else if (col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity')) {
             formattedItem[col.field] = (value as number || 0).toLocaleString();
           } else {
@@ -340,6 +387,7 @@ export function AllTab({
         
         <div className="card">
           <DataTable
+            key={currency} // Force re-render when currency changes
             ref={dt}
             value={data}
             lazy

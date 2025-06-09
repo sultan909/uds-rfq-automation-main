@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Building, Users } from "lucide-react"
+import { Building, Users, Search, Plus } from "lucide-react"
 import { useCurrency } from "@/contexts/currency-context"
 import { useEffect, useState } from "react"
 import { customerApi } from "@/lib/api-client"
@@ -18,6 +18,7 @@ import { DataTable, DataTablePageEvent, DataTableSortEvent, DataTableRowClickEve
 import { Column } from 'primereact/column'
 import { FilterMatchMode } from 'primereact/api'
 import { InputText } from 'primereact/inputtext'
+import { Input } from "@/components/ui/input"
 import { Dropdown } from 'primereact/dropdown'
 import { Tag } from 'primereact/tag'
 import { Calendar } from 'primereact/calendar'
@@ -267,49 +268,41 @@ export default function CustomerManagement() {
     )
   }
 
-  const renderHeader = () => {
-    return (
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 bg-card lg:justify-end rounded-lg border shadow-sm">
-          {/* Search and Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:flex-none">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <i className="pi pi-search" />
-              </span>
-              <InputText 
-                value={searchValue} 
-                onChange={handleSearchChange} 
-                placeholder="Search customers by name, email, phone..."
-                className="w-full sm:w-[400px] pl-9 h-10 border rounded-md bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button asChild className="gap-2 h-10 px-4">
-                <a href="/customers/new">
-                  <i className="pi pi-plus" />
-                  New Customer
-                </a>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
-  // Create header with column toggle
+
+  // Create header with column toggle, search and new customer button
   const tableHeader = (
-    <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
-      <MultiSelect 
-        value={visibleColumns} 
-        options={columns} 
-        optionLabel="header" 
-        onChange={onColumnToggle} 
-        className="w-full sm:w-20rem" 
-        display="chip"
-        placeholder="Select Columns"
-      />
+    <div className="flex justify-between items-center p-4 bg-card border-b">
+      <div className="flex items-center gap-4">
+        <MultiSelect 
+          value={visibleColumns} 
+          options={columns} 
+          optionLabel="header" 
+          onChange={onColumnToggle} 
+          className="w-80" 
+          display="chip"
+          placeholder="Select Columns"
+          maxSelectedLabels={3}
+          selectedItemsLabel="{0} columns selected"
+        />
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            value={searchValue} 
+            onChange={handleSearchChange} 
+            placeholder="Search customers by name, email, phone..."
+            className="w-[400px] pl-9"
+          />
+        </div>
+        <Button asChild className="gap-2">
+          <a href="/customers/new">
+            <Plus className="h-4 w-4" />
+            New Customer
+          </a>
+        </Button>
+      </div>
     </div>
   )
 
@@ -444,7 +437,7 @@ export default function CustomerManagement() {
 
 
 
-  const header = renderHeader()
+
 
   return (
     <div className="flex h-screen">
@@ -542,7 +535,6 @@ export default function CustomerManagement() {
                 </TabsList>
 
                 <TabsContent value={selectedTab} className="m-0">
-                  {header}
                   {loading ? (
                     <div className="flex justify-center items-center py-8">
                       <Spinner size={32} />

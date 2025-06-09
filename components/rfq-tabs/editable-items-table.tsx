@@ -520,16 +520,21 @@ export function EditableItemsTable({
   // Create header with column toggle
   const tableHeader = (
     <div className="flex justify-between items-center">
+      <div className="flex items-center gap-4">
       {/* <span className="text-lg font-semibold">Columns</span> */}
       <MultiSelect 
         value={visibleColumns} 
         options={columns} 
         optionLabel="header" 
         onChange={onColumnToggle} 
-        className="w-full sm:w-20rem" 
+        className="w-80" 
         display="chip"
-        placeholder="Select Columns"
+        placeholder="Toggle Columns"
+        maxSelectedLabels={3}
+        selectedItemsLabel="{0} columns selected"
       />
+      
+      </div>
     </div>
   );
 
