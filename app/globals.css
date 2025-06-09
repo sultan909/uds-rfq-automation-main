@@ -283,13 +283,83 @@ html.dark .p-paginator .p-dropdown {
 
 .dark .p-paginator .p-dropdown .p-dropdown-label,
 html.dark .p-paginator .p-dropdown .p-dropdown-label {
-  color: hsl(210, 40%, 98%) !important;
-  background: transparent !important;
+  color: rgb(156 163 175) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
 .dark .p-paginator .p-dropdown .p-dropdown-trigger,
 html.dark .p-paginator .p-dropdown .p-dropdown-trigger {
   color: hsl(210, 40%, 98%) !important;
+}
+
+/* Fix pagination dropdown field background and text */
+.dark .p-paginator .p-dropdown-label,
+html.dark .p-paginator .p-dropdown-label {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  color: rgb(156 163 175) !important;
+}
+
+/* Fix pagination text and labels */
+.dark .p-paginator,
+html.dark .p-paginator {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  color: rgb(156 163 175) !important;
+}
+
+.dark .p-paginator .p-paginator-current,
+html.dark .p-paginator .p-paginator-current,
+.dark .p-paginator .p-paginator-rpp-options,
+html.dark .p-paginator .p-paginator-rpp-options,
+.dark .p-paginator .p-dropdown-label,
+html.dark .p-paginator .p-dropdown-label,
+.dark .p-paginator span,
+html.dark .p-paginator span {
+  color: rgb(156 163 175) !important;
+  background: transparent !important;
+}
+
+/* Ensure dropdown trigger icon is visible */
+.dark .p-paginator .p-dropdown .p-dropdown-trigger .p-icon,
+html.dark .p-paginator .p-dropdown .p-dropdown-trigger .p-icon {
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Fix rows per page text and dropdown */
+.dark .p-paginator .p-paginator-rpp-options,
+html.dark .p-paginator .p-paginator-rpp-options {
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-paginator .p-paginator-rpp-options .p-dropdown,
+html.dark .p-paginator .p-paginator-rpp-options .p-dropdown {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: rgb(156 163 175) !important;
+}
+
+.dark .p-paginator .p-paginator-rpp-options .p-dropdown-label,
+html.dark .p-paginator .p-paginator-rpp-options .p-dropdown-label {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  color: rgb(156 163 175) !important;
+}
+
+/* Fix pagination current page report */
+.dark .p-paginator .p-paginator-current-page-report,
+html.dark .p-paginator .p-paginator-current-page-report {
+  color: rgb(156 163 175) !important;
+  background: transparent !important;
+}
+
+/* Additional specificity for all pagination elements */
+.dark .p-paginator *,
+html.dark .p-paginator * {
+  color: rgb(156 163 175) !important;
+}
+
+.dark .p-paginator .p-dropdown *,
+html.dark .p-paginator .p-dropdown * {
+  color: rgb(156 163 175) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
 .dark .p-paginator .p-dropdown-panel,
