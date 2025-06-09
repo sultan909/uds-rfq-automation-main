@@ -370,7 +370,7 @@ export default function InventoryManagement() {
 
   const categoryBodyTemplate = (rowData: InventoryItem) => {
     return (
-      <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 inline-block">
+      <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-600 text-gray-800 inline-block">
         {rowData.category}
       </div>
     )

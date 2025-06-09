@@ -52,18 +52,18 @@
 }
 
 .dark .p-multiselect-item {
-  color: var(--p-text-color) !important;
-  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
 .dark .p-multiselect-item:hover {
-  background: var(--p-surface-50) !important;
-  color: var(--p-text-color) !important;
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
 }
 
 .dark .p-multiselect-item.p-highlight {
-  background: var(--p-primary-color) !important;
-  color: var(--p-primary-contrast-color) !important;
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
 }
 
 .dark .p-multiselect-header {
@@ -226,18 +226,19 @@
   background: rgb(239 68 68) !important;
 }
 
-/* Additional DataTable enhancements for better contrast */
+/* Override DataTable alternating colors - single color for all rows */
 .dark .p-datatable .p-datatable-tbody > tr:nth-child(odd) {
-  background: var(--p-surface-0) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
 .dark .p-datatable .p-datatable-tbody > tr:nth-child(even) {
-  background: var(--p-surface-50) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
-/* Ensure hover takes precedence over alternate row colors */
+/* Slate-600 hover effect only */
 .dark .p-datatable .p-datatable-tbody > tr:hover {
-  background: var(--p-surface-200) !important;
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
 }
 
 /* Fix for selected rows */
@@ -274,21 +275,35 @@
   color: var(--p-text-color) !important;
 }
 
-/* Striped rows enhancement - better visual distinction */
+/* Remove striped rows - single color for all */
 .dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
-  background: var(--p-surface-50) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
 .dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(odd) {
-  background: var(--p-surface-0) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
 }
 
-/* Hover effect with higher specificity */
+/* Slate-600 hover effect with higher specificity */
 .dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:hover,
-.dark .p-datatable .p-datatable-tbody > tr:hover {
-  background: var(--p-surface-200) !important;
-  transform: scale(1.001);
-  transition: all 0.2s ease;
+.dark .p-datatable .p-datatable-tbody > tr:hover,
+.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row:hover,
+.dark .p-datatable .p-datatable-tbody > tr[data-p-selectable-row="true"]:hover,
+.dark .p-datatable .p-datatable-tbody tr:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+  transform: none;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+/* Ensure hover works on table cells too */
+.dark .p-datatable .p-datatable-tbody > tr:hover > td,
+.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row:hover > td,
+.dark .p-datatable .p-datatable-tbody > tr[data-p-selectable-row="true"]:hover > td,
+.dark .p-datatable .p-datatable-tbody tr:hover td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
 }
 
 /* Fix empty message styling */

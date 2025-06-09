@@ -72,6 +72,381 @@
   }
 }
 
+/* Enhanced MultiSelect Dark Mode Fixes with higher specificity */
+.dark .p-multiselect,
+html.dark .p-multiselect,
+.dark .p-component.p-multiselect {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-multiselect:not(.p-disabled):hover,
+html.dark .p-multiselect:not(.p-disabled):hover {
+  background: hsl(217.2, 32.6%, 17.5%) !important;
+  border-color: hsl(215, 20.2%, 65.1%) !important;
+}
+
+.dark .p-multiselect:not(.p-disabled).p-focus,
+html.dark .p-multiselect:not(.p-disabled).p-focus {
+  outline: 0 none !important;
+  outline-offset: 0 !important;
+  box-shadow: 0 0 0 2px hsl(217.2, 91.2%, 59.8%) !important;
+  border-color: hsl(217.2, 91.2%, 59.8%) !important;
+}
+
+.dark .p-multiselect .p-multiselect-label,
+html.dark .p-multiselect .p-multiselect-label {
+  color: hsl(210, 40%, 98%) !important;
+  background: transparent !important;
+}
+
+.dark .p-multiselect .p-multiselect-label.p-placeholder,
+html.dark .p-multiselect .p-multiselect-label.p-placeholder {
+  color: hsl(215, 20.2%, 65.1%) !important;
+}
+
+.dark .p-multiselect .p-multiselect-token,
+html.dark .p-multiselect .p-multiselect-token {
+  background: hsl(217.2, 91.2%, 59.8%) !important;
+  color: hsl(222.2, 47.4%, 11.2%) !important;
+  border: none !important;
+}
+
+.dark .p-multiselect .p-multiselect-token .p-multiselect-token-icon,
+html.dark .p-multiselect .p-multiselect-token .p-multiselect-token-icon {
+  color: hsl(222.2, 47.4%, 11.2%) !important;
+}
+
+.dark .p-multiselect .p-multiselect-trigger,
+html.dark .p-multiselect .p-multiselect-trigger {
+  color: hsl(210, 40%, 98%) !important;
+  background: transparent !important;
+}
+
+.dark .p-multiselect-panel,
+html.dark .p-multiselect-panel {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  z-index: 9999 !important;
+}
+
+.dark .p-multiselect-item,
+html.dark .p-multiselect-item {
+  color: hsl(210, 40%, 98%) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+.dark .p-multiselect-item:hover,
+html.dark .p-multiselect-item:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-multiselect-item.p-highlight,
+html.dark .p-multiselect-item.p-highlight {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-multiselect-header,
+html.dark .p-multiselect-header {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border-bottom: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-multiselect-close,
+html.dark .p-multiselect-close {
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-multiselect-filter-container .p-inputtext,
+html.dark .p-multiselect-filter-container .p-inputtext {
+  background: hsl(217.2, 32.6%, 17.5%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Force override for multiselect tokens in dark mode */
+.dark .p-multiselect .p-multiselect-token-label,
+html.dark .p-multiselect .p-multiselect-token-label {
+  color: hsl(222.2, 47.4%, 11.2%) !important;
+}
+
+/* Ensure dropdown chevron is visible in dark mode */
+.dark .p-multiselect .p-multiselect-trigger .p-icon,
+html.dark .p-multiselect .p-multiselect-trigger .p-icon {
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Fix for checkboxes in multiselect items */
+.dark .p-multiselect-item .p-checkbox,
+html.dark .p-multiselect-item .p-checkbox {
+  background: transparent !important;
+  border: 1px solid hsl(215, 20.2%, 65.1%) !important;
+}
+
+.dark .p-multiselect-item .p-checkbox.p-highlight,
+html.dark .p-multiselect-item .p-checkbox.p-highlight {
+  background: hsl(217.2, 91.2%, 59.8%) !important;
+  border-color: hsl(217.2, 91.2%, 59.8%) !important;
+}
+
+.dark .p-multiselect-item .p-checkbox .p-checkbox-icon,
+html.dark .p-multiselect-item .p-checkbox .p-checkbox-icon {
+  color: hsl(222.2, 47.4%, 11.2%) !important;
+}
+
+/* Enhanced Dropdown Dark Mode Fixes */
+.dark .p-dropdown,
+html.dark .p-dropdown,
+.dark .p-component.p-dropdown {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-dropdown .p-dropdown-label,
+html.dark .p-dropdown .p-dropdown-label {
+  color: hsl(210, 40%, 98%) !important;
+  background: transparent !important;
+}
+
+.dark .p-dropdown .p-dropdown-label.p-placeholder,
+html.dark .p-dropdown .p-dropdown-label.p-placeholder {
+  color: hsl(215, 20.2%, 65.1%) !important;
+}
+
+.dark .p-dropdown .p-dropdown-trigger,
+html.dark .p-dropdown .p-dropdown-trigger {
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-dropdown-panel,
+html.dark .p-dropdown-panel {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .p-dropdown-item,
+html.dark .p-dropdown-item {
+  color: hsl(210, 40%, 98%) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+.dark .p-dropdown-item:hover,
+html.dark .p-dropdown-item:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-dropdown-item.p-highlight,
+html.dark .p-dropdown-item.p-highlight {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Ensure filter inputs in dropdowns work in dark mode */
+.dark .p-dropdown-filter .p-inputtext,
+html.dark .p-dropdown-filter .p-inputtext {
+  background: hsl(217.2, 32.6%, 17.5%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Fix for any other input elements in dark mode */
+.dark .p-inputtext,
+html.dark .p-inputtext {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-inputtext:focus,
+html.dark .p-inputtext:focus {
+  border-color: hsl(217.2, 91.2%, 59.8%) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Fix pagination dropdown in dark mode */
+.dark .p-paginator .p-dropdown,
+html.dark .p-paginator .p-dropdown {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-paginator .p-dropdown .p-dropdown-label,
+html.dark .p-paginator .p-dropdown .p-dropdown-label {
+  color: hsl(210, 40%, 98%) !important;
+  background: transparent !important;
+}
+
+.dark .p-paginator .p-dropdown .p-dropdown-trigger,
+html.dark .p-paginator .p-dropdown .p-dropdown-trigger {
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-paginator .p-dropdown-panel,
+html.dark .p-paginator .p-dropdown-panel {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+  color: hsl(210, 40%, 98%) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .p-paginator .p-dropdown-item,
+html.dark .p-paginator .p-dropdown-item {
+  color: hsl(210, 40%, 98%) !important;
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+.dark .p-paginator .p-dropdown-item:hover,
+html.dark .p-paginator .p-dropdown-item:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-paginator .p-dropdown-item.p-highlight,
+html.dark .p-paginator .p-dropdown-item.p-highlight {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Fix table rows - single color, no alternating */
+.dark .p-datatable .p-datatable-tbody > tr,
+html.dark .p-datatable .p-datatable-tbody > tr {
+  background: hsl(222.2, 84%, 4.9%) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr:nth-child(even),
+html.dark .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr:nth-child(odd),
+html.dark .p-datatable .p-datatable-tbody > tr:nth-child(odd) {
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+/* Hover effect only */
+.dark .p-datatable .p-datatable-tbody > tr:hover,
+html.dark .p-datatable .p-datatable-tbody > tr:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+  transform: none !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr:hover > td,
+html.dark .p-datatable .p-datatable-tbody > tr:hover > td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Remove striped table styling in dark mode */
+.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr,
+html.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr {
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even),
+html.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(odd),
+html.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(odd) {
+  background: hsl(222.2, 84%, 4.9%) !important;
+}
+
+/* Ensure table cells have consistent styling */
+.dark .p-datatable .p-datatable-tbody > tr > td,
+html.dark .p-datatable .p-datatable-tbody > tr > td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+  border: 1px solid hsl(217.2, 32.6%, 17.5%) !important;
+}
+
+/* Fix for clickable rows - specific to row click functionality */
+.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row:hover,
+html.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row:hover,
+.dark .p-datatable .p-datatable-tbody > tr[data-p-selectable-row="true"]:hover,
+html.dark .p-datatable .p-datatable-tbody > tr[data-p-selectable-row="true"]:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+  cursor: pointer !important;
+  transform: none !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row:hover > td,
+html.dark .p-datatable .p-datatable-tbody > tr.p-selectable-row:hover > td,
+.dark .p-datatable .p-datatable-tbody > tr[data-p-selectable-row="true"]:hover > td,
+html.dark .p-datatable .p-datatable-tbody > tr[data-p-selectable-row="true"]:hover > td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Additional selectors for any row with pointer cursor */
+.dark .p-datatable .p-datatable-tbody > tr[style*="cursor: pointer"]:hover,
+html.dark .p-datatable .p-datatable-tbody > tr[style*="cursor: pointer"]:hover,
+.dark .p-datatable .p-datatable-tbody > tr[style*="cursor:pointer"]:hover,
+html.dark .p-datatable .p-datatable-tbody > tr[style*="cursor:pointer"]:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Force hover on all DataTable rows in dark mode */
+.dark .p-datatable .p-datatable-tbody tr:hover,
+html.dark .p-datatable .p-datatable-tbody tr:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark .p-datatable .p-datatable-tbody tr:hover td,
+html.dark .p-datatable .p-datatable-tbody tr:hover td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Additional CSS for any DataTable configuration */
+.dark table tr:hover,
+html.dark table tr:hover,
+.dark .p-component table tr:hover,
+html.dark .p-component table tr:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.dark table tr:hover td,
+html.dark table tr:hover td,
+.dark .p-component table tr:hover td,
+html.dark .p-component table tr:hover td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+/* Ensure all PrimeReact table rows have proper hover */
+.dark .p-datatable-tbody tr:hover,
+html.dark .p-datatable-tbody tr:hover {
+  background: rgb(71 85 105) !important;
+  color: hsl(210, 40%, 98%) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.dark .p-datatable-tbody tr:hover td,
+html.dark .p-datatable-tbody tr:hover td {
+  background: transparent !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
 /* Status badges - Light mode */
 .status-pending {
   @apply bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md text-xs font-medium dark:bg-amber-900/30 dark:text-amber-300;
