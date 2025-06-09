@@ -368,7 +368,7 @@ export function EditableItemsTable({
     
     return (
       <div className="flex items-center gap-2">
-        {rowData.customerSku || rowData.inventory?.sku || 'N/A'}
+        {rowData.inventory?.sku || rowData.customerSku || rowData.sku || 'N/A'}
         {hasHistory && (
           <Badge variant="secondary" className="text-xs">
             {history.length} changes

@@ -328,7 +328,7 @@ export async function GET(
 
         return {
           id: item.itemId,
-          sku: item.customerSku || item.sku || 'N/A',
+          sku: item.sku || item.customerSku || 'N/A', // Show standard SKU first, fallback to customer SKU
           quantityRequested: item.quantityRequested || 0,
           requestedPrice: item.requestedPrice || 0,
           currency: item.currency || 'CAD',
@@ -338,17 +338,17 @@ export async function GET(
           cost: item.cost || 0,
           qtyOnHand: item.quantityOnHand || 0,
           qtyOnPO: quantityOnPO,
-          pricePaidByRandmar: randmarData.price,
+          pricePaidByRandmar: randmarData.price === 0 ? 'N/A' : randmarData.price,
           pricePaidByRandmarCurrency: randmarData.currency,
-          qtyPurchasedByRandmar12m: randmarData.qty12m,
-          pricePaidByUSG: usgData.price,
+          qtyPurchasedByRandmar12m: randmarData.qty12m === 0 ? 'N/A' : randmarData.qty12m,
+          pricePaidByUSG: usgData.price === 0 ? 'N/A' : usgData.price,
           pricePaidByUSGCurrency: usgData.currency,
-          qtyPurchasedByUSG12m: usgData.qty12m,
-          pricePaidByDCS: dcsData.price,
+          qtyPurchasedByUSG12m: usgData.qty12m === 0 ? 'N/A' : usgData.qty12m,
+          pricePaidByDCS: dcsData.price === 0 ? 'N/A' : dcsData.price,
           pricePaidByDCSCurrency: dcsData.currency,
-          qtyPurchasedByDCS12m: dcsData.qty12m,
-          qtySoldOutside12m: outsideData.qty12m,
-          qtySoldOutside3m: outsideData.qty3m,
+          qtyPurchasedByDCS12m: dcsData.qty12m === 0 ? 'N/A' : dcsData.qty12m,
+          qtySoldOutside12m: outsideData.qty12m === 0 ? 'N/A' : outsideData.qty12m,
+          qtySoldOutside3m: outsideData.qty3m === 0 ? 'N/A' : outsideData.qty3m,
         };
       })
     );

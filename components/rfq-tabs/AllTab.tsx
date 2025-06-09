@@ -19,23 +19,23 @@ interface AllTabData {
   quantityRequested: number;
   requestedPrice: number;
   currency: string;
+  offeredQty: number;
   offeredPrice: number;
   offeredPriceCurrency: string;
-  offeredQty: number;
   cost: number;
   qtyOnHand: number;
   qtyOnPO: number;
-  pricePaidByRandmar: number;
+  pricePaidByRandmar: number | string;
   pricePaidByRandmarCurrency: string;
-  qtyPurchasedByRandmar12m: number;
-  pricePaidByUSG: number;
+  qtyPurchasedByRandmar12m: number | string;
+  pricePaidByUSG: number | string;
   pricePaidByUSGCurrency: string;
-  qtyPurchasedByUSG12m: number;
-  pricePaidByDCS: number;
+  qtyPurchasedByUSG12m: number | string;
+  pricePaidByDCS: number | string;
   pricePaidByDCSCurrency: string;
-  qtyPurchasedByDCS12m: number;
-  qtySoldOutside12m: number;
-  qtySoldOutside3m: number;
+  qtyPurchasedByDCS12m: number | string;
+  qtySoldOutside12m: number | string;
+  qtySoldOutside3m: number | string;
 }
 
 interface AllTabProps {
@@ -55,8 +55,8 @@ const ALL_COLUMNS = [
   { field: 'sku', header: 'SKU', frozen: true },
   { field: 'quantityRequested', header: 'Quantity Requested' },
   { field: 'requestedPrice', header: 'Requested Price' },
-  { field: 'offeredPrice', header: 'Offered Price' },
   { field: 'offeredQty', header: 'Offered Qty' },
+  { field: 'offeredPrice', header: 'Offered Price' },
   { field: 'cost', header: 'Cost' },
   { field: 'qtyOnHand', header: 'Qty on Hand' },
   { field: 'qtyOnPO', header: 'Qty on PO' },
@@ -121,7 +121,14 @@ export function AllTab({
 
   // Column templates for formatting
   const priceTemplate = (rowData: AllTabData, field: keyof AllTabData) => {
-    const value = rowData[field] as number;
+    const value = rowData[field];
+    
+    // If value is 'N/A' or null/undefined, return 'N/A'
+    if (value === 'N/A' || value == null) {
+      return 'N/A';
+    }
+    
+    const numericValue = value as number;
     
     // Determine which currency to use based on the field
     let itemCurrency = 'CAD';
@@ -138,13 +145,20 @@ export function AllTab({
       itemCurrency = rowData.pricePaidByDCSCurrency || 'CAD';
     }
     
-    const convertedPrice = convertCurrency(value || 0, itemCurrency as "CAD" | "USD");
+    const convertedPrice = convertCurrency(numericValue || 0, itemCurrency as "CAD" | "USD");
     return formatCurrency(convertedPrice);
   };
 
   const quantityTemplate = (rowData: AllTabData, field: keyof AllTabData) => {
-    const value = rowData[field] as number;
-    return (value || 0).toLocaleString();
+    const value = rowData[field];
+    
+    // If value is 'N/A' or null/undefined, return 'N/A'
+    if (value === 'N/A' || value == null) {
+      return 'N/A';
+    }
+    
+    const numericValue = value as number;
+    return (numericValue || 0).toLocaleString();
   };
 
   // Column toggle options for MultiSelect
@@ -185,25 +199,35 @@ export function AllTab({
           if (visibleColumns.includes(col.field)) {
             const value = item[col.field as keyof AllTabData];
             if (col.field.includes('price') || col.field.includes('Price') || col.field === 'cost') {
-              // Determine which currency to use based on the field
-              let itemCurrency = 'CAD';
-              
-              if (col.field === 'requestedPrice' || col.field === 'cost') {
-                itemCurrency = item.currency || 'CAD';
-              } else if (col.field === 'offeredPrice') {
-                itemCurrency = item.offeredPriceCurrency || 'CAD';
-              } else if (col.field === 'pricePaidByRandmar') {
-                itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
-              } else if (col.field === 'pricePaidByUSG') {
-                itemCurrency = item.pricePaidByUSGCurrency || 'CAD';
-              } else if (col.field === 'pricePaidByDCS') {
-                itemCurrency = item.pricePaidByDCSCurrency || 'CAD';
+              // Handle N/A values
+              if (value === 'N/A' || value == null) {
+                formattedItem[col.header] = 'N/A';
+              } else {
+                // Determine which currency to use based on the field
+                let itemCurrency = 'CAD';
+                
+                if (col.field === 'requestedPrice' || col.field === 'cost') {
+                  itemCurrency = item.currency || 'CAD';
+                } else if (col.field === 'offeredPrice') {
+                  itemCurrency = item.offeredPriceCurrency || 'CAD';
+                } else if (col.field === 'pricePaidByRandmar') {
+                  itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
+                } else if (col.field === 'pricePaidByUSG') {
+                  itemCurrency = item.pricePaidByUSGCurrency || 'CAD';
+                } else if (col.field === 'pricePaidByDCS') {
+                  itemCurrency = item.pricePaidByDCSCurrency || 'CAD';
+                }
+                
+                const convertedPrice = convertCurrency(value as number || 0, itemCurrency as "CAD" | "USD");
+                formattedItem[col.header] = formatCurrency(convertedPrice);
               }
-              
-              const convertedPrice = convertCurrency(value as number || 0, itemCurrency as "CAD" | "USD");
-              formattedItem[col.header] = formatCurrency(convertedPrice);
             } else if (col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity')) {
-              formattedItem[col.header] = (value as number || 0).toLocaleString();
+              // Handle N/A values for quantities
+              if (value === 'N/A' || value == null) {
+                formattedItem[col.header] = 'N/A';
+              } else {
+                formattedItem[col.header] = (value as number || 0).toLocaleString();
+              }
             } else {
               formattedItem[col.header] = value;
             }
@@ -239,25 +263,35 @@ export function AllTab({
         visibleCols.forEach(col => {
           const value = item[col.field as keyof AllTabData];
           if (col.field.includes('price') || col.field.includes('Price') || col.field === 'cost') {
-            // Determine which currency to use based on the field
-            let itemCurrency = 'CAD';
-            
-            if (col.field === 'requestedPrice' || col.field === 'cost') {
-              itemCurrency = item.currency || 'CAD';
-            } else if (col.field === 'offeredPrice') {
-              itemCurrency = item.offeredPriceCurrency || 'CAD';
-            } else if (col.field === 'pricePaidByRandmar') {
-              itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
-            } else if (col.field === 'pricePaidByUSG') {
-              itemCurrency = item.pricePaidByUSGCurrency || 'CAD';
-            } else if (col.field === 'pricePaidByDCS') {
-              itemCurrency = item.pricePaidByDCSCurrency || 'CAD';
+            // Handle N/A values
+            if (value === 'N/A' || value == null) {
+              formattedItem[col.field] = 'N/A';
+            } else {
+              // Determine which currency to use based on the field
+              let itemCurrency = 'CAD';
+              
+              if (col.field === 'requestedPrice' || col.field === 'cost') {
+                itemCurrency = item.currency || 'CAD';
+              } else if (col.field === 'offeredPrice') {
+                itemCurrency = item.offeredPriceCurrency || 'CAD';
+              } else if (col.field === 'pricePaidByRandmar') {
+                itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
+              } else if (col.field === 'pricePaidByUSG') {
+                itemCurrency = item.pricePaidByUSGCurrency || 'CAD';
+              } else if (col.field === 'pricePaidByDCS') {
+                itemCurrency = item.pricePaidByDCSCurrency || 'CAD';
+              }
+              
+              const convertedPrice = convertCurrency(value as number || 0, itemCurrency as "CAD" | "USD");
+              formattedItem[col.field] = formatCurrency(convertedPrice);
             }
-            
-            const convertedPrice = convertCurrency(value as number || 0, itemCurrency as "CAD" | "USD");
-            formattedItem[col.field] = formatCurrency(convertedPrice);
           } else if (col.field.includes('qty') || col.field.includes('Qty') || col.field.includes('quantity') || col.field.includes('Quantity')) {
-            formattedItem[col.field] = (value as number || 0).toLocaleString();
+            // Handle N/A values for quantities
+            if (value === 'N/A' || value == null) {
+              formattedItem[col.field] = 'N/A';
+            } else {
+              formattedItem[col.field] = (value as number || 0).toLocaleString();
+            }
           } else {
             formattedItem[col.field] = String(value || '');
           }

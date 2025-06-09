@@ -76,11 +76,15 @@ const PRICING_COLUMNS = [
 
 const INVENTORY_COLUMNS = [
   { id: 'sku', label: 'SKU' },
-  { id: 'onHand', label: 'On Hand' },
-  { id: 'reserved', label: 'Reserved' },
-  { id: 'available', label: 'Available' },
-  { id: 'location', label: 'Location' },
-  { id: 'status', label: 'Status' }
+  { id: 'quantityRequested', label: 'Requested' },
+  { id: 'quantityOnHand', label: 'On Hand' },
+  { id: 'quantityReserved', label: 'Reserved' },
+  { id: 'availableQuantity', label: 'Available' },
+  { id: 'quantityOnPO', label: 'On PO' },
+  { id: 'warehouseLocation', label: 'Location' },
+  { id: 'stockStatus', label: 'Status' },
+  { id: 'turnoverRate', label: 'Turnover' },
+  { id: 'daysSinceLastSale', label: 'Days Since Sale' }
 ];
 
 const MARKET_COLUMNS = [
@@ -172,7 +176,56 @@ export default function RfqDetail({
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<QuotationVersionWithItems | null>(null);
 
-  // Add state for ALL tab data caching
+  // Enhanced state management for all tabs with caching
+  const [tabDataCache, setTabDataCache] = useState<Record<string, {
+    data: any[];
+    loading: boolean;
+    error: string | null;
+    totalRecords: number;
+    currentPage: number;
+    pageSize: number;
+    dataFetched: boolean;
+    lastFetched?: number;
+  }>>({
+    all: {
+      data: [],
+      loading: false,
+      error: null,
+      totalRecords: 0,
+      currentPage: 1,
+      pageSize: 10,
+      dataFetched: false,
+    },
+    pricing: {
+      data: [],
+      loading: false,
+      error: null,
+      totalRecords: 0,
+      currentPage: 1,
+      pageSize: 10,
+      dataFetched: false,
+    },
+    inventory: {
+      data: [],
+      loading: false,
+      error: null,
+      totalRecords: 0,
+      currentPage: 1,
+      pageSize: 10,
+      dataFetched: false,
+    },
+    market: {
+      data: [],
+      loading: false,
+      error: null,
+      totalRecords: 0,
+      currentPage: 1,
+      pageSize: 10,
+      dataFetched: false,
+    }
+  });
+
+  // Legacy state for backwards compatibility (can be removed once all tabs are migrated)
   const [allTabData, setAllTabData] = useState<any[]>([]);
   const [allTabLoading, setAllTabLoading] = useState(false);
   const [allTabError, setAllTabError] = useState<string | null>(null);
@@ -286,55 +339,260 @@ export default function RfqDetail({
     }
   }, [fetchNegotiationHistory, rfqData, loading]);
 
-  // Fetch ALL tab data with caching
-  const fetchAllTabData = useCallback(async (page: number = 1, pageSize: number = 10) => {
+  // Universal tab data fetcher with caching and optimization
+  const updateTabState = useCallback((tabName: string, updates: Partial<typeof tabDataCache['all']>) => {
+    setTabDataCache(prev => ({
+      ...prev,
+      [tabName]: {
+        ...prev[tabName],
+        ...updates
+      }
+    }));
+  }, []);
+
+  // Generic function to fetch tab data with caching
+  const fetchTabData = useCallback(async (
+    tabName: string, 
+    endpoint: string, 
+    page: number = 1, 
+    pageSize: number = 10,
+    forceRefresh: boolean = false
+  ) => {
     if (!id) return;
-    
-    try {
-      setAllTabLoading(true);
-      setAllTabError(null);
+
+    // Get current state directly to avoid dependency issues
+    setTabDataCache(currentCache => {
+      const tabState = currentCache[tabName];
       
-      const response = await fetch(
-        `/api/rfq/${id}/all-data?page=${page}&pageSize=${pageSize}`
-      );
+      // Check if data is already cached and recent (within 5 minutes)
+      const cacheTimeout = 5 * 60 * 1000; // 5 minutes
+      const isCacheValid = tabState?.dataFetched && 
+                          tabState?.lastFetched && 
+                          (Date.now() - tabState.lastFetched) < cacheTimeout &&
+                          !forceRefresh;
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch ALL tab data');
+      if (isCacheValid && tabState.currentPage === page && tabState.pageSize === pageSize) {
+        console.log(`Using cached data for ${tabName} tab`);
+        return currentCache; // No update needed
       }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setAllTabData(result.data || []);
-        setAllTabTotalRecords(result.meta?.pagination?.totalItems || 0);
-        setAllTabCurrentPage(page);
-        setAllTabPageSize(pageSize);
-        setAllTabDataFetched(true);
-      } else {
-        throw new Error(result.error || 'Failed to fetch ALL tab data');
-      }
-    } catch (error) {
-      console.error('Error fetching ALL tab data:', error);
-      setAllTabError('Failed to load ALL tab data');
-      toast.error('Failed to load ALL tab data');
-    } finally {
-      setAllTabLoading(false);
-    }
+
+      // Start loading state
+      const updatedCache = {
+        ...currentCache,
+        [tabName]: {
+          ...tabState,
+          loading: true,
+          error: null
+        }
+      };
+
+      // Fetch data asynchronously
+      (async () => {
+        try {
+          const response = await fetch(
+            `/api/rfq/${id}/${endpoint}?page=${page}&pageSize=${pageSize}`
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${tabName} tab data`);
+          }
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            setTabDataCache(prevCache => ({
+              ...prevCache,
+              [tabName]: {
+                ...prevCache[tabName],
+                data: result.data || [],
+                totalRecords: result.meta?.pagination?.totalItems || 0,
+                currentPage: page,
+                pageSize: pageSize,
+                dataFetched: true,
+                lastFetched: Date.now(),
+                loading: false,
+                error: null
+              }
+            }));
+
+            // Update legacy state for ALL tab (backwards compatibility)
+            if (tabName === 'all') {
+              setAllTabData(result.data || []);
+              setAllTabTotalRecords(result.meta?.pagination?.totalItems || 0);
+              setAllTabCurrentPage(page);
+              setAllTabPageSize(pageSize);
+              setAllTabDataFetched(true);
+              setAllTabLoading(false);
+              setAllTabError(null);
+            }
+          } else {
+            throw new Error(result.error || `Failed to fetch ${tabName} tab data`);
+          }
+        } catch (error) {
+          console.error(`Error fetching ${tabName} tab data:`, error);
+          const errorMessage = `Failed to load ${tabName.toUpperCase()} tab data`;
+          
+          setTabDataCache(prevCache => ({
+            ...prevCache,
+            [tabName]: {
+              ...prevCache[tabName],
+              loading: false,
+              error: errorMessage
+            }
+          }));
+          
+          // Update legacy state for ALL tab (backwards compatibility)
+          if (tabName === 'all') {
+            setAllTabLoading(false);
+            setAllTabError(errorMessage);
+          }
+          
+          toast.error(errorMessage);
+        }
+      })();
+
+      return updatedCache;
+    });
   }, [id]);
 
-  // Fetch ALL tab data when needed
-  const handleAllTabLoad = useCallback(() => {
-    if (!allTabDataFetched && id) {
-      fetchAllTabData(allTabCurrentPage, allTabPageSize);
-    }
-  }, [allTabDataFetched, id, fetchAllTabData, allTabCurrentPage, allTabPageSize]);
+  // Specific fetchers for each tab
+  const fetchAllTabData = useCallback((page: number = 1, pageSize: number = 10, forceRefresh: boolean = false) => {
+    return fetchTabData('all', 'all-data', page, pageSize, forceRefresh);
+  }, [fetchTabData]);
 
-  // Handle ALL tab pagination
+  const fetchPricingTabData = useCallback((page: number = 1, pageSize: number = 10, forceRefresh: boolean = false) => {
+    return fetchTabData('pricing', 'pricing-data', page, pageSize, forceRefresh);
+  }, [fetchTabData]);
+
+  const fetchInventoryTabData = useCallback((page: number = 1, pageSize: number = 10, forceRefresh: boolean = false) => {
+    return fetchTabData('inventory', 'inventory-data', page, pageSize, forceRefresh);
+  }, [fetchTabData]);
+
+  const fetchMarketTabData = useCallback((page: number = 1, pageSize: number = 10, forceRefresh: boolean = false) => {
+    return fetchTabData('market', 'market-data', page, pageSize, forceRefresh);
+  }, [fetchTabData]);
+
+  // Cache invalidation and refresh functions
+  const invalidateTabCache = useCallback((tabName: string) => {
+    setTabDataCache(prev => ({
+      ...prev,
+      [tabName]: {
+        ...prev[tabName],
+        dataFetched: false, 
+        lastFetched: undefined,
+        data: [],
+        error: null 
+      }
+    }));
+  }, []);
+
+  const refreshTabData = useCallback((tabName: string) => {
+    setTabDataCache(currentCache => {
+      const tabState = currentCache[tabName];
+      switch (tabName) {
+        case 'all':
+          fetchAllTabData(tabState.currentPage, tabState.pageSize, true);
+          break;
+        case 'pricing':
+          fetchPricingTabData(tabState.currentPage, tabState.pageSize, true);
+          break;
+        case 'inventory':
+          fetchInventoryTabData(tabState.currentPage, tabState.pageSize, true);
+          break;
+        case 'market':
+          fetchMarketTabData(tabState.currentPage, tabState.pageSize, true);
+          break;
+      }
+      return currentCache;
+    });
+  }, [fetchAllTabData, fetchPricingTabData, fetchInventoryTabData, fetchMarketTabData]);
+
+  // Track if preloading has been initiated to prevent multiple triggers
+  const [preloadInitiated, setPreloadInitiated] = useState(false);
+  
+  // Preload common tabs after main RFQ data loads
+  useEffect(() => {
+    if (rfqData && !loading && id && !preloadInitiated) {
+      setPreloadInitiated(true);
+      
+      // Preload ALL tab data immediately since it's the default tab
+      console.log('Preloading ALL tab data...');
+      fetchAllTabData();
+      
+      // Preload other commonly used tabs after a short delay
+      const preloadTimer = setTimeout(() => {
+        console.log('Preloading pricing and inventory tab data...');
+        fetchPricingTabData();
+        fetchInventoryTabData();
+      }, 1000); // 1 second delay to not overwhelm the server
+
+      return () => clearTimeout(preloadTimer);
+    }
+  }, [rfqData, loading, id, preloadInitiated, fetchAllTabData, fetchPricingTabData, fetchInventoryTabData]);
+
+  // Universal tab load handlers
+  const handleTabLoad = useCallback((tabName: string) => {
+    setTabDataCache(currentCache => {
+      const tabState = currentCache[tabName];
+      if (!tabState?.dataFetched && id) {
+        switch (tabName) {
+          case 'all':
+            fetchAllTabData(tabState.currentPage, tabState.pageSize);
+            break;
+          case 'pricing':
+            fetchPricingTabData(tabState.currentPage, tabState.pageSize);
+            break;
+          case 'inventory':
+            fetchInventoryTabData(tabState.currentPage, tabState.pageSize);
+            break;
+          case 'market':
+            fetchMarketTabData(tabState.currentPage, tabState.pageSize);
+            break;
+          default:
+            console.warn(`No handler for tab: ${tabName}`);
+        }
+      }
+      return currentCache;
+    });
+  }, [id, fetchAllTabData, fetchPricingTabData, fetchInventoryTabData, fetchMarketTabData]);
+
+  // Universal pagination handlers
+  const handleTabPageChange = useCallback((tabName: string, newPage: number, newPageSize: number) => {
+    setTabDataCache(prev => ({
+      ...prev,
+      [tabName]: {
+        ...prev[tabName],
+        currentPage: newPage,
+        pageSize: newPageSize
+      }
+    }));
+    
+    switch (tabName) {
+      case 'all':
+        fetchAllTabData(newPage, newPageSize);
+        break;
+      case 'pricing':
+        fetchPricingTabData(newPage, newPageSize);
+        break;
+      case 'inventory':
+        fetchInventoryTabData(newPage, newPageSize);
+        break;
+      case 'market':
+        fetchMarketTabData(newPage, newPageSize);
+        break;
+      default:
+        console.warn(`No pagination handler for tab: ${tabName}`);
+    }
+  }, [fetchAllTabData, fetchPricingTabData, fetchInventoryTabData, fetchMarketTabData]);
+
+  // Legacy handlers for backwards compatibility
+  const handleAllTabLoad = useCallback(() => {
+    handleTabLoad('all');
+  }, [handleTabLoad]);
+
   const handleAllTabPageChange = useCallback((newPage: number, newPageSize: number) => {
-    setAllTabCurrentPage(newPage);
-    setAllTabPageSize(newPageSize);
-    fetchAllTabData(newPage, newPageSize);
-  }, [fetchAllTabData]);
+    handleTabPageChange('all', newPage, newPageSize);
+  }, [handleTabPageChange]);
 
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
@@ -935,6 +1193,33 @@ export default function RfqDetail({
     fetchInventoryData();
   }, [rfqData?.items]);
 
+  // Debug component for development (remove in production)
+  const DebugCacheInfo = () => {
+    if (process.env.NODE_ENV !== 'development') return null;
+    
+    return (
+      <div className="mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+        <details>
+          <summary className="cursor-pointer font-semibold">Cache Status (Debug)</summary>
+          <div className="mt-2 space-y-1">
+            {Object.entries(tabDataCache).map(([tabName, state]) => (
+              <div key={tabName} className="flex justify-between">
+                <span className="font-mono">{tabName}:</span>
+                <span className={`px-2 py-1 rounded ${
+                  state.dataFetched ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
+                }`}>
+                  {state.dataFetched ? 'Cached' : 'Not Loaded'} 
+                  ({state.data.length} items)
+                  {state.lastFetched && ` - ${Math.round((Date.now() - state.lastFetched) / 1000)}s ago`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen">
@@ -1117,6 +1402,8 @@ export default function RfqDetail({
             </Card>
           </div>
 
+          <DebugCacheInfo />
+
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="flex w-full overflow-x-auto gap-1">
               <TabsTrigger value="all" className="flex-shrink-0">
@@ -1212,6 +1499,14 @@ export default function RfqDetail({
             <TabsContent value="pricing" className="m-0">
               <PricingTab
                 items={items}
+                data={tabDataCache.pricing.data}
+                loading={tabDataCache.pricing.loading}
+                error={tabDataCache.pricing.error}
+                totalRecords={tabDataCache.pricing.totalRecords}
+                currentPage={tabDataCache.pricing.currentPage}
+                pageSize={tabDataCache.pricing.pageSize}
+                onPageChange={(page, size) => handleTabPageChange('pricing', page, size)}
+                onLoad={() => handleTabLoad('pricing')}
                 visibleColumns={visibleColumns.pricing}
                 onColumnToggle={(columnId) => handleColumnToggle('pricing', columnId)}
                 renderPagination={renderPagination}
@@ -1223,6 +1518,14 @@ export default function RfqDetail({
             <TabsContent value="inventory" className="m-0">
               <InventoryTab
                 items={items}
+                data={tabDataCache.inventory.data}
+                loading={tabDataCache.inventory.loading}
+                error={tabDataCache.inventory.error}
+                totalRecords={tabDataCache.inventory.totalRecords}
+                currentPage={tabDataCache.inventory.currentPage}
+                pageSize={tabDataCache.inventory.pageSize}
+                onPageChange={(page, size) => handleTabPageChange('inventory', page, size)}
+                onLoad={() => handleTabLoad('inventory')}
                 visibleColumns={visibleColumns.inventory}
                 onColumnToggle={(columnId) => handleColumnToggle('inventory', columnId)}
                 renderPagination={renderPagination}
@@ -1253,6 +1556,14 @@ export default function RfqDetail({
             <TabsContent value="market" className="m-0">
               <MarketDataTab
                 items={items}
+                data={tabDataCache.market.data}
+                loading={tabDataCache.market.loading}
+                error={tabDataCache.market.error}
+                totalRecords={tabDataCache.market.totalRecords}
+                currentPage={tabDataCache.market.currentPage}
+                pageSize={tabDataCache.market.pageSize}
+                onPageChange={(page, size) => handleTabPageChange('market', page, size)}
+                onLoad={() => handleTabLoad('market')}
                 visibleColumns={visibleColumns.market}
                 onColumnToggle={(columnId) => handleColumnToggle('market', columnId)}
                 renderPagination={renderPagination}
