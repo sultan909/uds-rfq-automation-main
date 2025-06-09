@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,26 +11,56 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableCustomizer } from "@/components/table-customizer";
+import { Spinner } from "@/components/spinner";
+import { Paginator } from 'primereact/paginator';
 import type { BaseTabProps, ColumnDefinition } from "@/lib/types/rfq-tabs";
 
 const PRICING_COLUMNS: ColumnDefinition[] = [
   { id: 'sku', label: 'SKU' },
-  { id: 'unitPrice', label: 'Unit Price' },
+  { id: 'requestedPrice', label: 'Requested Price' },
+  { id: 'suggestedPrice', label: 'Suggested Price' },
   { id: 'marketPrice', label: 'Market Price' },
   { id: 'cost', label: 'Cost' },
-  { id: 'margin', label: 'Margin' }
+  { id: 'margin', label: 'Margin %' },
+  { id: 'priceSource', label: 'Price Source' }
 ];
 
-interface PricingTabProps extends BaseTabProps {}
+interface PricingTabProps extends BaseTabProps {
+  data?: any[];
+  loading?: boolean;
+  error?: string | null;
+  totalRecords?: number;
+  currentPage?: number;
+  pageSize?: number;
+  onPageChange?: (page: number, pageSize: number) => void;
+  onLoad?: () => void;
+}
 
 export function PricingTab({
   items,
+  data = [],
+  loading = false,
+  error = null,
+  totalRecords = 0,
+  currentPage = 1,
+  pageSize = 10,
+  onPageChange,
+  onLoad,
   visibleColumns,
   onColumnToggle,
   renderPagination,
   formatCurrency,
   convertCurrency
 }: PricingTabProps) {
+  // Trigger data load when component mounts
+  useEffect(() => {
+    if (onLoad && !loading && data.length === 0 && !error) {
+      onLoad();
+    }
+  }, [onLoad, loading, data.length, error]);
+
+  // Use cached data if available, fallback to items
+  const displayData = data.length > 0 ? data : items || [];
   return (
     <Card>
       <CardHeader>
@@ -44,54 +74,104 @@ export function PricingTab({
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {PRICING_COLUMNS.map(column =>
-                visibleColumns.includes(column.id) && (
-                  <TableHead key={column.id}>{column.label}</TableHead>
-                )
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item: any) => (
-              <TableRow key={item.id}>
-                {visibleColumns.includes('sku') && (
-                  <TableCell>{item.customerSku || item.inventory?.sku}</TableCell>
-                )}
-                {visibleColumns.includes('unitPrice') && (
-                  <TableCell>
-                    {formatCurrency(convertCurrency(item.unitPrice || 0, item.currency))}
-                  </TableCell>
-                )}
-                {visibleColumns.includes('marketPrice') && (
-                  <TableCell>{formatCurrency(item.inventory?.marketPrice || 0)}</TableCell>
-                )}
-                {visibleColumns.includes('cost') && (
-                  <TableCell>
-                    {item.inventory?.cost 
-                      ? formatCurrency(convertCurrency(item.inventory.cost, item.inventory.costCurrency))
-                      : 'N/A'
-                    }
-                  </TableCell>
-                )}
-                {visibleColumns.includes('margin') && (
-                  <TableCell>
-                    {item.unitPrice && item.inventory?.cost
-                      ? (() => {
-                          const convertedUnitPrice = convertCurrency(item.unitPrice, item.currency);
-                          const convertedCost = convertCurrency(item.inventory.cost, item.inventory.costCurrency);
-                          return `${((convertedUnitPrice - convertedCost) / convertedUnitPrice * 100).toFixed(1)}%`;
-                        })()
-                      : 'N/A'}
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {renderPagination()}
+        {loading && displayData.length === 0 ? (
+          <div className="flex justify-center items-center py-8">
+            <Spinner size={32} />
+            <span className="ml-2">Loading pricing data...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 text-red-500">
+            {error}
+          </div>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {PRICING_COLUMNS.map(column =>
+                    visibleColumns.includes(column.id) && (
+                      <TableHead key={column.id}>{column.label}</TableHead>
+                    )
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayData.map((item: any) => (
+                  <TableRow key={item.id}>
+                    {visibleColumns.includes('sku') && (
+                      <TableCell className="font-mono">{item.sku}</TableCell>
+                    )}
+                    {visibleColumns.includes('requestedPrice') && (
+                      <TableCell>
+                        {item.requestedPrice 
+                          ? formatCurrency(convertCurrency(item.requestedPrice, item.requestedPriceCurrency || 'CAD'))
+                          : 'N/A'
+                        }
+                      </TableCell>
+                    )}
+                    {visibleColumns.includes('suggestedPrice') && (
+                      <TableCell className="font-medium">
+                        {item.suggestedPrice 
+                          ? formatCurrency(convertCurrency(item.suggestedPrice, item.suggestedPriceCurrency || 'CAD'))
+                          : 'N/A'
+                        }
+                      </TableCell>
+                    )}
+                    {visibleColumns.includes('marketPrice') && (
+                      <TableCell>
+                        {item.marketPrice 
+                          ? formatCurrency(convertCurrency(item.marketPrice, item.marketPriceCurrency || 'CAD'))
+                          : 'N/A'
+                        }
+                      </TableCell>
+                    )}
+                    {visibleColumns.includes('cost') && (
+                      <TableCell>
+                        {item.cost 
+                          ? formatCurrency(convertCurrency(item.cost, item.costCurrency || 'CAD'))
+                          : 'N/A'
+                        }
+                      </TableCell>
+                    )}
+                    {visibleColumns.includes('margin') && (
+                      <TableCell>
+                        {item.margin ? `${item.margin}%` : 'N/A'}
+                      </TableCell>
+                    )}
+                    {visibleColumns.includes('priceSource') && (
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          item.priceSource === 'market' ? 'bg-green-100 text-green-800' :
+                          item.priceSource === 'manual' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {item.priceSource || 'unknown'}
+                        </span>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            
+            {/* Enhanced pagination for cached data */}
+            {onPageChange && totalRecords > 0 ? (
+              <div className="mt-4">
+                <Paginator
+                  first={(currentPage - 1) * pageSize}
+                  rows={pageSize}
+                  totalRecords={totalRecords}
+                  rowsPerPageOptions={[10, 20, 50]}
+                  onPageChange={(e) => onPageChange(Math.floor(e.first / e.rows) + 1, e.rows)}
+                  template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                  currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+                />
+              </div>
+            ) : (
+              renderPagination && renderPagination()
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
