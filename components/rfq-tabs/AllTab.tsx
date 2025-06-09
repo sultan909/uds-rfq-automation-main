@@ -19,6 +19,9 @@ interface AllTabData {
   quantityRequested: number;
   requestedPrice: number;
   currency: string;
+  offeredPrice: number;
+  offeredPriceCurrency: string;
+  offeredQty: number;
   cost: number;
   qtyOnHand: number;
   qtyOnPO: number;
@@ -52,6 +55,8 @@ const ALL_COLUMNS = [
   { field: 'sku', header: 'SKU', frozen: true },
   { field: 'quantityRequested', header: 'Quantity Requested' },
   { field: 'requestedPrice', header: 'Requested Price' },
+  { field: 'offeredPrice', header: 'Offered Price' },
+  { field: 'offeredQty', header: 'Offered Qty' },
   { field: 'cost', header: 'Cost' },
   { field: 'qtyOnHand', header: 'Qty on Hand' },
   { field: 'qtyOnPO', header: 'Qty on PO' },
@@ -123,6 +128,8 @@ export function AllTab({
     
     if (field === 'requestedPrice' || field === 'cost') {
       itemCurrency = rowData.currency || 'CAD';
+    } else if (field === 'offeredPrice') {
+      itemCurrency = rowData.offeredPriceCurrency || 'CAD';
     } else if (field === 'pricePaidByRandmar') {
       itemCurrency = rowData.pricePaidByRandmarCurrency || 'CAD';
     } else if (field === 'pricePaidByUSG') {
@@ -183,6 +190,8 @@ export function AllTab({
               
               if (col.field === 'requestedPrice' || col.field === 'cost') {
                 itemCurrency = item.currency || 'CAD';
+              } else if (col.field === 'offeredPrice') {
+                itemCurrency = item.offeredPriceCurrency || 'CAD';
               } else if (col.field === 'pricePaidByRandmar') {
                 itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
               } else if (col.field === 'pricePaidByUSG') {
@@ -235,6 +244,8 @@ export function AllTab({
             
             if (col.field === 'requestedPrice' || col.field === 'cost') {
               itemCurrency = item.currency || 'CAD';
+            } else if (col.field === 'offeredPrice') {
+              itemCurrency = item.offeredPriceCurrency || 'CAD';
             } else if (col.field === 'pricePaidByRandmar') {
               itemCurrency = item.pricePaidByRandmarCurrency || 'CAD';
             } else if (col.field === 'pricePaidByUSG') {

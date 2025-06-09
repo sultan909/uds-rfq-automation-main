@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { rfqItems, inventoryItems, poItems, purchaseOrders, salesHistory, customers } from '@/db/schema';
+import { rfqItems, inventoryItems, poItems, purchaseOrders, salesHistory, customers, quotationVersions, quotationVersionItems } from '@/db/schema';
 import { eq, and, sql, gte, desc, notInArray } from 'drizzle-orm';
 
 export async function GET(
@@ -84,6 +84,7 @@ export async function GET(
         let usgData = { price: 0, currency: 'CAD', qty12m: 0 };
         let dcsData = { price: 0, currency: 'CAD', qty12m: 0 };
         let outsideData = { qty12m: 0, qty3m: 0 };
+        let offeredData = { price: 0, currency: 'CAD', quantity: 0 };
 
         if (inventoryId) {
           // Get Quantity on PO
@@ -290,6 +291,39 @@ export async function GET(
             qty12m: outside12m[0]?.totalQty || 0,
             qty3m: outside3m[0]?.totalQty || 0,
           };
+
+          // Get offered price and quantity from latest quotation version
+          try {
+            // Get the latest quotation version for this RFQ and inventory item
+            const latestQuotationVersion = await db
+              .select({
+                versionId: quotationVersions.id,
+                unitPrice: quotationVersionItems.unitPrice,
+                quantity: quotationVersionItems.quantity,
+                currency: sql<string>`'CAD'`.as('currency'), // Default to CAD, we'll enhance this later
+              })
+              .from(quotationVersions)
+              .innerJoin(quotationVersionItems, eq(quotationVersionItems.versionId, quotationVersions.id))
+              .where(
+                and(
+                  eq(quotationVersions.rfqId, rfqId),
+                  eq(quotationVersionItems.skuId, inventoryId)
+                )
+              )
+              .orderBy(desc(quotationVersions.createdAt))
+              .limit(1);
+
+            if (latestQuotationVersion.length > 0) {
+              const latestVersion = latestQuotationVersion[0];
+              offeredData = {
+                price: latestVersion.unitPrice || 0,
+                currency: latestVersion.currency || 'CAD',
+                quantity: latestVersion.quantity || 0,
+              };
+            }
+          } catch (error) {
+            console.warn('Error fetching offered price data:', error);
+          }
         }
 
         return {
@@ -298,6 +332,9 @@ export async function GET(
           quantityRequested: item.quantityRequested || 0,
           requestedPrice: item.requestedPrice || 0,
           currency: item.currency || 'CAD',
+          offeredPrice: offeredData.price,
+          offeredPriceCurrency: offeredData.currency,
+          offeredQty: offeredData.quantity,
           cost: item.cost || 0,
           qtyOnHand: item.quantityOnHand || 0,
           qtyOnPO: quantityOnPO,
