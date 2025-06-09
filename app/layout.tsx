@@ -19,10 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html 
-    lang="en"
-    className="light"
-    style={{colorScheme: "light"}}>
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <PrimeReactProvider value={{ 
           ripple: true,
@@ -35,7 +32,12 @@ export default function RootLayout({
             tooltip: 1100
           }
         }}>
-          <ThemeProvider attribute="class" defaultTheme="light">
+          <ThemeProvider 
+            attribute="class" 
+            defaultTheme="light" 
+            enableSystem={false}
+            disableTransitionOnChange
+          >
             <CurrencyProvider>{children}</CurrencyProvider>
           </ThemeProvider>
         </PrimeReactProvider>
