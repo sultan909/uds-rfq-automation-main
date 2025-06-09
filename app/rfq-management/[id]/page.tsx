@@ -76,11 +76,15 @@ const PRICING_COLUMNS = [
 
 const INVENTORY_COLUMNS = [
   { id: 'sku', label: 'SKU' },
-  { id: 'onHand', label: 'On Hand' },
-  { id: 'reserved', label: 'Reserved' },
-  { id: 'available', label: 'Available' },
-  { id: 'location', label: 'Location' },
-  { id: 'status', label: 'Status' }
+  { id: 'quantityRequested', label: 'Requested' },
+  { id: 'quantityOnHand', label: 'On Hand' },
+  { id: 'quantityReserved', label: 'Reserved' },
+  { id: 'availableQuantity', label: 'Available' },
+  { id: 'quantityOnPO', label: 'On PO' },
+  { id: 'warehouseLocation', label: 'Location' },
+  { id: 'stockStatus', label: 'Status' },
+  { id: 'turnoverRate', label: 'Turnover' },
+  { id: 'daysSinceLastSale', label: 'Days Since Sale' }
 ];
 
 const MARKET_COLUMNS = [
