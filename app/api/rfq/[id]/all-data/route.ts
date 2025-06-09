@@ -80,9 +80,9 @@ export async function GET(
         
         // Initialize default values
         let quantityOnPO = 0;
-        let randmarData = { price: 0, qty12m: 0 };
-        let usgData = { price: 0, qty12m: 0 };
-        let dcsData = { price: 0, qty12m: 0 };
+        let randmarData = { price: 0, currency: 'CAD', qty12m: 0 };
+        let usgData = { price: 0, currency: 'CAD', qty12m: 0 };
+        let dcsData = { price: 0, currency: 'CAD', qty12m: 0 };
         let outsideData = { qty12m: 0, qty3m: 0 };
 
         if (inventoryId) {
@@ -125,6 +125,7 @@ export async function GET(
               db
                 .select({
                   lastPrice: salesHistory.unitPrice,
+                  currency: salesHistory.currency,
                 })
                 .from(salesHistory)
                 .where(
@@ -139,6 +140,7 @@ export async function GET(
 
             randmarData = {
               price: randmarLastPrice[0]?.lastPrice || 0,
+              currency: randmarLastPrice[0]?.currency || 'CAD',
               qty12m: randmarSales[0]?.totalQty || 0,
             };
           }
@@ -161,6 +163,7 @@ export async function GET(
               db
                 .select({
                   lastPrice: salesHistory.unitPrice,
+                  currency: salesHistory.currency,
                 })
                 .from(salesHistory)
                 .where(
@@ -175,6 +178,7 @@ export async function GET(
 
             usgData = {
               price: usgLastPrice[0]?.lastPrice || 0,
+              currency: usgLastPrice[0]?.currency || 'CAD',
               qty12m: usg12m[0]?.totalQty || 0,
             };
           }
@@ -197,6 +201,7 @@ export async function GET(
               db
                 .select({
                   lastPrice: salesHistory.unitPrice,
+                  currency: salesHistory.currency,
                 })
                 .from(salesHistory)
                 .where(
@@ -211,6 +216,7 @@ export async function GET(
 
             dcsData = {
               price: dcsLastPrice[0]?.lastPrice || 0,
+              currency: dcsLastPrice[0]?.currency || 'CAD',
               qty12m: dcs12m[0]?.totalQty || 0,
             };
           }
@@ -296,10 +302,13 @@ export async function GET(
           qtyOnHand: item.quantityOnHand || 0,
           qtyOnPO: quantityOnPO,
           pricePaidByRandmar: randmarData.price,
+          pricePaidByRandmarCurrency: randmarData.currency,
           qtyPurchasedByRandmar12m: randmarData.qty12m,
           pricePaidByUSG: usgData.price,
+          pricePaidByUSGCurrency: usgData.currency,
           qtyPurchasedByUSG12m: usgData.qty12m,
           pricePaidByDCS: dcsData.price,
+          pricePaidByDCSCurrency: dcsData.currency,
           qtyPurchasedByDCS12m: dcsData.qty12m,
           qtySoldOutside12m: outsideData.qty12m,
           qtySoldOutside3m: outsideData.qty3m,
