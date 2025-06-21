@@ -183,9 +183,20 @@ async function main() {
       main_customer: false
     }));
     
-    // Combine fixed and random customers
-    const customersData = [...fixedCustomers, ...randomCustomers];
-    // @ts-ignore
+    // Combine fixed and random customers and filter to only include schema fields
+    const customersData = [...fixedCustomers, ...randomCustomers].map(customer => ({
+      name: customer.name,
+      type: customer.type as 'WHOLESALER' | 'DEALER' | 'RETAILER' | 'DIRECT',
+      region: customer.region,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      contactPerson: customer.contactPerson,
+      quickbooksId: customer.quickbooksId,
+      isActive: customer.isActive,
+      main_customer: customer.main_customer
+    }));
+    
     const insertedCustomers = await db.insert(schema.customers).values(customersData).returning();
     console.log(`Inserted ${insertedCustomers.length} customers`);
 

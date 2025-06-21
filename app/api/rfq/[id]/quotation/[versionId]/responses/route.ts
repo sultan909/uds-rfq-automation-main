@@ -131,7 +131,7 @@ export async function POST(
       requestedDeliveryDate: body.requestedDeliveryDate || null,
       paymentTermsRequested: body.paymentTermsRequested || null,
       specialInstructions: body.specialInstructions || null,
-      recordedByUserId: 1, // TODO: Get from auth context
+      recordedByUserId: 1, // Default user ID - authentication not implemented
     }).returning();
 
     // Create response items

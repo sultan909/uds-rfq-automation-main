@@ -27,13 +27,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
       errorMessage = response.statusText || `HTTP ${response.status}`;
     }
     
-    console.warn(`API Error: ${response.status} ${response.statusText}`, {
-      url: response.url,
-      status: response.status,
-      statusText: response.statusText,
-      message: errorMessage,
-      details: errorDetails
-    });
+    // API Error logged silently
     
     throw new ApiError(response.status, errorMessage);
   }
@@ -85,9 +79,7 @@ export const rfqApi = {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-    const response = await apiFetch(`/api/rfq/${id}?${queryParams.toString()}`);
-    console.log('RFQ API Response:', response);
-    return response;
+    return await apiFetch(`/api/rfq/${id}?${queryParams.toString()}`);
   },
   list: async (params?: { page?: string; pageSize?: string; status?: string; search?: string; sortField?: string; sortOrder?: string }) => {
     const queryParams = new URLSearchParams();
@@ -123,7 +115,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error fetching quotation history:', error);
       return { success: false, error: 'Failed to fetch quotation history' };
     }
   },
@@ -137,7 +128,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error creating quotation:', error);
       return { success: false, error: 'Failed to create quotation' };
     }
   },
@@ -151,7 +141,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error creating version:', error);
       return { success: false, error: 'Failed to create version' };
     }
   },
@@ -165,7 +154,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error updating version status:', error);
       return { success: false, error: 'Failed to update version status' };
     }
   },
@@ -179,7 +167,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error recording customer response:', error);
       return { success: false, error: 'Failed to record customer response' };
     }
   },
@@ -190,7 +177,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error fetching quotation responses:', error);
       return { success: false, error: 'Failed to fetch quotation responses' };
     }
   },
@@ -204,7 +190,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error creating quotation response:', error);
       return { success: false, error: 'Failed to create quotation response' };
     }
   },
@@ -214,7 +199,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn('Error fetching quotation response:', error);
       return { success: false, error: 'Failed to fetch quotation response' };
     }
   },
@@ -224,7 +208,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching item versions:', error);
       return { success: false, error: 'Failed to fetch item versions' };
     }
   },
@@ -238,7 +221,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error creating item version:', error);
       return { success: false, error: 'Failed to create item version' };
     }
   },
@@ -252,7 +234,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error updating item version status:', error);
       return { success: false, error: 'Failed to update item version status' };
     }
   },
@@ -266,7 +247,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error recording item customer response:', error);
       return { success: false, error: 'Failed to record item customer response' };
     }
   },
@@ -280,7 +260,6 @@ export const rfqApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching ALL tab data:', error);
       return { success: false, error: 'Failed to fetch ALL tab data' };
     }
   },

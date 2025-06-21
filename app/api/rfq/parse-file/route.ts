@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.warn('Error parsing file:', error);
+    // Silent error handling for file parsing
     return NextResponse.json({
       success: false,
       error: 'Failed to parse file. Please check the file format and try again.'

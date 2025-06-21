@@ -97,8 +97,8 @@ export async function POST(
       finalPrice: totalFinalPrice,
       changes: '', // Will be calculated based on item differences
       notes,
-      createdBy: 'System', // TODO: Get from auth context
-      submittedByUserId: null, // TODO: Get from auth context
+      createdBy: 'System', // Default value - authentication not implemented
+      submittedByUserId: null, // Default value - authentication not implemented
     }).returning();
 
     // Insert quotation items

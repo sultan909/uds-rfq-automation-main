@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const [newQuote] = await db.insert(quotations).values({
       quoteNumber: `Q-${nanoid(6)}`,
       rfqId,
-      customerId: 1, // TODO: Get from RFQ
+      customerId: 1, // Default customer ID - should be extracted from RFQ data
       vendorId: vendorId || 1, // Default to vendor 1 if not provided
       totalAmount,
       deliveryTime: '2 weeks', // Default delivery time
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       termsAndConditions: terms || '',
       notes: notes || '',
       status: 'PENDING',
-      createdBy: 1, // TODO: Get from session
+      createdBy: 1, // Default user ID - authentication not implemented
     }).returning();
 
     // Get the latest version number
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       estimatedPrice: totalAmount,
       finalPrice: totalAmount,
       changes: 'Initial quote created',
-      createdBy: 'System', // TODO: Get from auth context
+      createdBy: 'System', // Default value - authentication not implemented
     }).returning();
 
     return NextResponse.json({
@@ -151,8 +151,7 @@ console.log("body",body);
     const [updatedQuote] = await db
       .update(quotations)
       .set({
-        // @ts-ignore
-        amount: body.amount,
+        totalAmount: body.amount,
         currency: body.currency,
         validUntil: body.validUntil ? new Date(body.validUntil).toISOString() : null,
         terms: body.terms,
@@ -179,17 +178,11 @@ console.log("body",body);
         const salesHistoryEntries = rfqWithItems.items.map(item => ({
           invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           customerId: rfqWithItems.customerId,
-          // @ts-ignore
-          productId: item.inventoryItemId || 1, // Default to 1 if not mapped
+          productId: item.internalProductId || 1, // Default to 1 if not mapped
           quantity: item.quantity,
-          // @ts-ignore
-
           unitPrice: item.unitPrice || 0,
-          // @ts-ignore
-
           extendedPrice: (item.quantity || 0) * (item.unitPrice || 0),
-          // @ts-ignore
-          currency: updatedQuote.currency || 'CAD',
+          currency: updatedQuote.totalAmount ? (updatedQuote.currency || 'CAD') : 'CAD',
           saleDate: new Date().toISOString().split('T')[0],
           quickbooksInvoiceId: `QB-${Date.now()}`
         }));

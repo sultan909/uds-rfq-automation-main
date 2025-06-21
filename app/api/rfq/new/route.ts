@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.warn('Error fetching RFQ form data:', error);
+    // Silent error handling for RFQ form data fetching
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch form data'

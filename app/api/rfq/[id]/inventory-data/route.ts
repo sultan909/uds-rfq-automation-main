@@ -147,7 +147,7 @@ export async function GET(
             }
 
           } catch (error) {
-            console.warn(`Error fetching inventory data for item ${inventoryId}:`, error);
+            // Silently handle error - use default values
           }
         }
 

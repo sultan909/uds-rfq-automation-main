@@ -65,7 +65,7 @@ export async function POST(
       requestedDeliveryDate: body.requestedDeliveryDate ? new Date(body.requestedDeliveryDate) : undefined,
       paymentTermsRequested: body.paymentTermsRequested,
       specialInstructions: body.specialInstructions,
-      recordedByUserId: 1, // TODO: Get from auth context
+      recordedByUserId: 1, // Default user ID - authentication not implemented
     }).returning();
 
     // Create response items

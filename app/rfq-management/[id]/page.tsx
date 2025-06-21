@@ -24,7 +24,8 @@ import {
 import { useCurrency } from "@/contexts/currency-context";
 import { rfqApi, customerApi, inventoryApi, negotiationApi } from "@/lib/api-client";
 import { toast } from "sonner";
-import { Spinner } from "@/components/spinner"
+import { Spinner } from "@/components/spinner";
+import { RfqItem } from "@/types/rfq";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
 import { EditableItemsTable } from "@/components/rfq-tabs/editable-items-table";
@@ -270,7 +271,6 @@ export default function RfqDetail({
           toast.error(errorMessage);
         }
       } catch (err: any) {
-        console.warn('Error fetching RFQ:', err);
         
         let errorMessage = "An error occurred while loading RFQ data";
         if (err?.status === 404) {
@@ -307,21 +307,18 @@ export default function RfqDetail({
         setLastNegotiationRefresh(Date.now());
       } else {
         setNegotiationHistory([]);
-        console.warn('Failed to fetch negotiation history:', response?.error || 'Unknown error');
         // Only show toast error if it's not a "no data" scenario
         if (response?.error && !response?.error.includes('not found')) {
           toast.error('Failed to load negotiation history');
         }
       }
     } catch (error: any) {
-      console.warn('Error fetching negotiation history:', error);
       setNegotiationHistory([]);
       
       // Only show user-facing error for unexpected errors, not 404s
       if (error?.status === 404) {
-        console.info('No negotiation history found for RFQ:', id);
+        // No negotiation history found for RFQ
       } else if (error?.status === 500) {
-        console.warn('Server error fetching negotiation history:', error.message);
         toast.error('Server error loading negotiation history. Some features may be limited.');
       } else {
         toast.error('Failed to load negotiation history');
@@ -372,7 +369,6 @@ export default function RfqDetail({
                           !forceRefresh;
       
       if (isCacheValid && tabState.currentPage === page && tabState.pageSize === pageSize) {
-        console.log(`Using cached data for ${tabName} tab`);
         return currentCache; // No update needed
       }
 
@@ -429,7 +425,6 @@ export default function RfqDetail({
             throw new Error(result.error || `Failed to fetch ${tabName} tab data`);
           }
         } catch (error) {
-          console.error(`Error fetching ${tabName} tab data:`, error);
           const errorMessage = `Failed to load ${tabName.toUpperCase()} tab data`;
           
           setTabDataCache(prevCache => ({
@@ -516,12 +511,10 @@ export default function RfqDetail({
       setPreloadInitiated(true);
       
       // Preload ALL tab data immediately since it's the default tab
-      console.log('Preloading ALL tab data...');
       fetchAllTabData();
       
       // Preload other commonly used tabs after a short delay
       const preloadTimer = setTimeout(() => {
-        console.log('Preloading pricing and inventory tab data...');
         fetchPricingTabData();
         fetchInventoryTabData();
       }, 1000); // 1 second delay to not overwhelm the server
@@ -549,7 +542,7 @@ export default function RfqDetail({
             fetchMarketTabData(tabState.currentPage, tabState.pageSize);
             break;
           default:
-            console.warn(`No handler for tab: ${tabName}`);
+            // No handler for this tab type
         }
       }
       return currentCache;
@@ -581,7 +574,7 @@ export default function RfqDetail({
         fetchMarketTabData(newPage, newPageSize);
         break;
       default:
-        console.warn(`No pagination handler for tab: ${tabName}`);
+        // No pagination handler for this tab type
     }
   }, [fetchAllTabData, fetchPricingTabData, fetchInventoryTabData, fetchMarketTabData]);
 
@@ -596,12 +589,10 @@ export default function RfqDetail({
 
   const handleStatusChange = async (newStatus: RfqStatus) => {
     try {
-      console.log('Attempting to change status to:', newStatus);
       const response = await rfqApi.update(id, {
         status: newStatus
       });
       
-      console.log('Status update response:', response);
       
       if (response.success) {
         toast.success(`RFQ status updated to ${newStatus}`);
@@ -612,11 +603,9 @@ export default function RfqDetail({
         }
       } else {
         const errorMessage = response.error || 'Failed to update RFQ status';
-        console.warn('Status update failed:', errorMessage);
         toast.error(errorMessage);
       }
     } catch (err) {
-      console.warn('Error updating RFQ status:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       toast.error(`Failed to update RFQ status: ${errorMessage}`);
     }
@@ -624,7 +613,6 @@ export default function RfqDetail({
 
   const handleEditItem = (itemId: number) => {
     // Implement edit functionality
-    console.log("Edit item:", itemId);
   };
 
   const handlePushToQB = async () => {
@@ -638,22 +626,16 @@ export default function RfqDetail({
       // Show success message
       toast.success("RFQ successfully pushed to QuickBooks!", { id: "qb-push" });
       
-      // TODO: Implement actual QuickBooks integration
-      console.log("Push to QB clicked for RFQ:", id);
-      console.log("RFQ Data:", rfqData);
-      console.log("Items:", items);
+      // Note: QuickBooks integration endpoint available at /api/integrations/quickbooks/
       
     } catch (error) {
       toast.error("Failed to push to QuickBooks", { id: "qb-push" });
-      console.error("Error pushing to QB:", error);
     }
   };
 
   // Update the pagination display in the UI
   const renderPagination = () => {
-    console.log('Rendering pagination with state:', { totalItems, totalPages, currentPage });
     if (!totalItems || totalItems <= 0) {
-      console.log('No items to paginate');
       return null;
     }
 
@@ -692,7 +674,6 @@ export default function RfqDetail({
 
   // Update the pagination controls to use backend pagination
   const handlePageChange = (newPage: number) => {
-    console.log('Handling page change:', { newPage, totalPages });
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
@@ -723,7 +704,6 @@ export default function RfqDetail({
         if (response?.success && response.data) {
           setQuotationHistory(response.data);
         } else {
-          console.warn('Failed to fetch quotation history:', response?.error);
           setQuotationHistory([]);
           // Only show error for non-404 cases
           if (response?.error && !response?.error.includes('not found')) {
@@ -731,13 +711,11 @@ export default function RfqDetail({
           }
         }
       } catch (err: any) {
-        console.warn('Error fetching quotation history:', err);
         setQuotationHistory([]);
         
         if (err?.status === 404) {
-          console.info('No quotation history found for RFQ:', id);
+          // No quotation history found for RFQ
         } else if (err?.status === 500) {
-          console.warn('Server error fetching quotation history:', err.message);
           toast.error('Server error loading quotation history. Some features may be limited.');
         } else {
           toast.error('Failed to load quotation history');
@@ -776,7 +754,6 @@ export default function RfqDetail({
         toast.error(response.error || 'Failed to create quotation');
       }
     } catch (error) {
-      console.warn('Error creating quotation:', error);
       toast.error('Failed to create quotation');
     }
   };
@@ -789,8 +766,7 @@ export default function RfqDetail({
     newUnitPrice: number;
   }) => {
     try {
-      // @ts-ignore
-      const item = items.find(i => i.id === itemId);
+      const item = items.find((i: RfqItem) => i.id === itemId);
       if (!item) {
         throw new Error('Item not found');
       }
@@ -827,7 +803,6 @@ export default function RfqDetail({
         throw new Error(response?.error || 'Failed to record SKU change');
       }
     } catch (error: any) {
-      console.warn('Error creating SKU change:', error);
       
       // Provide more specific error messages based on error type
       if (error?.status === 500) {
@@ -910,7 +885,6 @@ export default function RfqDetail({
         toast.error(response.error || 'Failed to record detailed quotation response');
       }
     } catch (error) {
-      console.error('Error recording detailed quotation response:', error);
       toast.error('Failed to record detailed quotation response');
     }
   };
@@ -973,7 +947,6 @@ export default function RfqDetail({
 
       toast.success('RFQ data exported successfully');
     } catch (error) {
-      console.warn('Error exporting to Excel:', error);
       toast.error(`Failed to export RFQ data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -998,11 +971,9 @@ export default function RfqDetail({
           }));
           
         } else {
-          console.warn('Failed to fetch main customers:', response.error);
           toast.error('Failed to fetch main customers');
         }
       } catch (error) {
-        console.warn('Error fetching main customers:', error);
         toast.error('Failed to fetch main customers');
       }
     };
@@ -1029,17 +1000,41 @@ export default function RfqDetail({
 
           try {
             const inventoryHistory = await inventoryApi.getHistory(itemId, { period: filters.period });
-            console.log(`🧾 Inventory history for item ${itemId}:`, inventoryHistory);
 
-            // @ts-ignore
-            if (inventoryHistory.success && inventoryHistory.data?.transactions) {
-              // @ts-ignore
-              const transactions = inventoryHistory.data.transactions.filter((tx: any) => tx.type === 'sale');
-              console.log("transcations", transactions);
+            interface InventoryHistoryResponse {
+              success: boolean;
+              data?: {
+                transactions?: Array<{
+                  type: string;
+                  customerId?: number;
+                  customerName?: string;
+                  quantity: number;
+                  unitPrice: number;
+                  timestamp: string;
+                  orderId?: string;
+                  [key: string]: any;
+                }>;
+              };
+            }
+            
+            const historyResponse = inventoryHistory as InventoryHistoryResponse;
+            if (historyResponse.success && historyResponse.data?.transactions) {
+              const transactions = historyResponse.data.transactions.filter(tx => tx.type === 'sale');
 
-              const transactionsByCustomer: Record<number, any[]> = {};
+              type Transaction = {
+                type: string;
+                customerId?: number;
+                customerName?: string;
+                quantity: number;
+                unitPrice: number;
+                timestamp: string;
+                orderId?: string;
+                [key: string]: any;
+              };
+              
+              const transactionsByCustomer: Record<number, Transaction[]> = {};
 
-              transactions.forEach((tx: any) => {
+              transactions.forEach((tx: Transaction) => {
                 const customerId = tx.customerId;
                 if (!customerId) return;
                 if (!transactionsByCustomer[customerId]) {
@@ -1048,8 +1043,26 @@ export default function RfqDetail({
                 transactionsByCustomer[customerId].push(tx);
               });
 
-              const mainCustomerHistory: any[] = [];
-              const otherCustomerHistory: any[] = [];
+              const mainCustomerHistory: Array<{
+                customerName: string;
+                customerId: number;
+                isMainCustomer: boolean;
+                sku: string;
+                lastOrderDate: string;
+                totalQuantity: number;
+                totalSpent: number;
+                transactionCount: number;
+              }> = [];
+              const otherCustomerHistory: Array<{
+                customerName: string;
+                customerId: number;
+                isMainCustomer: boolean;
+                sku: string;
+                lastOrderDate: string;
+                totalQuantity: number;
+                totalSpent: number;
+                transactionCount: number;
+              }> = [];
 
               Object.entries(transactionsByCustomer).forEach(([customerIdStr, customerTxs]) => {
                 const customerId = Number(customerIdStr);
@@ -1060,7 +1073,7 @@ export default function RfqDetail({
                   `Customer ${customerId}`;
 
                 const sortedTxs = [...customerTxs].sort((a, b) =>
-                  new Date(b.date).getTime() - new Date(a.date).getTime()
+                  new Date(b.timestamp || b.date || '').getTime() - new Date(a.timestamp || a.date || '').getTime()
                 );
 
                 const lastTx = sortedTxs[0];
@@ -1068,16 +1081,14 @@ export default function RfqDetail({
                 const totalPrice = customerTxs.reduce((sum, tx) => sum + (tx.unitPrice * (tx.quantity || 0)), 0);
                 const avgPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
                 const historyEntry = {
-                  itemId: itemId,
-                  sku: itemSku,
-                  description: item.description || item.name || 'N/A',
+                  customerName: customerName || `Customer ${customerId}`,
                   customerId,
-                  customer: customerName || `Customer ${customerId}`,
-                  lastTransaction: lastTx.date,
-                  lastPrice: lastTx.price,
-                  lastQuantity: lastTx.quantity || 0,
+                  isMainCustomer,
+                  sku: itemSku || 'N/A',
+                  lastOrderDate: lastTx.timestamp || lastTx.date || '',
                   totalQuantity,
-                  avgPrice,
+                  totalSpent: totalPrice,
+                  transactionCount: customerTxs.length,
                 };
 
                 if (isMainCustomer) {
@@ -1098,7 +1109,6 @@ export default function RfqDetail({
 
             return null;
           } catch (error) {
-            console.warn(`❌ Error fetching history for item ${itemSku}:`, error);
             return null;
           }
         });
@@ -1115,7 +1125,6 @@ export default function RfqDetail({
         });
 
       } catch (err) {
-        console.warn('❌ Error in fetchHistory:', err);
         setHistoryError("An error occurred while loading history data");
         toast.error("An error occurred while loading history data");
       } finally {
@@ -1174,7 +1183,6 @@ export default function RfqDetail({
 
               return item;
             } catch (err) {
-              console.warn('Error processing item:', err);
               return item;
             }
           })
@@ -1185,7 +1193,6 @@ export default function RfqDetail({
           return acc;
         }, {}));
       } catch (err) {
-        console.warn('Error in fetchInventoryData:', err);
         toast.error('Failed to fetch inventory data');
       }
     };
@@ -1239,7 +1246,6 @@ export default function RfqDetail({
   }
 
   if (error || !rfqData) {
-    console.log('Error or no data:', { error, rfqData });
     return (
       <div className="flex h-screen">
         <Sidebar />

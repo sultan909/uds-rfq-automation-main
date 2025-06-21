@@ -13,12 +13,11 @@ export async function POST(
 
     const [response] = await db
       .insert(customerResponses)
-      // @ts-ignore
       .values({
         versionId: parseInt(params.versionId),
         status,
-        comments,
-        requestedChanges,
+        comments: comments || null,
+        requestedChanges: requestedChanges || null,
       })
       .returning();
 

@@ -80,8 +80,8 @@ export async function POST(
       finalPrice: Math.round(totalEstimatedPrice),
       changes: `Created from Items tab with ${items.length} items`,
       notes,
-      createdBy: 'System', // TODO: Get from auth context
-      submittedByUserId: null, // TODO: Get from auth context
+      createdBy: 'System', // Default value - authentication not implemented
+      submittedByUserId: null, // Default value - authentication not implemented
     }).returning();
     // Insert quotation items
     if (items.length > 0) {

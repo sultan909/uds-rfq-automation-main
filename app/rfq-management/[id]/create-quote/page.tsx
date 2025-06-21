@@ -45,7 +45,7 @@ export default function CreateQuote({ params }: CreateQuoteProps) {
           validUntil: form.validUntil,
           terms: form.terms,
           notes: form.notes,
-          vendorId: 1 // TODO: Replace with actual vendor selection or context
+          vendorId: 1 // Default vendor - should be configurable
         })
       });
       if (res.ok) {

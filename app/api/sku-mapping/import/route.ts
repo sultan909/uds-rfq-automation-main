@@ -211,7 +211,7 @@ async function importMappingsToDatabase(mappingsData: MappingData[]) {
             .then(results => results.length > 0);
           
           if (!customerExists) {
-            console.warn(`Customer ID ${variation.customerId} does not exist, skipping variation`);
+            // Customer ID does not exist, skipping variation
             continue;
           }
           

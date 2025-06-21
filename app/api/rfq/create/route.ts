@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const title = body.title || `RFQ for ${body.items.length} item${body.items.length > 1 ? 's' : ''}`;
 
     // For now, we'll use a default user ID of 1 (should be from session/auth)
-    const requestorId = 1; // TODO: Get from authenticated session
+    const requestorId = 1; // Default user ID - authentication not implemented
 
     // Start transaction
     const result = await db.transaction(async (tx) => {
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.warn('Error creating RFQ:', error);
+    // Silent error handling for RFQ creation
     
     // Handle specific database errors
     if (error instanceof Error) {

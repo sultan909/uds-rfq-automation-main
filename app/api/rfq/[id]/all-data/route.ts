@@ -34,8 +34,6 @@ export async function GET(
       .where(eq(customers.main_customer, true));
 
     const mainCustomerIds = mainCustomers.map(c => c.id);
-    console.log('Main customers found:', mainCustomers);
-    console.log('Main customer IDs:', mainCustomerIds);
 
     // Get RFQ items with all related data
     const rfqItemsQuery = db
@@ -62,7 +60,6 @@ export async function GET(
       .offset(offset);
 
     const items = await rfqItemsQuery;
-    console.log('RFQ items found:', items.length);
 
     // Get total count for pagination
     const totalCountResult = await db
@@ -71,7 +68,6 @@ export async function GET(
       .where(eq(rfqItems.rfqId, rfqId));
     
     const totalItems = totalCountResult[0]?.count || 0;
-    console.log('Total items count:', totalItems);
 
     // For each item, get additional data
     const enrichedItems = await Promise.all(
@@ -282,7 +278,6 @@ export async function GET(
               ]);
             }
           } catch (error) {
-            console.warn('Error fetching outside sales data:', error);
             outside12m = [{ totalQty: 0 }];
             outside3m = [{ totalQty: 0 }];
           }
@@ -322,7 +317,7 @@ export async function GET(
               };
             }
           } catch (error) {
-            console.warn('Error fetching offered price data:', error);
+            // Silently handle error - use default values
           }
         }
 

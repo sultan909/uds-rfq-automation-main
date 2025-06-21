@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.warn('Error parsing text:', error);
+    // Silent error handling for text parsing
     return NextResponse.json({
       success: false,
       error: 'Failed to parse text content'

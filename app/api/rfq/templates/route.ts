@@ -72,13 +72,12 @@ export async function POST(request: NextRequest) {
     // Create template
     const [newTemplate] = await db
       .insert(rfqTemplates)
-      // @ts-ignore
-
       .values({
         name: body.name,
-        description: body.description,
-        items: body.items,
-        metadata: body.metadata
+        description: body.description || null,
+        columns: body.items || [],
+        createdBy: 1, // Default user ID - should be from auth context
+        metadata: body.metadata || null
       })
       .returning();
 
@@ -121,9 +120,7 @@ export async function PATCH(request: NextRequest) {
       .set({
         name: body.name,
         description: body.description,
-      // @ts-ignore
-
-        items: body.items,
+        columns: body.items,
         metadata: body.metadata
       })
       .where(eq(rfqTemplates.id, parseInt(id)))

@@ -4,7 +4,11 @@
       "Bash(claude mcp:*)",
       "WebFetch(domain:primereact.org)",
       "Bash(npm run type-check:*)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(rg:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

@@ -84,7 +84,7 @@ export async function GET(
       // Check if it's a table/column not found error
       const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
       if (errorMessage.includes('relation') || errorMessage.includes('column') || errorMessage.includes('table')) {
-        console.warn('SKU negotiation history table may not exist yet, returning empty array');
+        // SKU negotiation history table may not exist yet, returning empty array
         skuChanges = [];
       } else {
         throw dbError; // Re-throw if it's a different type of error

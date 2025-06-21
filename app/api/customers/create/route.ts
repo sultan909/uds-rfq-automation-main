@@ -30,21 +30,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new customer
+    const fullAddress = [address, city, state, country, postalCode]
+      .filter(Boolean)
+      .join(', ');
+    
     const [newCustomer] = await db
       .insert(customers)
-      // @ts-ignore
       .values({
         name,
-        email,
-        phone,
-        type: type.toUpperCase(),
-        address,
-        city,
-        state,
-        country,
-        postalCode,
-        notes,
-        status: "ACTIVE",
+        email: email || null,
+        phone: phone || null,
+        type: type.toUpperCase() as any,
+        address: fullAddress || null,
+        isActive: true,
       })
       .returning()
 

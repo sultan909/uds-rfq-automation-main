@@ -160,8 +160,7 @@ export async function GET(request: NextRequest) {
 
     // STEP 6: Combine customer data with sales history
     console.log('🔗 Combining customer data with sales history...');
-    // @ts-ignore
-    const customersWithStats: CustomerWithStats[] = customerList.map((customer, index) => {
+    const customersWithStats: CustomerWithStats[] = customerList.map((customer: any, index: number) => {
       const salesData = salesHistoryMap.get(customer.id);
       
       const customerWithStats = {

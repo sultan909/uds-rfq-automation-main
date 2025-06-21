@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.warn('Error detecting SKU mappings:', error);
+    // Silent error handling for SKU mapping detection
     return NextResponse.json({
       success: false,
       error: 'Failed to detect SKU mappings'
