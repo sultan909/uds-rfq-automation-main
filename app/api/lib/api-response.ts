@@ -1,30 +1,25 @@
+import { ApiResponse as IApiResponse, ApiError } from '@/lib/types/api';
+
 /**
  * Standard API response format for all API endpoints
  */
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data: T | null;
-  error: string | null;
-  meta?: {
-    pagination?: {
-      page: number;
-      pageSize: number;
-      totalItems: number;
-      totalPages: number;
-    }
-  }
-}
+export interface ApiResponse<T = any> extends IApiResponse<T> {}
 
 /**
  * Creates a successful API response
  * @param data The data to return
+ * @param message Optional success message
  * @param meta Any metadata to include
  */
-export function createSuccessResponse<T>(data: T, meta?: ApiResponse['meta']): ApiResponse<T> {
+export function createSuccessResponse<T>(
+  data: T, 
+  message?: string,
+  meta?: ApiResponse<T>['meta']
+): ApiResponse<T> {
   return {
     success: true,
     data,
-    error: null,
+    ...(message && { message }),
     ...(meta && { meta })
   };
 }
@@ -32,12 +27,16 @@ export function createSuccessResponse<T>(data: T, meta?: ApiResponse['meta']): A
 /**
  * Creates an error API response
  * @param error The error message
+ * @param details Optional error details
  */
-export function createErrorResponse(error: string): ApiResponse<null> {
+export function createErrorResponse(
+  error: string, 
+  details?: ApiError[] | any
+): ApiResponse<null> {
   return {
     success: false,
-    data: null,
     error,
+    ...(details && { details }),
   };
 }
 

@@ -1,35 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSuccessResponse, createErrorResponse } from '../../lib/api-response';
+import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
 
 /**
  * GET /api/auth/user
  * Get current authenticated user information
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, context: any, user) => {
   try {
-    // In a real app, we would validate the auth token and fetch the user
-    // information from the database
-    
-    const authToken = request.cookies.get('auth_token')?.value;
-    
-    if (!authToken) {
-      return NextResponse.json(
-        createErrorResponse('Not authenticated'),
-        { status: 401 }
-      );
-    }
-    
-    // Mock user data
-    const user = {
-      id: '1',
-      name: 'Test User',
-      email: 'test@example.com',
-      role: 'admin'
-    };
-    
-    return NextResponse.json(createSuccessResponse(user));
+    return NextResponse.json(
+      createSuccessResponse({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        department: user.department
+      })
+    );
   } catch (error) {
     return handleApiError(error);
   }
-}
+});

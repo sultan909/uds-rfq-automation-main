@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 
 // In a real app, this would be stored in a database
 const currencySettings = {
@@ -16,7 +18,7 @@ const currencySettings = {
  * GET /api/settings/currency
  * Get currency settings
  */
-export async function GET(request: NextRequest) {
+async function getCurrencySettingsHandler(request: NextRequest, context: any, user: User) {
   try {
     return NextResponse.json(createSuccessResponse(currencySettings));
   } catch (error) {
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
  * PATCH /api/settings/currency
  * Update currency settings
  */
-export async function PATCH(request: NextRequest) {
+async function updateCurrencySettingsHandler(request: NextRequest, context: any, user: User) {
   try {
     const body = await request.json();
     
@@ -40,3 +42,7 @@ export async function PATCH(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getCurrencySettingsHandler);
+export const PATCH = withAuth(updateCurrencySettingsHandler);

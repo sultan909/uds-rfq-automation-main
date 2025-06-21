@@ -4,11 +4,12 @@ import { handleApiError, ApiError } from '../../lib/error-handler';
 import { db } from '../../../../db';
 import { rfqs, customers, users } from '../../../../db/schema';
 import { eq, and, like, ilike, gte, lte, desc, asc, or, sql, count, isNotNull } from 'drizzle-orm';
+import { withRateLimitedHandler, RATE_LIMIT_CONFIGS } from '@/lib/rate-limiter';
 
 /**
  * GET /api/rfq/search - Search through RFQs with database backend
  */
-export async function GET(request: NextRequest) {
+async function searchHandler(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;    
     
@@ -110,7 +111,9 @@ export async function GET(request: NextRequest) {
     );
     
   } catch (error) {
-    console.error('Search API Error:', error);
     return handleApiError(error);
   }
 }
+
+// Export the rate-limited handler
+export const GET = withRateLimitedHandler(searchHandler, RATE_LIMIT_CONFIGS.READ);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, createPaginatedResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../../db';
 import { rfqs, customers, users, rfqItems, inventoryItems, auditLog, salesHistory } from '../../../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
@@ -50,7 +52,7 @@ interface AuditLogEntry {
  * GET /api/rfq/:id
  * Get a specific RFQ by ID
  */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function getRfqHandler(request: NextRequest, { params }: { params: Promise<{ id: string }> }, user: User) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -181,7 +183,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  * PATCH /api/rfq/:id
  * Update a specific RFQ
  */
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function updateRfqHandler(request: NextRequest, { params }: { params: Promise<{ id: string }> }, user: User) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -240,7 +242,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // Log the update in audit log
     try {
       await db.insert(auditLog).values({
-        userId: body.updatedBy || null,
+        userId: user.id, // Use authenticated user ID
         action: 'RFQ Updated',
         entityType: 'rfq',
         entityId: rfqId,
@@ -308,7 +310,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  * DELETE /api/rfq/:id
  * Delete an RFQ
  */
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function deleteRfqHandler(request: NextRequest, { params }: { params: Promise<{ id: string }> }, user: User) {
   try {
     const { id } = await params;
 
@@ -342,6 +344,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     // Log the deletion in audit log
     try {
       await db.insert(auditLog).values({
+        userId: user.id, // Use authenticated user ID
         action: 'RFQ Deleted',
         entityType: 'rfq',
         entityId: rfqId,
@@ -360,3 +363,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getRfqHandler);
+export const PATCH = withAuth(updateRfqHandler);
+export const DELETE = withAuth(deleteRfqHandler);

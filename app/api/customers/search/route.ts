@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaginatedResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../../db';
 import { customers, salesHistory as salesHistoryTable } from '../../../../db/schema';
 import { eq, like, and, or, count, desc, sql, inArray } from 'drizzle-orm';
@@ -10,7 +12,7 @@ import { eq, like, and, or, count, desc, sql, inArray } from 'drizzle-orm';
  * GET /api/customers/search
  * Search through customers with pagination and sales history
  */
-export async function GET(request: NextRequest) {
+async function searchCustomersHandler(request: NextRequest, context: any, user: User) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
@@ -133,3 +135,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handler
+export const GET = withAuth(searchCustomersHandler);

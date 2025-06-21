@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../../db';
 import { rfqs, customers, inventoryItems } from '../../../../db/schema';
 import { count, eq, gte, sql, and, or } from 'drizzle-orm';
@@ -9,7 +11,7 @@ import { count, eq, gte, sql, and, or } from 'drizzle-orm';
  * GET /api/dashboard/metrics
  * Get dashboard metrics with weekly data for conversion rate and sales volume
  */
-export async function GET(request: NextRequest) {
+async function getDashboardMetricsHandler(request: NextRequest, context: any, user: User) {
   try {
     // Get current date for comparison
     const currentDate = new Date();
@@ -148,3 +150,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handler
+export const GET = withAuth(getDashboardMetricsHandler);

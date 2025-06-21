@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, handleApiError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '@/db';
 import { inventoryItems } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -14,7 +16,7 @@ interface RouteParams {
  * GET /api/inventory/:id
  * Get a specific inventory item by ID
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+async function getInventoryItemHandler(request: NextRequest, { params }: RouteParams, user: User) {
   try {
     const id = parseInt(params.id);
     if (isNaN(id)) {
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PUT /api/inventory/:id
  * Update a specific inventory item
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+async function updateInventoryItemHandler(request: NextRequest, { params }: RouteParams, user: User) {
   try {
     const body = await request.json();
     const {
@@ -113,7 +115,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return createSuccessResponse(updatedItem);
+    return NextResponse.json(createSuccessResponse(updatedItem));
   } catch (error) {
     return handleApiError(error);
   }
@@ -123,7 +125,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/inventory/:id
  * Delete an inventory item
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+async function deleteInventoryItemHandler(request: NextRequest, { params }: RouteParams, user: User) {
   try {
     const [deletedItem] = await db
       .delete(inventoryItems)
@@ -137,8 +139,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return createSuccessResponse(deletedItem);
+    return NextResponse.json(createSuccessResponse(deletedItem));
   } catch (error) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getInventoryItemHandler);
+export const PUT = withAuth(updateInventoryItemHandler);
+export const DELETE = withAuth(deleteInventoryItemHandler);

@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CurrencyProvider } from "@/contexts/currency-context"
 import { PrimeReactProvider } from 'primereact/api'
+import ErrorBoundary from "@/components/error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,7 +39,11 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <CurrencyProvider>{children}</CurrencyProvider>
+            <CurrencyProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </CurrencyProvider>
           </ThemeProvider>
         </PrimeReactProvider>
       </body>

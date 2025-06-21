@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaginatedResponse, createSuccessResponse } from '../lib/api-response';
 import { handleApiError, ApiError } from '../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../db';
 import { inventoryItems } from '../../../db/schema';
 import { eq, like, and, or, count, sql } from 'drizzle-orm';
@@ -9,7 +11,7 @@ import { eq, like, and, or, count, sql } from 'drizzle-orm';
  * GET /api/inventory
  * Get all inventory items with optional filtering and pagination
  */
-export async function GET(request: NextRequest) {
+async function getInventoryHandler(request: NextRequest, context: any, user: User) {
   try {
     const searchParams = request.nextUrl.searchParams;
     
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
  * POST /api/inventory
  * Create a new inventory item
  */
-export async function POST(request: NextRequest) {
+async function createInventoryHandler(request: NextRequest, context: any, user: User) {
   try {
     const body = await request.json();
     
@@ -148,3 +150,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getInventoryHandler);
+export const POST = withAuth(createInventoryHandler);

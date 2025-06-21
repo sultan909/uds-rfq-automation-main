@@ -3,6 +3,8 @@ import { customers, salesHistory as salesHistoryTable } from '../../../db/schema
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaginatedResponse, createSuccessResponse } from '../lib/api-response';
 import { handleApiError, ApiError } from '../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../db';
 
 interface CustomerWithStats {
@@ -27,7 +29,7 @@ interface CustomerWithStats {
  * GET /api/customers
  * Get all customers with optional filtering and pagination
  */
-export async function GET(request: NextRequest) {
+async function getCustomersHandler(request: NextRequest, context: any, user: User) {
   try {
     console.log('🚀 Starting customer fetch request');
     
@@ -217,7 +219,7 @@ export async function GET(request: NextRequest) {
  * POST /api/customers
  * Create a new customer
  */
-export async function POST(request: NextRequest) {
+async function createCustomerHandler(request: NextRequest, context: any, user: User) {
   try {
     console.log('🚀 Starting customer creation request');
     
@@ -281,3 +283,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getCustomersHandler);
+export const POST = withAuth(createCustomerHandler);

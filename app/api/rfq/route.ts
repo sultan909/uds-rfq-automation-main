@@ -99,6 +99,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, createPaginatedResponse } from '../lib/api-response';
 import { handleApiError, ApiError } from '../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../db';
 import { rfqs, customers, users, rfqItems } from '../../../db/schema';
 import { eq, and, like, gte, lte, desc, asc, sql, count, or, ilike, isNotNull } from 'drizzle-orm';
@@ -138,7 +140,7 @@ interface TransformedRfq {
  * GET /api/rfq/list
  * Get all RFQs with filters, sorting and pagination
  */
-export async function GET(request: NextRequest) {
+async function getRfqsHandler(request: NextRequest, context: any, user: User) {
   try {
     
     const searchParams = request.nextUrl.searchParams;
@@ -285,3 +287,6 @@ export async function GET(request: NextRequest) {
 }
 
 // Remove the duplicate POST endpoint since we have a proper one in app/api/rfq/create/route.ts
+
+// Export the authenticated handlers
+export const GET = withAuth(getRfqsHandler);

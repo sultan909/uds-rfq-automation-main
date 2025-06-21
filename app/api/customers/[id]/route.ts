@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError, ApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 import { db } from '../../../../db';
 import { customers } from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -15,7 +17,7 @@ interface RouteParams {
  * GET /api/customers/:id
  * Get a specific customer by ID
  */
-export async function GET(request: NextRequest, context: Promise<RouteParams>) {
+async function getCustomerHandler(request: NextRequest, context: Promise<RouteParams>, user: User) {
   try {
     const { params } = await context;
     const { id } = await params;
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest, context: Promise<RouteParams>) {
  * PATCH /api/customers/:id
  * Update a specific customer
  */
-export async function PATCH(request: NextRequest, context: Promise<RouteParams>) {
+async function updateCustomerHandler(request: NextRequest, context: Promise<RouteParams>, user: User) {
   try {
     const { params } = await context;
     const { id } = params;
@@ -71,7 +73,7 @@ export async function PATCH(request: NextRequest, context: Promise<RouteParams>)
  * DELETE /api/customers/:id
  * Delete a customer
  */
-export async function DELETE(request: NextRequest, context: Promise<RouteParams>) {
+async function deleteCustomerHandler(request: NextRequest, context: Promise<RouteParams>, user: User) {
   try {
     const { params } = await context;
     const { id } = params;
@@ -96,3 +98,8 @@ export async function DELETE(request: NextRequest, context: Promise<RouteParams>
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getCustomerHandler);
+export const PATCH = withAuth(updateCustomerHandler);
+export const DELETE = withAuth(deleteCustomerHandler);

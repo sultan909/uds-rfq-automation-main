@@ -2,22 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { rfqs, rfqItems, inventoryItems, auditLog } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
+import { createSuccessResponse, createErrorResponse } from '../lib/api-response';
+import { handleApiError } from '../lib/error-handler';
+import { withFullProtection } from '@/lib/csrf-protection';
+import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limiter';
 
-interface CreateRfqRequest {
-  customerId: number;
-  source: string;
-  notes?: string;
-  items: Array<{
-    sku: string;
-    description: string;
-    quantity: number;
-    unitPrice?: number | null;
-    unit?: string;
-  }>;
-  currency: 'CAD' | 'USD';
-  title?: string;
-  dueDate?: string;
-}
+// Validation schema for RFQ creation
+const createRfqSchema = z.object({
+  customerId: z.number().positive('Customer ID must be positive'),
+  source: z.string().min(1, 'Source is required'),
+  notes: z.string().optional(),
+  items: z.array(z.object({
+    sku: z.string().min(1, 'SKU is required'),
+    description: z.string().min(1, 'Description is required'),
+    quantity: z.number().positive('Quantity must be positive'),
+    unitPrice: z.number().nonnegative().optional(),
+    unit: z.string().optional(),
+  })).min(1, 'At least one item is required'),
+  currency: z.enum(['CAD', 'USD'], { errorMap: () => ({ message: 'Currency must be CAD or USD' }) }),
+  title: z.string().optional(),
+  dueDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
+    message: 'Invalid date format',
+  }).optional(),
+});
+
+type CreateRfqRequest = z.infer<typeof createRfqSchema>;
 
 // Generate unique RFQ number
 async function generateRfqNumber(): Promise<string> {
@@ -41,27 +51,20 @@ async function generateRfqNumber(): Promise<string> {
   return `${prefix}-${nextNumber.toString().padStart(4, '0')}`;
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withFullProtection(async (request: NextRequest, context: any, user) => {
   try {
-    const body: CreateRfqRequest = await request.json();
+    const bodyData = await request.json();
     
-    // Validate required fields
-    if (!body.customerId || !body.source || !body.items || body.items.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields: customerId, source, and items are required'
-      }, { status: 400 });
+    // Validate input using Zod schema
+    const validation = createRfqSchema.safeParse(bodyData);
+    if (!validation.success) {
+      return NextResponse.json(
+        createErrorResponse('Invalid input', validation.error.errors),
+        { status: 400 }
+      );
     }
-
-    // Validate items
-    for (const item of body.items) {
-      if (!item.sku || !item.description || !item.quantity || item.quantity <= 0) {
-        return NextResponse.json({
-          success: false,
-          error: 'All items must have SKU, description, and valid quantity'
-        }, { status: 400 });
-      }
-    }
+    
+    const body = validation.data;
 
     // Generate RFQ number
     const rfqNumber = await generateRfqNumber();
@@ -69,8 +72,8 @@ export async function POST(request: NextRequest) {
     // Create RFQ title if not provided
     const title = body.title || `RFQ for ${body.items.length} item${body.items.length > 1 ? 's' : ''}`;
 
-    // For now, we'll use a default user ID of 1 (should be from session/auth)
-    const requestorId = 1; // Default user ID - authentication not implemented
+    // Use authenticated user ID
+    const requestorId = user.id;
 
     // Start transaction
     const result = await db.transaction(async (tx) => {
@@ -169,41 +172,21 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return NextResponse.json(
+      createSuccessResponse({
         id: result.rfq.id,
         rfqNumber: result.rfq.rfqNumber,
         status: result.rfq.status,
         itemCount: result.itemCount,
         totalBudget: result.totalBudget,
-      },
-      message: `RFQ ${result.rfq.rfqNumber} created successfully`
-    });
+      }, `RFQ ${result.rfq.rfqNumber} created successfully`),
+      { status: 201 }
+    );
 
   } catch (error) {
-    // Silent error handling for RFQ creation
-    
-    // Handle specific database errors
-    if (error instanceof Error) {
-      if (error.message.includes('unique constraint')) {
-        return NextResponse.json({
-          success: false,
-          error: 'RFQ number already exists. Please try again.'
-        }, { status: 409 });
-      }
-      
-      if (error.message.includes('foreign key constraint')) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid customer ID or referenced data not found.'
-        }, { status: 400 });
-      }
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to create RFQ'
-    }, { status: 500 });
+    return handleApiError(error);
   }
-} 
+}, {
+  rateLimit: RATE_LIMIT_CONFIGS.WRITE,
+  csrf: { methods: ['POST'] }
+}); 

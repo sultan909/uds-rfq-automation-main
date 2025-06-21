@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 
 // In a real app, this would be stored in a database per user
 const userPreferences = {
@@ -18,7 +20,7 @@ const userPreferences = {
  * GET /api/settings/user-preferences
  * Get user preferences
  */
-export async function GET(request: NextRequest) {
+async function getUserPreferencesHandler(request: NextRequest, context: any, user: User) {
   try {
     // In a real app, we would get the user ID from the session
     // and fetch preferences for that specific user
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
  * PATCH /api/settings/user-preferences
  * Update user preferences
  */
-export async function PATCH(request: NextRequest) {
+async function updateUserPreferencesHandler(request: NextRequest, context: any, user: User) {
   try {
     const body = await request.json();
     
@@ -56,3 +58,7 @@ export async function PATCH(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers
+export const GET = withAuth(getUserPreferencesHandler);
+export const PATCH = withAuth(updateUserPreferencesHandler);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
+import { withAuth } from '@/lib/auth-middleware';
+import { type User } from '@/lib/auth';
 
 // In a real app, this would be stored in a database
 const systemSettings = {
@@ -19,7 +21,7 @@ const systemSettings = {
  * GET /api/settings/system
  * Get system settings
  */
-export async function GET(request: NextRequest) {
+async function getSystemSettingsHandler(request: NextRequest, context: any, user: User) {
   try {
     return NextResponse.json(createSuccessResponse(systemSettings));
   } catch (error) {
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
  * PATCH /api/settings/system
  * Update system settings
  */
-export async function PATCH(request: NextRequest) {
+async function updateSystemSettingsHandler(request: NextRequest, context: any, user: User) {
   try {
     const body = await request.json();
     
@@ -54,3 +56,7 @@ export async function PATCH(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Export the authenticated handlers (ADMIN only)
+export const GET = withAuth(getSystemSettingsHandler, { roles: ['ADMIN'] });
+export const PATCH = withAuth(updateSystemSettingsHandler, { roles: ['ADMIN'] });

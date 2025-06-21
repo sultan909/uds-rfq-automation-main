@@ -1,26 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse, createErrorResponse } from '../../lib/api-response';
 import { handleApiError } from '../../lib/error-handler';
-import { authenticateUser, generateToken } from '@/lib/auth';
-import { withRateLimitedHandler, RATE_LIMIT_CONFIGS } from '@/lib/rate-limiter';
+import { createUser, generateToken } from '@/lib/auth';
 import { z } from 'zod';
 
 // Input validation schema
-const loginSchema = z.object({
+const registerSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']).optional().default('EMPLOYEE'),
+  department: z.string().optional(),
 });
 
 /**
- * POST /api/auth/login
- * User login with proper authentication and rate limiting
+ * POST /api/auth/register
+ * User registration
  */
-async function loginHandler(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
     // Validate input
-    const validation = loginSchema.safeParse(body);
+    const validation = registerSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
         createErrorResponse('Invalid input', validation.error.errors),
@@ -28,14 +30,14 @@ async function loginHandler(request: NextRequest) {
       );
     }
     
-    const { email, password } = validation.data;
+    const { email, password, name, role, department } = validation.data;
     
-    // Authenticate user
-    const user = await authenticateUser(email, password);
+    // Create user
+    const user = await createUser(email, password, name, role, department);
     if (!user) {
       return NextResponse.json(
-        createErrorResponse('Invalid credentials'),
-        { status: 401 }
+        createErrorResponse('Failed to create user. Email may already exist.'),
+        { status: 409 }
       );
     }
     
@@ -52,7 +54,8 @@ async function loginHandler(request: NextRequest) {
           department: user.department
         },
         token
-      })
+      }),
+      { status: 201 }
     );
     
     // Set the token in a secure cookie
@@ -69,6 +72,3 @@ async function loginHandler(request: NextRequest) {
     return handleApiError(error);
   }
 }
-
-// Export the rate-limited handler
-export const POST = withRateLimitedHandler(loginHandler, RATE_LIMIT_CONFIGS.AUTH);

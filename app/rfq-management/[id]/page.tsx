@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionErrorBoundary } from "@/components/error-boundary";
 import {
   FileText,
   User,
@@ -1476,17 +1477,19 @@ export default function RfqDetail({
             </TabsList>
 
             <TabsContent value="all" className="m-0">
-              <AllTab 
-                rfqId={id}
-                data={allTabData}
-                loading={allTabLoading}
-                error={allTabError}
-                totalRecords={allTabTotalRecords}
-                currentPage={allTabCurrentPage}
-                pageSize={allTabPageSize}
-                onPageChange={handleAllTabPageChange}
-                onLoad={handleAllTabLoad}
-              />
+              <SectionErrorBoundary title="All Data Tab Error" description="There was an error loading the comprehensive data view.">
+                <AllTab 
+                  rfqId={id}
+                  data={allTabData}
+                  loading={allTabLoading}
+                  error={allTabError}
+                  totalRecords={allTabTotalRecords}
+                  currentPage={allTabCurrentPage}
+                  pageSize={allTabPageSize}
+                  onPageChange={handleAllTabPageChange}
+                  onLoad={handleAllTabLoad}
+                />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="items" className="m-0">

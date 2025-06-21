@@ -1,4 +1,5 @@
 import { ApiResponse } from "./api-response";
+import { csrfFetch } from "./csrf-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -59,7 +60,7 @@ export async function apiFetch<T>(
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await csrfFetch(url, {
       ...fetchOptions,
       headers,
     });
